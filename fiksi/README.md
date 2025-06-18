@@ -57,7 +57,7 @@ cargo update -p package_name --precise 0.1.1
 
 ## Community
 
-[![Linebender Zulip](https://img.shields.io/badge/Xi%20Zulip-%23kurbo-blue?logo=Zulip)](https://xi.zulipchat.com/#narrow/channel/260979-kurbo)
+[![Linebender Zulip](https://img.shields.io/badge/Linebender%20Zulip-%23kurbo-blue?logo=Zulip)](https://xi.zulipchat.com/#narrow/channel/260979-kurbo)
 
 Discussion of Fiksi development happens in the [Linebender Zulip](https://xi.zulipchat.com/), specifically the [#kurbo channel](https://xi.zulipchat.com/#narrow/channel/260979-kurbo).
 All public content can be read without logging in.
