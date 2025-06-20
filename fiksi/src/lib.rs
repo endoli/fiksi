@@ -82,6 +82,8 @@ use elements::element::ElementId;
 pub use elements::{Element, element::ElementHandle};
 
 /// Vertices are the geometric elements of the constraint system.
+///
+/// The indices point into the start of the vertex's variables in [`System::variables`].
 pub(crate) enum Vertex {
     Point { idx: u32 },
     Line { point1_idx: u32, point2_idx: u32 },
@@ -135,11 +137,14 @@ pub struct ConstraintSetHandle {
 /// [constraints](System::add_constraint). Then solve (sub)systems using [`System::solve`].
 pub struct System {
     id: u32,
+    /// Geometric elements.
+    element_vertices: Vec<Vertex>,
+    /// Constraints between geometric elements.
+    constraint_edges: Vec<Edge>,
+    /// The variables of the geometric elements, such as point coordinates.
     variables: Vec<f64>,
     element_sets: Vec<Vec<ElementId>>,
     constraint_sets: Vec<Vec<ConstraintId>>,
-    element_vertices: Vec<Vertex>,
-    constraint_edges: Vec<Edge>,
 }
 
 impl System {
