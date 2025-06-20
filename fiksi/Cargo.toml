@@ -23,6 +23,9 @@ libm = ["dep:libm", "kurbo/libm"]
 [dependencies]
 kurbo = { version = "0.11.2", default-features = false }
 
+# Temporarily included
+nalgebra = { version = "0.33.2" }
+
 [dependencies.libm]
 version = "0.2.15"
 optional = true
