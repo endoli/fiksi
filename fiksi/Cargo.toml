@@ -17,14 +17,14 @@ targets = []
 
 [features]
 default = ["std"]
-std = ["kurbo/std"]
-libm = ["dep:libm", "kurbo/libm"]
+std = ["kurbo/std", "nalgebra/std"]
+libm = ["dep:libm", "kurbo/libm", "nalgebra/libm"]
 
 [dependencies]
 kurbo = { version = "0.11.2", default-features = false }
 
 # Temporarily included
-nalgebra = { version = "0.33.2" }
+nalgebra = { version = "0.33.2", default-features = false, features = ["alloc"] }
 
 [dependencies.libm]
 version = "0.2.15"
