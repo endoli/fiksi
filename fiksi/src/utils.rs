@@ -5,7 +5,7 @@
 
 use crate::{
     Edge,
-    constraints::{PointPointDistance_, PointPointPointAngle_},
+    constraints::{PointLineIncidence_, PointPointDistance_, PointPointPointAngle_},
 };
 
 /// Compute residuals and Jacobian for all constraints.
@@ -55,6 +55,24 @@ pub(crate) fn calculate_residuals_and_jacobian(
                     point2_idx,
                     point3_idx,
                     angle,
+                }
+                .compute_residual_and_partial_derivatives(
+                    free_variable_map,
+                    variables,
+                    &mut residuals[constraint_idx],
+                    &mut jacobian[constraint_idx * num_free_variables
+                        ..(constraint_idx + 1) * num_free_variables],
+                );
+            }
+            Edge::PointLineIncidence {
+                point_idx,
+                line_point1_idx,
+                line_point2_idx,
+            } => {
+                PointLineIncidence_ {
+                    point_idx,
+                    line_point1_idx,
+                    line_point2_idx,
                 }
                 .compute_residual_and_partial_derivatives(
                     free_variable_map,

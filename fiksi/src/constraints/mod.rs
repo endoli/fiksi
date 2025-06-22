@@ -296,18 +296,128 @@ impl PointPointPointAngle_ {
     }
 }
 
+/// Constrain a point and a line such that the point lies on the (infinite) line.
+///
+/// Note this does not constrain the point to lie on the line *segment* defined by `line`. This is
+/// equivalent to constraining the three points (the two points of the line and the point proper)
+/// to be collinear.
+pub struct PointLineIncidence {
+    point: ElementId,
+    line: ElementId,
+}
+
+impl PointLineIncidence {
+    /// Construct a constraint between a point and a line such that the point lies on the
+    /// (infinite) line.
+    pub fn new(
+        point: &ElementHandle<elements::Point>,
+        line: &ElementHandle<elements::Line<'_>>,
+    ) -> Self {
+        Self {
+            point: point.drop_system_id(),
+            line: line.drop_system_id(),
+        }
+    }
+}
+
+/// A representation of a [`PointLineIncidence`] constraint within a [`crate::System`], allowing
+/// evaluation.
+///
+/// TODO: can this be merged with [`PointLineIncidence`]?
+pub(crate) struct PointLineIncidence_ {
+    pub point_idx: u32,
+    pub line_point1_idx: u32,
+    pub line_point2_idx: u32,
+}
+
+impl PointLineIncidence_ {
+    pub(crate) fn compute_residual_and_partial_derivatives(
+        &self,
+        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
+        variables: &[f64],
+        residual: &mut f64,
+        first_derivative: &mut [f64],
+    ) {
+        let point1 = kurbo::Point {
+            x: variables[self.point_idx as usize],
+            y: variables[self.point_idx as usize + 1],
+        };
+        let point2 = kurbo::Point {
+            x: variables[self.line_point1_idx as usize],
+            y: variables[self.line_point1_idx as usize + 1],
+        };
+        let point3 = kurbo::Point {
+            x: variables[self.line_point2_idx as usize],
+            y: variables[self.line_point2_idx as usize + 1],
+        };
+
+        // For collinear points, the triangle defined by those points has area 0.
+        *residual += point1.x * (point2.y - point3.y)
+            + point2.x * (point3.y - point1.y)
+            + point3.x * (point1.y - point2.y);
+
+        let derivative = [
+            point2.y - point3.y,
+            -point2.x + point3.x,
+            point3.y - point1.y,
+            point1.x - point3.x,
+            point1.y - point2.y,
+            -point1.x + point2.x,
+        ];
+
+        if let Some(idx) = free_variable_map.get(&self.point_idx) {
+            first_derivative[*idx as usize] += derivative[0];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.point_idx + 1)) {
+            first_derivative[*idx as usize] += derivative[1];
+        }
+        if let Some(idx) = free_variable_map.get(&self.line_point1_idx) {
+            first_derivative[*idx as usize] += derivative[2];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line_point1_idx + 1)) {
+            first_derivative[*idx as usize] += derivative[3];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line_point2_idx)) {
+            first_derivative[*idx as usize] += derivative[4];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line_point2_idx + 1)) {
+            first_derivative[*idx as usize] += derivative[5];
+        }
+    }
+}
+
+impl sealed::ConstraintInner for PointLineIncidence {
+    fn as_edge(&self, vertices: &[Vertex]) -> Edge {
+        let &Vertex::Point { idx: point_idx } = &vertices[self.point.id as usize] else {
+            unreachable!()
+        };
+        let &Vertex::Line {
+            point1_idx: line_point1_idx,
+            point2_idx: line_point2_idx,
+        } = &vertices[self.line.id as usize]
+        else {
+            unreachable!()
+        };
+        Edge::PointLineIncidence {
+            point_idx,
+            line_point1_idx,
+            line_point2_idx,
+        }
+    }
+}
+
 /// Constrain two lines to describe a given angle.
 ///
 /// TODO: actually implement this, or require using [`PointPointPointAngle`]?
-pub struct LineLineAngle {
-    line1: ElementHandle<elements::Line>,
-    line2: ElementHandle<elements::Line>,
+pub struct LineLineAngle<'el> {
+    line1: ElementHandle<elements::Line<'el>>,
+    line2: ElementHandle<elements::Line<'el>>,
 
     /// Angle in radians.
     angle: f64,
 }
 
-impl sealed::ConstraintInner for LineLineAngle {
+impl<'el> sealed::ConstraintInner for LineLineAngle<'el> {
     fn as_edge(&self, vertices: &[Vertex]) -> Edge {
         let &Vertex::Line {
             point1_idx,
@@ -361,4 +471,5 @@ pub(crate) mod sealed {
 pub trait Constraint: sealed::ConstraintInner {}
 impl Constraint for PointPointDistance {}
 impl Constraint for PointPointPointAngle {}
-impl Constraint for LineLineAngle {}
+impl Constraint for PointLineIncidence {}
+impl Constraint for LineLineAngle<'_> {}

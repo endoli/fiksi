@@ -83,22 +83,22 @@ impl sealed::ElementInner for Point {
 
 /// A line defined by two endpoints.
 #[derive(Debug)]
-pub struct Line {
+pub struct Line<'el> {
     /// First point of the line.
-    pub point1: ElementHandle<Point>,
+    pub point1: &'el ElementHandle<Point>,
     /// Second point of the line.
-    pub point2: ElementHandle<Point>,
+    pub point2: &'el ElementHandle<Point>,
 }
 
-impl sealed::ElementInner for Line {
-    fn add_into(&self, vertices: &mut Vec<Vertex>, _data: &mut Vec<f64>) {
-        let &Vertex::Point { idx: point1_idx } = &vertices[self.point1.id as usize] else {
+impl<'el> sealed::ElementInner for Line<'el> {
+    fn add_into(&self, element_vertices: &mut Vec<Vertex>, _variables: &mut Vec<f64>) {
+        let &Vertex::Point { idx: point1_idx } = &element_vertices[self.point1.id as usize] else {
             unreachable!()
         };
-        let &Vertex::Point { idx: point2_idx } = &vertices[self.point2.id as usize] else {
+        let &Vertex::Point { idx: point2_idx } = &element_vertices[self.point2.id as usize] else {
             unreachable!()
         };
-        vertices.push(Vertex::Line {
+        element_vertices.push(Vertex::Line {
             point1_idx,
             point2_idx,
         });
@@ -139,4 +139,4 @@ pub(crate) mod sealed {
 pub trait Element: sealed::ElementInner {}
 
 impl Element for Point {}
-impl Element for Line {}
+impl<'el> Element for Line<'el> {}

@@ -103,6 +103,11 @@ pub(crate) enum Edge {
         point3_idx: u32,
         angle: f64,
     },
+    PointLineIncidence {
+        point_idx: u32,
+        line_point1_idx: u32,
+        line_point2_idx: u32,
+    },
     LineLineAngle {
         point1_idx: u32,
         point2_idx: u32,
