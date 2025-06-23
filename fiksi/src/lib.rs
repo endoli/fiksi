@@ -54,8 +54,8 @@
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
 #![no_std]
 // TODO: remove these two
-#![expect(dead_code)]
-#![expect(missing_debug_implementations)]
+#![expect(dead_code, reason = "clean up later")]
+#![expect(missing_debug_implementations, reason = "clean up later")]
 
 #[cfg(all(not(feature = "std"), not(test)))]
 mod floatfuncs;
@@ -153,7 +153,7 @@ impl System {
         static COUNTER: core::sync::atomic::AtomicU32 = core::sync::atomic::AtomicU32::new(0);
         let id = COUNTER.fetch_add(1, core::sync::atomic::Ordering::Relaxed);
 
-        System {
+        Self {
             id,
             variables: vec![],
             element_sets: vec![],
@@ -209,7 +209,11 @@ impl System {
 
         let handle = ElementHandle::from_ids(self.id, id);
         for set in sets {
-            assert_eq!(self.id, set.system_id);
+            // TODO: return `Result` instead of panicking?
+            assert_eq!(
+                self.id, set.system_id,
+                "Tried to use an element set that is not part of this `System`"
+            );
             self.element_sets[set.id as usize].push(handle.drop_system_id());
         }
 
@@ -218,7 +222,11 @@ impl System {
 
     /// Get the value of an element.
     pub fn get_element<T: Element>(&self, element: ElementHandle<T>) -> T {
-        assert_eq!(self.id, element.system_id);
+        // TODO: return `Result` instead of panicking?
+        assert_eq!(
+            self.id, element.system_id,
+            "Tried to get an element that is not part of this `System`"
+        );
 
         T::from_vertex(
             &self.element_vertices[element.drop_system_id().id as usize],
@@ -244,7 +252,11 @@ impl System {
 
         let handle = ConstraintHandle::from_ids(self.id, id);
         for set in sets {
-            assert_eq!(self.id, set.system_id);
+            // TODO: return `Result` instead of panicking?
+            assert_eq!(
+                self.id, set.system_id,
+                "Tried to use a constraint set that is not part of this `System`"
+            );
             self.constraint_sets[set.id as usize].push(handle.drop_system_id());
         }
 
@@ -266,5 +278,11 @@ impl System {
             &self.element_vertices,
             &self.constraint_edges,
         );
+    }
+}
+
+impl Default for System {
+    fn default() -> Self {
+        Self::new()
     }
 }

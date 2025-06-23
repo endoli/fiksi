@@ -31,6 +31,7 @@ pub(crate) fn levenberg_marquardt(
 
     let mut free_variables: Vec<u32> = vec![];
     for vertex in element_vertices {
+        #[expect(clippy::single_match, reason = "more to follow")]
         match vertex {
             Vertex::Point { idx } => {
                 free_variables.extend(&[*idx, idx + 1]);
@@ -45,7 +46,10 @@ pub(crate) fn levenberg_marquardt(
     free_variables.sort_unstable();
     let mut index_map = alloc::collections::BTreeMap::new();
     for (idx, &free_variable) in free_variables.iter().enumerate() {
-        index_map.insert(free_variable, idx as u32);
+        index_map.insert(
+            free_variable,
+            idx.try_into().expect("less than 2^32 elements"),
+        );
     }
 
     let constraints: Vec<&Edge> = constraint_set
@@ -69,8 +73,8 @@ pub(crate) fn levenberg_marquardt(
         residuals.fill(0.);
 
         for (constraint_idx, &constraint) in constraints.iter().enumerate() {
-            match constraint {
-                &Edge::PointPointDistance {
+            match *constraint {
+                Edge::PointPointDistance {
                     point1_idx,
                     point2_idx,
                     distance,
@@ -88,7 +92,7 @@ pub(crate) fn levenberg_marquardt(
                             ..(constraint_idx + 1) * free_variables.len()],
                     );
                 }
-                &Edge::PointPointPointAngle {
+                Edge::PointPointPointAngle {
                     point1_idx,
                     point2_idx,
                     point3_idx,
@@ -108,7 +112,7 @@ pub(crate) fn levenberg_marquardt(
                             ..(constraint_idx + 1) * free_variables.len()],
                     );
                 }
-                &Edge::LineLineAngle { .. } => {}
+                Edge::LineLineAngle { .. } => {}
             }
         }
         let residuals_ = nalgebra::DVector::from_column_slice(&residuals);
@@ -145,10 +149,10 @@ pub(crate) fn levenberg_marquardt(
         // }
 
         // Calculate J^T J and augment by the damping factor `lambda`.
-        let jtj_: nalgebra::DMatrix<f64> = (&jacobian_).transpose() * (&jacobian_)
+        let jtj_: nalgebra::DMatrix<f64> = jacobian_.transpose() * (&jacobian_)
             + lambda * nalgebra::DMatrix::identity(free_variables.len(), free_variables.len());
 
-        let gradient = -(&jacobian_).transpose() * residuals_;
+        let gradient = -jacobian_.transpose() * residuals_;
 
         if let Some(delta) = jtj_.clone().lu().solve(&gradient) {
             if delta.norm() < 1e-6 {

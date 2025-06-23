@@ -23,7 +23,7 @@ pub(crate) mod element {
             Self {
                 system_id,
                 id,
-                _t: PhantomData::default(),
+                _t: PhantomData,
             }
         }
 
@@ -71,7 +71,7 @@ impl sealed::ElementInner for Point {
 
     fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self {
         if let &Vertex::Point { idx } = vertex {
-            Point {
+            Self {
                 x: variables[idx as usize],
                 y: variables[idx as usize + 1],
             }

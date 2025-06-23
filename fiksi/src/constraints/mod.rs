@@ -15,7 +15,7 @@ trait FloatExt {
     /// Returns the square of `self`.
     ///
     /// Using `std`, you'd be able to do this using `self.powi(2)`, and have this be compiled to a
-    /// single multiply op. However, when compiling using `libm`, there is no `powi` and libm's
+    /// `self * self`. However, when compiling using `libm`, there is no `powi` and libm's
     /// `self.powf(2.)` doesn't compile away.
     fn square(self) -> Self;
 }
@@ -45,7 +45,7 @@ pub(crate) mod constraint {
             Self {
                 system_id,
                 id,
-                _t: PhantomData::default(),
+                _t: PhantomData,
             }
         }
 
