@@ -3,10 +3,29 @@
 
 //! Constraints between geometric elements.
 
+#[cfg(feature = "libm")]
+use crate::floatfuncs::FloatFuncs;
+
 use crate::Edge;
 use crate::Vertex;
 use crate::elements;
 use crate::{ElementHandle, ElementId};
+
+trait FloatExt {
+    /// Returns the square of `self`.
+    ///
+    /// Using `std`, you'd be able to do this using `self.powi(2)`, and have this be compiled to a
+    /// single multiply op. However, when compiling using `libm`, there is no `powi` and libm's
+    /// `self.powf(2.)` doesn't compile away.
+    fn square(self) -> Self;
+}
+
+impl FloatExt for f64 {
+    #[inline(always)]
+    fn square(self) -> Self {
+        self * self
+    }
+}
 
 pub(crate) mod constraint {
     use core::marker::PhantomData;
@@ -113,7 +132,7 @@ impl PointPointDistance_ {
             y: variables[self.point2_idx as usize + 1],
         };
 
-        let distance = ((point1.x - point2.x).powi(2) + (point1.y - point2.y).powi(2)).sqrt();
+        let distance = ((point1.x - point2.x).square() + (point1.y - point2.y).square()).sqrt();
         *residual += distance - self.distance;
 
         let distance_recip = 1. / distance;
