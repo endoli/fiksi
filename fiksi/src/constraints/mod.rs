@@ -3,7 +3,7 @@
 
 //! Constraints between geometric elements.
 
-#[cfg(feature = "libm")]
+#[cfg(not(feature = "std"))]
 use crate::floatfuncs::FloatFuncs;
 
 use crate::Edge;
