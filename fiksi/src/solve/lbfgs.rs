@@ -94,13 +94,7 @@ pub(crate) fn lbfgs(
     // Gradient (`g_k`) scratch buffer.
     let mut gradient = vec![0.; num_variables];
     // Calculate initial gradient
-    compute_gradient(
-        &jacobian,
-        &residuals,
-        &mut gradient,
-        constraints.len(),
-        num_variables,
-    );
+    compute_gradient(&jacobian, &residuals, &mut gradient);
 
     // `MAX_HISTORY`-sized history storage for `s_k`, `y_k` and `ρ_k`.
     //
@@ -200,8 +194,6 @@ pub(crate) fn lbfgs(
             &index_map,
             variables,
             &mut variables_scratch,
-            constraints.len(),
-            num_variables,
             &mut jacobian,
             &mut residuals,
             &mut gradient,
@@ -239,14 +231,11 @@ pub(crate) fn lbfgs(
 ///
 /// Specifically, the gradient is ∇f(x) = ∇½||r||^2.
 #[inline]
-fn compute_gradient(
-    jacobian: &[f64],
-    residuals: &[f64],
-    gradient: &mut [f64],
-    num_constraints: usize,
-    num_variables: usize,
-) {
+fn compute_gradient(jacobian: &[f64], residuals: &[f64], gradient: &mut [f64]) {
     gradient.fill(0.0);
+
+    let num_variables = gradient.len();
+    let num_constraints = residuals.len();
 
     for i in 0..num_variables {
         for c in 0..num_constraints {
@@ -313,8 +302,6 @@ mod hager_zhang {
         index_map: &'a alloc::collections::BTreeMap<u32, u32>,
         variables: &'a [f64],
         variables_scratch: &'a mut [f64],
-        num_constraints: usize,
-        num_variables: usize,
         jacobian: &'a mut [f64],
         residuals: &'a mut [f64],
         gradient: &'a mut [f64],
@@ -334,13 +321,7 @@ mod hager_zhang {
                 self.residuals,
                 self.jacobian,
             );
-            compute_gradient(
-                self.jacobian,
-                self.residuals,
-                self.gradient,
-                self.num_constraints,
-                self.num_variables,
-            );
+            compute_gradient(self.jacobian, self.residuals, self.gradient);
             let phi = sum_squared_residuals(self.residuals);
             let dphi = dot_product(self.gradient, self.direction);
 
@@ -536,8 +517,6 @@ mod hager_zhang {
         index_map: &alloc::collections::BTreeMap<u32, u32>,
         variables: &[f64],
         variables_scratch: &mut [f64],
-        num_constraints: usize,
-        num_variables: usize,
         jacobian: &mut [f64],
         residuals: &mut [f64],
         gradient: &mut [f64],
@@ -553,8 +532,6 @@ mod hager_zhang {
             index_map,
             variables,
             variables_scratch,
-            num_constraints,
-            num_variables,
             jacobian,
             residuals,
             gradient,
