@@ -38,7 +38,7 @@
 //!     &[&constraint_set],
 //!     fiksi::constraints::PointPointPointAngle::new(&p2, &p3, &p1, 60f64.to_radians()),
 //! );
-//! gcs.solve(&element_set, &constraint_set);
+//! gcs.solve(&element_set, &constraint_set, fiksi::SolvingOptions::DEFAULT);
 //! ```
 #![cfg_attr(feature = "libm", doc = "[libm]: libm")]
 #![cfg_attr(not(feature = "libm"), doc = "[libm]: https://crates.io/crates/libm")]
@@ -132,6 +132,7 @@ pub struct ConstraintSetHandle {
 }
 
 /// Options used by [`System::solve`].
+#[derive(PartialEq, Debug)]
 pub struct SolvingOptions {
     /// The numerical optimization algorithm to use for solving constraint systems.
     pub optimizer: solve::Optimizer,
@@ -143,20 +144,18 @@ impl SolvingOptions {
     /// The defaults are as follows.
     ///
     /// ```rust
-    /// assert_eq!(fiksi::SolvingOptions::new(), fiksi::SolvingOptions {
+    /// assert_eq!(fiksi::SolvingOptions::DEFAULT, fiksi::SolvingOptions {
     ///         optimizer: fiksi::solve::Optimizer::LevenbergMarquardt,
     /// });
     /// ```
-    pub const fn new() -> Self {
-        Self {
-            optimizer: solve::Optimizer::LevenbergMarquardt,
-        }
-    }
+    pub const DEFAULT: Self = Self {
+        optimizer: solve::Optimizer::LevenbergMarquardt,
+    };
 }
 
 impl Default for SolvingOptions {
     fn default() -> Self {
-        Self::new()
+        Self::DEFAULT
     }
 }
 

@@ -10,6 +10,8 @@ pub(crate) use lbfgs::*;
 pub(crate) use lm::*;
 
 /// Numerical optimization algoritihms.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[non_exhaustive]
 pub enum Optimizer {
     /// The [Levenberg-Marquardt][lm] algorithm.
     ///
