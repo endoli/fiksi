@@ -60,7 +60,7 @@ gcs.add_constraint(
     &[&constraint_set],
     fiksi::constraints::PointPointPointAngle::new(&p2, &p3, &p1, 60f64.to_radians()),
 );
-gcs.solve(&element_set, &constraint_set);
+gcs.solve(&element_set, &constraint_set, fiksi::SolvingOptions::DEFAULT);
 ```
 
 <!-- cargo-rdme end -->
