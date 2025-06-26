@@ -33,6 +33,36 @@ Fiksi is a geometric and parametric constraint solver.
 
 At least one of `std` and `libm` is required; `std` overrides `libm`.
 
+# Example
+
+```rust
+let mut gcs = fiksi::System::new();
+let element_set = gcs.add_element_set();
+let constraint_set = gcs.add_constraint_set();
+
+// Add three points, and constrain them into a triangle, such that
+// - one corner has an angle of 10 degrees;
+// - one corner has an angle of 60 degrees; and
+// - the side between those corners is of length 5.
+let p1 = gcs.add_element(&[&element_set], fiksi::elements::Point { x: 1., y: 0. });
+let p2 = gcs.add_element(&[&element_set], fiksi::elements::Point { x: 0.8, y: 1. });
+let p3 = gcs.add_element(&[&element_set], fiksi::elements::Point { x: 1.1, y: 2. });
+
+gcs.add_constraint(
+    &[&constraint_set],
+    fiksi::constraints::PointPointDistance::new(&p2, &p3, 5.),
+);
+gcs.add_constraint(
+    &[&constraint_set],
+    fiksi::constraints::PointPointPointAngle::new(&p1, &p2, &p3, 10f64.to_radians()),
+);
+gcs.add_constraint(
+    &[&constraint_set],
+    fiksi::constraints::PointPointPointAngle::new(&p2, &p3, &p1, 60f64.to_radians()),
+);
+gcs.solve(&element_set, &constraint_set);
+```
+
 <!-- cargo-rdme end -->
 
 ## Minimum supported Rust Version (MSRV)
