@@ -5,10 +5,7 @@ use core::f64;
 
 use alloc::{vec, vec::Vec};
 
-use crate::{
-    ConstraintId, Edge, ElementId, Vertex,
-    constraints::{PointPointDistance_, PointPointPointAngle_},
-};
+use crate::{ConstraintId, Edge, ElementId, Vertex, utils::calculate_residuals_and_jacobian};
 
 /// The Levenberg-Marquardt solver.
 ///
@@ -69,52 +66,14 @@ pub(crate) fn levenberg_marquardt(
     // let mut jtj = vec![0.; free_variables.len() * free_variables.len()];
 
     for _ in 0..100 {
-        jacobian.fill(0.);
-        residuals.fill(0.);
+        calculate_residuals_and_jacobian(
+            &constraints,
+            &index_map,
+            variables,
+            &mut residuals,
+            &mut jacobian,
+        );
 
-        for (constraint_idx, &constraint) in constraints.iter().enumerate() {
-            match *constraint {
-                Edge::PointPointDistance {
-                    point1_idx,
-                    point2_idx,
-                    distance,
-                } => {
-                    PointPointDistance_ {
-                        point1_idx,
-                        point2_idx,
-                        distance,
-                    }
-                    .compute_residual_and_partial_derivatives(
-                        &index_map,
-                        &*variables,
-                        &mut residuals[constraint_idx],
-                        &mut jacobian[constraint_idx * free_variables.len()
-                            ..(constraint_idx + 1) * free_variables.len()],
-                    );
-                }
-                Edge::PointPointPointAngle {
-                    point1_idx,
-                    point2_idx,
-                    point3_idx,
-                    angle,
-                } => {
-                    PointPointPointAngle_ {
-                        point1_idx,
-                        point2_idx,
-                        point3_idx,
-                        angle,
-                    }
-                    .compute_residual_and_partial_derivatives(
-                        &index_map,
-                        &*variables,
-                        &mut residuals[constraint_idx],
-                        &mut jacobian[constraint_idx * free_variables.len()
-                            ..(constraint_idx + 1) * free_variables.len()],
-                    );
-                }
-                Edge::LineLineAngle { .. } => {}
-            }
-        }
         let residuals_ = nalgebra::DVector::from_column_slice(&residuals);
         let residual = residuals_.norm();
 

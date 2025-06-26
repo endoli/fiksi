@@ -75,6 +75,7 @@ pub use kurbo;
 pub mod constraints;
 pub mod elements;
 pub mod solve;
+pub(crate) mod utils;
 
 pub(crate) use constraints::constraint::ConstraintId;
 pub use constraints::{Constraint, constraint::ConstraintHandle};

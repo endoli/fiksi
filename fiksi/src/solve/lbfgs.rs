@@ -5,10 +5,7 @@ use core::f64;
 
 use alloc::{vec, vec::Vec};
 
-use crate::{
-    ConstraintId, Edge, ElementId, Vertex,
-    constraints::{PointPointDistance_, PointPointPointAngle_},
-};
+use crate::{ConstraintId, Edge, ElementId, Vertex, utils::calculate_residuals_and_jacobian};
 
 /// The limited-memory BFGS solver by Liu and Nocedal (1989), approximating the
 /// Broyden–Fletcher–Goldfarb–Shanno method.
@@ -81,13 +78,12 @@ pub(crate) fn lbfgs(
     let mut jacobian = vec![0.; constraints.len() * num_variables];
 
     // Calculate initial residuals and gradients
-    compute_residuals_and_jacobian(
+    calculate_residuals_and_jacobian(
         &constraints,
         &index_map,
         variables,
         &mut residuals,
         &mut jacobian,
-        num_variables,
     );
 
     let mut prev_residual_sum = sum_squared_residuals(&residuals);
@@ -239,67 +235,6 @@ pub(crate) fn lbfgs(
     }
 }
 
-/// Compute residuals and Jacobian for all constraints.
-///
-/// The Jacobian is relative to the free variables.
-fn compute_residuals_and_jacobian(
-    constraints: &[&Edge],
-    index_map: &alloc::collections::BTreeMap<u32, u32>,
-    variables: &[f64],
-    residuals: &mut [f64],
-    jacobian: &mut [f64],
-    num_variables: usize,
-) {
-    jacobian.fill(0.);
-    residuals.fill(0.);
-
-    for (constraint_idx, &constraint) in constraints.iter().enumerate() {
-        match *constraint {
-            Edge::PointPointDistance {
-                point1_idx,
-                point2_idx,
-                distance,
-            } => {
-                PointPointDistance_ {
-                    point1_idx,
-                    point2_idx,
-                    distance,
-                }
-                .compute_residual_and_partial_derivatives(
-                    index_map,
-                    variables,
-                    &mut residuals[constraint_idx],
-                    &mut jacobian
-                        [constraint_idx * num_variables..(constraint_idx + 1) * num_variables],
-                );
-            }
-            Edge::PointPointPointAngle {
-                point1_idx,
-                point2_idx,
-                point3_idx,
-                angle,
-            } => {
-                PointPointPointAngle_ {
-                    point1_idx,
-                    point2_idx,
-                    point3_idx,
-                    angle,
-                }
-                .compute_residual_and_partial_derivatives(
-                    index_map,
-                    variables,
-                    &mut residuals[constraint_idx],
-                    &mut jacobian
-                        [constraint_idx * num_variables..(constraint_idx + 1) * num_variables],
-                );
-            }
-            Edge::LineLineAngle { .. } => {
-                unimplemented!()
-            }
-        }
-    }
-}
-
 /// Compute the sum of squared residual gradient from the residual vector and Jacobian: `J^T * r`.
 ///
 /// Specifically, the gradient is ∇f(x) = ∇½||r||^2.
@@ -332,11 +267,9 @@ fn dot_product(a: &[f64], b: &[f64]) -> f64 {
 }
 
 mod hager_zhang {
-    use crate::Edge;
+    use crate::{Edge, utils::calculate_residuals_and_jacobian};
 
-    use super::{
-        compute_gradient, compute_residuals_and_jacobian, dot_product, sum_squared_residuals,
-    };
+    use super::{compute_gradient, dot_product, sum_squared_residuals};
 
     /// Parameter for the first Wolfe condition, aka Armijo or sufficient descent, sometimes called `c1`.
     const DELTA: f64 = 1e-4;
@@ -394,13 +327,12 @@ mod hager_zhang {
                 self.variables_scratch[*idx as usize] = self.variables[*idx as usize] + p * d;
             }
 
-            compute_residuals_and_jacobian(
+            calculate_residuals_and_jacobian(
                 self.constraints,
                 self.index_map,
                 self.variables_scratch,
                 self.residuals,
                 self.jacobian,
-                self.num_variables,
             );
             compute_gradient(
                 self.jacobian,
