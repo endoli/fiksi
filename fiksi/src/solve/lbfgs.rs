@@ -99,8 +99,8 @@ pub(crate) fn lbfgs(
     let mut gradient = vec![0.; num_variables];
     // Calculate initial gradient
     compute_gradient(
-        &*jacobian,
-        &*residuals,
+        &jacobian,
+        &residuals,
         &mut gradient,
         constraints.len(),
         num_variables,
@@ -160,8 +160,8 @@ pub(crate) fn lbfgs(
 
             if y_dot_y > 0. {
                 let scale = s_dot_y / y_dot_y;
-                for j in 0..num_variables {
-                    direction[j] *= scale;
+                for d in &mut direction {
+                    *d *= scale;
                 }
             }
         }
@@ -184,8 +184,8 @@ pub(crate) fn lbfgs(
             }
         }
 
-        for j in 0..num_variables {
-            direction[j] *= -1.;
+        for d in &mut direction {
+            *d *= -1.;
         }
 
         let history_idx = usize::from(k % MAX_HISTORY);
@@ -199,7 +199,7 @@ pub(crate) fn lbfgs(
         // When the line search returns with `step_size`, the buffers `jacobian`, `residuals`, and
         // `gradient`, are filled with the values at `f(x + step_size * direction)`.
         let step_size_ = hager_zhang::line_search(
-            &*constraints,
+            &constraints,
             &free_variables,
             &index_map,
             variables,
@@ -355,7 +355,7 @@ mod hager_zhang {
     const GAMMA: f64 = 0.66;
 
     /// Initial bracket expansion, from the initial bracketing routine defined in
-    /// Hager, William W., and Hongchao Zhang. "Algorithm 851: CG_DESCENT, a conjugate gradient
+    /// Hager, William W., and Hongchao Zhang. "Algorithm 851: `CG_DESCENT`, a conjugate gradient
     /// method with guaranteed descent." ACM Transactions on Mathematical Software (TOMS) 32.1
     /// (2006): 113-137.
     const RHO: f64 = 5.;
@@ -442,10 +442,11 @@ mod hager_zhang {
             }
 
             // Approximate Wolfe condition (Hager and Zhang, 2005).
-            if c.phi <= self.phi0 + EPSILON {
-                if (2. * DELTA - 1.) * self.dphi0 >= c.dphi && c.dphi >= SIGMA * self.dphi0 {
-                    return true;
-                }
+            if c.phi <= self.phi0 + EPSILON
+                && (2. * DELTA - 1.) * self.dphi0 >= c.dphi
+                && c.dphi >= SIGMA * self.dphi0
+            {
+                return true;
             }
 
             false
@@ -460,29 +461,25 @@ mod hager_zhang {
 
             if c.dphi >= 0. {
                 // U1 in the paper
-                return (a, c);
+                (a, c)
+            } else if c.phi <= self.phi0 + EPSILON {
+                // U2 in the paper
+                (c, b)
             } else {
-                if c.phi <= self.phi0 + EPSILON {
-                    // U2 in the paper
-                    return (c, b);
-                } else {
-                    // U3 in the paper
-                    let mut a = a;
-                    let mut b = c;
-                    loop {
-                        let d = {
-                            let p = (1. - THETA) * a.p + THETA * b.p;
-                            eval.calculate_phi(p)
-                        };
-                        if d.dphi >= 0. {
-                            return (a, d);
-                        } else {
-                            if d.phi <= self.phi0 + EPSILON {
-                                a = d;
-                            } else {
-                                b = d;
-                            }
-                        }
+                // U3 in the paper
+                let mut a = a;
+                let mut b = c;
+                loop {
+                    let d = {
+                        let p = (1. - THETA) * a.p + THETA * b.p;
+                        eval.calculate_phi(p)
+                    };
+                    if d.dphi >= 0. {
+                        return (a, d);
+                    } else if d.phi <= self.phi0 + EPSILON {
+                        a = d;
+                    } else {
+                        b = d;
                     }
                 }
             }
@@ -567,7 +564,7 @@ mod hager_zhang {
             // Evaluate again to satisfy the guarantee that [`Eval::calculate_phi`] was last called
             // with parameter [`Param::p`].
             eval.calculate_phi(c.p);
-            return c;
+            c
         }
 
         /// This guarantees [`Eval::calculate_phi`] was last called with parameter [`Param::p`].
@@ -597,7 +594,7 @@ mod hager_zhang {
     /// descent and an efficient line search." SIAM Journal on optimization 16.1 (2005): 170-192.
     ///
     /// And the bracket initialization in:
-    /// Hager, William W., and Hongchao Zhang. "Algorithm 851: CG_DESCENT, a conjugate gradient
+    /// Hager, William W., and Hongchao Zhang. "Algorithm 851: `CG_DESCENT`, a conjugate gradient
     /// method with guaranteed descent." ACM Transactions on Mathematical Software (TOMS) 32.1
     /// (2006): 113-137.
     ///
