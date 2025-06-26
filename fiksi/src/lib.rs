@@ -38,7 +38,7 @@
 //!     &[&constraint_set],
 //!     fiksi::constraints::PointPointPointAngle::new(&p2, &p3, &p1, 60f64.to_radians()),
 //! );
-//! gcs.solve(&element_set, &constraint_set);
+//! gcs.solve(&element_set, &constraint_set, fiksi::SolvingOptions::DEFAULT);
 //! ```
 #![cfg_attr(feature = "libm", doc = "[libm]: libm")]
 #![cfg_attr(not(feature = "libm"), doc = "[libm]: https://crates.io/crates/libm")]
@@ -74,7 +74,7 @@ pub use kurbo;
 
 pub mod constraints;
 pub mod elements;
-mod solve;
+pub mod solve;
 
 pub(crate) use constraints::constraint::ConstraintId;
 pub use constraints::{Constraint, constraint::ConstraintHandle};
@@ -129,6 +129,34 @@ pub struct ConstraintSetHandle {
     system_id: u32,
     /// The ID of the constraint set within the system.
     id: u32,
+}
+
+/// Options used by [`System::solve`].
+#[derive(PartialEq, Debug)]
+pub struct SolvingOptions {
+    /// The numerical optimization algorithm to use for solving constraint systems.
+    pub optimizer: solve::Optimizer,
+}
+
+impl SolvingOptions {
+    /// Construct the default [`SolvingOptions`].
+    ///
+    /// The defaults are as follows.
+    ///
+    /// ```rust
+    /// assert_eq!(fiksi::SolvingOptions::DEFAULT, fiksi::SolvingOptions {
+    ///         optimizer: fiksi::solve::Optimizer::LevenbergMarquardt,
+    /// });
+    /// ```
+    pub const DEFAULT: Self = Self {
+        optimizer: solve::Optimizer::LevenbergMarquardt,
+    };
+}
+
+impl Default for SolvingOptions {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
 }
 
 /// A geometric constraint system.
@@ -270,14 +298,28 @@ impl System {
     /// values (such as the center point of a circle) are free if and only if the element the
     /// handle corresponds to is in `element_set`, regardless of whether the circle itself is in
     /// `element_set`.
-    pub fn solve(&mut self, element_set: &ElementSetHandle, constraint_set: &ConstraintSetHandle) {
-        crate::solve::levenberg_marquardt(
-            &mut self.variables,
-            &self.element_sets[element_set.id as usize],
-            &self.constraint_sets[constraint_set.id as usize],
-            &self.element_vertices,
-            &self.constraint_edges,
-        );
+    pub fn solve(
+        &mut self,
+        element_set: &ElementSetHandle,
+        constraint_set: &ConstraintSetHandle,
+        opts: SolvingOptions,
+    ) {
+        match opts.optimizer {
+            solve::Optimizer::LevenbergMarquardt => crate::solve::levenberg_marquardt(
+                &mut self.variables,
+                &self.element_sets[element_set.id as usize],
+                &self.constraint_sets[constraint_set.id as usize],
+                &self.element_vertices,
+                &self.constraint_edges,
+            ),
+            solve::Optimizer::LBfgs => crate::solve::lbfgs(
+                &mut self.variables,
+                &self.element_sets[element_set.id as usize],
+                &self.constraint_sets[constraint_set.id as usize],
+                &self.element_vertices,
+                &self.constraint_edges,
+            ),
+        }
     }
 }
 
