@@ -13,7 +13,8 @@ use crate::{
 /// The Jacobian is relative to the free variables.
 pub(crate) fn calculate_residuals_and_jacobian(
     constraints: &[&Edge],
-    index_map: &alloc::collections::BTreeMap<u32, u32>,
+    // Map from variable indices (in `variables`) to free variable indices.
+    free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
     variables: &[f64],
     residuals: &mut [f64],
     jacobian: &mut [f64],
@@ -21,7 +22,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
     jacobian.fill(0.);
     residuals.fill(0.);
 
-    let num_free_variables = index_map.len();
+    let num_free_variables = free_variable_map.len();
 
     for (constraint_idx, &constraint) in constraints.iter().enumerate() {
         match *constraint {
@@ -36,7 +37,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
                     distance,
                 }
                 .compute_residual_and_partial_derivatives(
-                    index_map,
+                    free_variable_map,
                     variables,
                     &mut residuals[constraint_idx],
                     &mut jacobian[constraint_idx * num_free_variables
@@ -56,7 +57,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
                     angle,
                 }
                 .compute_residual_and_partial_derivatives(
-                    index_map,
+                    free_variable_map,
                     variables,
                     &mut residuals[constraint_idx],
                     &mut jacobian[constraint_idx * num_free_variables

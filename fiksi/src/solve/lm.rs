@@ -41,9 +41,9 @@ pub(crate) fn levenberg_marquardt(
         }
     }
     free_variables.sort_unstable();
-    let mut index_map = alloc::collections::BTreeMap::new();
+    let mut free_variable_map = alloc::collections::BTreeMap::new();
     for (idx, &free_variable) in free_variables.iter().enumerate() {
-        index_map.insert(
+        free_variable_map.insert(
             free_variable,
             idx.try_into().expect("less than 2^32 elements"),
         );
@@ -68,7 +68,7 @@ pub(crate) fn levenberg_marquardt(
     for _ in 0..100 {
         calculate_residuals_and_jacobian(
             &constraints,
-            &index_map,
+            &free_variable_map,
             variables,
             &mut residuals,
             &mut jacobian,

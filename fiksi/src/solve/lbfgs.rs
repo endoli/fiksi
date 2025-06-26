@@ -58,9 +58,9 @@ pub(crate) fn lbfgs(
 
     // Map from variable index into free variable index within the Jacobian matrix, gradient
     // vector, etc.
-    let mut index_map = alloc::collections::BTreeMap::new();
+    let mut free_variable_map = alloc::collections::BTreeMap::new();
     for (idx, &free_variable) in free_variables.iter().enumerate() {
-        index_map.insert(
+        free_variable_map.insert(
             free_variable,
             idx.try_into().expect("less than 2^32 elements"),
         );
@@ -80,7 +80,7 @@ pub(crate) fn lbfgs(
     // Calculate initial residuals and gradients
     calculate_residuals_and_jacobian(
         &constraints,
-        &index_map,
+        &free_variable_map,
         variables,
         &mut residuals,
         &mut jacobian,
@@ -191,7 +191,7 @@ pub(crate) fn lbfgs(
         let step_size_ = hager_zhang::line_search(
             &constraints,
             &free_variables,
-            &index_map,
+            &free_variable_map,
             variables,
             &mut variables_scratch,
             &mut jacobian,
@@ -299,7 +299,7 @@ mod hager_zhang {
     struct Eval<'a> {
         constraints: &'a [&'a Edge],
         free_variables: &'a [u32],
-        index_map: &'a alloc::collections::BTreeMap<u32, u32>,
+        free_variable_map: &'a alloc::collections::BTreeMap<u32, u32>,
         variables: &'a [f64],
         variables_scratch: &'a mut [f64],
         jacobian: &'a mut [f64],
@@ -316,7 +316,7 @@ mod hager_zhang {
 
             calculate_residuals_and_jacobian(
                 self.constraints,
-                self.index_map,
+                self.free_variable_map,
                 self.variables_scratch,
                 self.residuals,
                 self.jacobian,
@@ -514,7 +514,7 @@ mod hager_zhang {
     pub(super) fn line_search(
         constraints: &[&Edge],
         free_variables: &[u32],
-        index_map: &alloc::collections::BTreeMap<u32, u32>,
+        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
         variables: &[f64],
         variables_scratch: &mut [f64],
         jacobian: &mut [f64],
@@ -529,7 +529,7 @@ mod hager_zhang {
         let eval = &mut Eval {
             constraints,
             free_variables,
-            index_map,
+            free_variable_map,
             variables,
             variables_scratch,
             jacobian,

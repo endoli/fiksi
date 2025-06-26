@@ -118,7 +118,7 @@ pub(crate) struct PointPointDistance_ {
 impl PointPointDistance_ {
     pub(crate) fn compute_residual_and_partial_derivatives(
         &self,
-        index_map: &alloc::collections::BTreeMap<u32, u32>,
+        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
         variables: &[f64],
         residual: &mut f64,
         first_derivative: &mut [f64],
@@ -143,16 +143,16 @@ impl PointPointDistance_ {
             -(point1.y - point2.y) * distance_recip,
         ];
 
-        if let Some(idx) = index_map.get(&self.point1_idx) {
+        if let Some(idx) = free_variable_map.get(&self.point1_idx) {
             first_derivative[*idx as usize] += derivative[0];
         }
-        if let Some(idx) = index_map.get(&(self.point1_idx + 1)) {
+        if let Some(idx) = free_variable_map.get(&(self.point1_idx + 1)) {
             first_derivative[*idx as usize] += derivative[1];
         }
-        if let Some(idx) = index_map.get(&self.point2_idx) {
+        if let Some(idx) = free_variable_map.get(&self.point2_idx) {
             first_derivative[*idx as usize] += derivative[2];
         }
-        if let Some(idx) = index_map.get(&(self.point2_idx + 1)) {
+        if let Some(idx) = free_variable_map.get(&(self.point2_idx + 1)) {
             first_derivative[*idx as usize] += derivative[3];
         }
     }
@@ -223,7 +223,7 @@ pub(crate) struct PointPointPointAngle_ {
 impl PointPointPointAngle_ {
     pub(crate) fn compute_residual_and_partial_derivatives(
         &self,
-        index_map: &alloc::collections::BTreeMap<u32, u32>,
+        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
         variables: &[f64],
         residual: &mut f64,
         first_derivative: &mut [f64],
@@ -275,22 +275,22 @@ impl PointPointPointAngle_ {
             dangle_dpoint3y,
         ];
 
-        if let Some(idx) = index_map.get(&self.point1_idx) {
+        if let Some(idx) = free_variable_map.get(&self.point1_idx) {
             first_derivative[*idx as usize] += derivative[0];
         }
-        if let Some(idx) = index_map.get(&(self.point1_idx + 1)) {
+        if let Some(idx) = free_variable_map.get(&(self.point1_idx + 1)) {
             first_derivative[*idx as usize] += derivative[1];
         }
-        if let Some(idx) = index_map.get(&self.point2_idx) {
+        if let Some(idx) = free_variable_map.get(&self.point2_idx) {
             first_derivative[*idx as usize] += derivative[2];
         }
-        if let Some(idx) = index_map.get(&(self.point2_idx + 1)) {
+        if let Some(idx) = free_variable_map.get(&(self.point2_idx + 1)) {
             first_derivative[*idx as usize] += derivative[3];
         }
-        if let Some(idx) = index_map.get(&(self.point3_idx)) {
+        if let Some(idx) = free_variable_map.get(&(self.point3_idx)) {
             first_derivative[*idx as usize] += derivative[4];
         }
-        if let Some(idx) = index_map.get(&(self.point3_idx + 1)) {
+        if let Some(idx) = free_variable_map.get(&(self.point3_idx + 1)) {
             first_derivative[*idx as usize] += derivative[5];
         }
     }
