@@ -9,7 +9,7 @@ mod lm;
 pub(crate) use lbfgs::*;
 pub(crate) use lm::*;
 
-/// Numerical optimization algoritihms.
+/// Numerical optimization algorithms.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[non_exhaustive]
 pub enum Optimizer {

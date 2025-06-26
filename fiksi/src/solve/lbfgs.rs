@@ -349,7 +349,6 @@ mod hager_zhang {
 
     /// ½ for bisection.
     const THETA: f64 = 0.5;
-    // const ETA: f64 = 1.;
 
     /// If secant2 does not shrink the interval by this factor, bisection is performed.
     const GAMMA: f64 = 0.66;
