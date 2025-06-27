@@ -5,10 +5,7 @@ use core::f64;
 
 use alloc::{vec, vec::Vec};
 
-use crate::{
-    ConstraintId, Edge, ElementId, Vertex,
-    constraints::{PointPointDistance_, PointPointPointAngle_},
-};
+use crate::{ConstraintId, Edge, ElementId, Vertex, utils::calculate_residuals_and_jacobian};
 
 /// The limited-memory BFGS solver by Liu and Nocedal (1989), approximating the
 /// Broyden–Fletcher–Goldfarb–Shanno method.
@@ -61,9 +58,9 @@ pub(crate) fn lbfgs(
 
     // Map from variable index into free variable index within the Jacobian matrix, gradient
     // vector, etc.
-    let mut index_map = alloc::collections::BTreeMap::new();
+    let mut free_variable_map = alloc::collections::BTreeMap::new();
     for (idx, &free_variable) in free_variables.iter().enumerate() {
-        index_map.insert(
+        free_variable_map.insert(
             free_variable,
             idx.try_into().expect("less than 2^32 elements"),
         );
@@ -81,13 +78,12 @@ pub(crate) fn lbfgs(
     let mut jacobian = vec![0.; constraints.len() * num_variables];
 
     // Calculate initial residuals and gradients
-    compute_residuals_and_jacobian(
+    calculate_residuals_and_jacobian(
         &constraints,
-        &index_map,
+        &free_variable_map,
         variables,
         &mut residuals,
         &mut jacobian,
-        num_variables,
     );
 
     let mut prev_residual_sum = sum_squared_residuals(&residuals);
@@ -98,13 +94,7 @@ pub(crate) fn lbfgs(
     // Gradient (`g_k`) scratch buffer.
     let mut gradient = vec![0.; num_variables];
     // Calculate initial gradient
-    compute_gradient(
-        &jacobian,
-        &residuals,
-        &mut gradient,
-        constraints.len(),
-        num_variables,
-    );
+    compute_gradient(&jacobian, &residuals, &mut gradient);
 
     // `MAX_HISTORY`-sized history storage for `s_k`, `y_k` and `ρ_k`.
     //
@@ -201,11 +191,9 @@ pub(crate) fn lbfgs(
         let step_size_ = hager_zhang::line_search(
             &constraints,
             &free_variables,
-            &index_map,
+            &free_variable_map,
             variables,
             &mut variables_scratch,
-            constraints.len(),
-            num_variables,
             &mut jacobian,
             &mut residuals,
             &mut gradient,
@@ -239,79 +227,15 @@ pub(crate) fn lbfgs(
     }
 }
 
-/// Compute residuals and Jacobian for all constraints.
-///
-/// The Jacobian is relative to the free variables.
-fn compute_residuals_and_jacobian(
-    constraints: &[&Edge],
-    index_map: &alloc::collections::BTreeMap<u32, u32>,
-    variables: &[f64],
-    residuals: &mut [f64],
-    jacobian: &mut [f64],
-    num_variables: usize,
-) {
-    jacobian.fill(0.);
-    residuals.fill(0.);
-
-    for (constraint_idx, &constraint) in constraints.iter().enumerate() {
-        match *constraint {
-            Edge::PointPointDistance {
-                point1_idx,
-                point2_idx,
-                distance,
-            } => {
-                PointPointDistance_ {
-                    point1_idx,
-                    point2_idx,
-                    distance,
-                }
-                .compute_residual_and_partial_derivatives(
-                    index_map,
-                    variables,
-                    &mut residuals[constraint_idx],
-                    &mut jacobian
-                        [constraint_idx * num_variables..(constraint_idx + 1) * num_variables],
-                );
-            }
-            Edge::PointPointPointAngle {
-                point1_idx,
-                point2_idx,
-                point3_idx,
-                angle,
-            } => {
-                PointPointPointAngle_ {
-                    point1_idx,
-                    point2_idx,
-                    point3_idx,
-                    angle,
-                }
-                .compute_residual_and_partial_derivatives(
-                    index_map,
-                    variables,
-                    &mut residuals[constraint_idx],
-                    &mut jacobian
-                        [constraint_idx * num_variables..(constraint_idx + 1) * num_variables],
-                );
-            }
-            Edge::LineLineAngle { .. } => {
-                unimplemented!()
-            }
-        }
-    }
-}
-
 /// Compute the sum of squared residual gradient from the residual vector and Jacobian: `J^T * r`.
 ///
 /// Specifically, the gradient is ∇f(x) = ∇½||r||^2.
 #[inline]
-fn compute_gradient(
-    jacobian: &[f64],
-    residuals: &[f64],
-    gradient: &mut [f64],
-    num_constraints: usize,
-    num_variables: usize,
-) {
+fn compute_gradient(jacobian: &[f64], residuals: &[f64], gradient: &mut [f64]) {
     gradient.fill(0.0);
+
+    let num_variables = gradient.len();
+    let num_constraints = residuals.len();
 
     for i in 0..num_variables {
         for c in 0..num_constraints {
@@ -332,11 +256,9 @@ fn dot_product(a: &[f64], b: &[f64]) -> f64 {
 }
 
 mod hager_zhang {
-    use crate::Edge;
+    use crate::{Edge, utils::calculate_residuals_and_jacobian};
 
-    use super::{
-        compute_gradient, compute_residuals_and_jacobian, dot_product, sum_squared_residuals,
-    };
+    use super::{compute_gradient, dot_product, sum_squared_residuals};
 
     /// Parameter for the first Wolfe condition, aka Armijo or sufficient descent, sometimes called `c1`.
     const DELTA: f64 = 1e-4;
@@ -377,11 +299,9 @@ mod hager_zhang {
     struct Eval<'a> {
         constraints: &'a [&'a Edge],
         free_variables: &'a [u32],
-        index_map: &'a alloc::collections::BTreeMap<u32, u32>,
+        free_variable_map: &'a alloc::collections::BTreeMap<u32, u32>,
         variables: &'a [f64],
         variables_scratch: &'a mut [f64],
-        num_constraints: usize,
-        num_variables: usize,
         jacobian: &'a mut [f64],
         residuals: &'a mut [f64],
         gradient: &'a mut [f64],
@@ -394,21 +314,14 @@ mod hager_zhang {
                 self.variables_scratch[*idx as usize] = self.variables[*idx as usize] + p * d;
             }
 
-            compute_residuals_and_jacobian(
+            calculate_residuals_and_jacobian(
                 self.constraints,
-                self.index_map,
+                self.free_variable_map,
                 self.variables_scratch,
                 self.residuals,
                 self.jacobian,
-                self.num_variables,
             );
-            compute_gradient(
-                self.jacobian,
-                self.residuals,
-                self.gradient,
-                self.num_constraints,
-                self.num_variables,
-            );
+            compute_gradient(self.jacobian, self.residuals, self.gradient);
             let phi = sum_squared_residuals(self.residuals);
             let dphi = dot_product(self.gradient, self.direction);
 
@@ -601,11 +514,9 @@ mod hager_zhang {
     pub(super) fn line_search(
         constraints: &[&Edge],
         free_variables: &[u32],
-        index_map: &alloc::collections::BTreeMap<u32, u32>,
+        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
         variables: &[f64],
         variables_scratch: &mut [f64],
-        num_constraints: usize,
-        num_variables: usize,
         jacobian: &mut [f64],
         residuals: &mut [f64],
         gradient: &mut [f64],
@@ -618,11 +529,9 @@ mod hager_zhang {
         let eval = &mut Eval {
             constraints,
             free_variables,
-            index_map,
+            free_variable_map,
             variables,
             variables_scratch,
-            num_constraints,
-            num_variables,
             jacobian,
             residuals,
             gradient,
