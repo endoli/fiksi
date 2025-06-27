@@ -458,6 +458,143 @@ pub(crate) struct LineLineAngle_ {
     pub angle: f64,
 }
 
+/// Constrain a line and a circle such that the line is tangent on the circle.
+pub struct LineCircleTangency {
+    line: ElementId,
+    circle: ElementId,
+}
+
+impl sealed::ConstraintInner for LineCircleTangency {
+    fn as_edge(&self, vertices: &[Vertex]) -> Edge {
+        let &Vertex::Line {
+            point1_idx: line_point1_idx,
+            point2_idx: line_point2_idx,
+        } = &vertices[self.line.id as usize]
+        else {
+            unreachable!()
+        };
+        let &Vertex::Circle {
+            midpoint_idx: circle_midpoint_idx,
+            radius_idx: circle_radius_idx,
+        } = &vertices[self.circle.id as usize]
+        else {
+            unreachable!()
+        };
+        Edge::LineCircleTangency {
+            line_point1_idx,
+            line_point2_idx,
+            circle_midpoint_idx,
+            circle_radius_idx,
+        }
+    }
+}
+
+impl LineCircleTangency {
+    /// Construct a constraint between a line and a circle such that the line is tangent on the
+    /// circle.
+    pub fn new(
+        line: &ElementHandle<elements::Line<'_>>,
+        circle: &ElementHandle<elements::Circle<'_>>,
+    ) -> Self {
+        Self {
+            line: line.drop_system_id(),
+            circle: circle.drop_system_id(),
+        }
+    }
+}
+
+/// A representation of a [`LineCircleTangency`] constraint within a [`crate::System`], allowing
+/// evaluation.
+pub(crate) struct LineCircleTangency_ {
+    pub line_point1_idx: u32,
+    pub line_point2_idx: u32,
+    pub circle_midpoint_idx: u32,
+    pub circle_radius_idx: u32,
+}
+
+impl LineCircleTangency_ {
+    pub(crate) fn compute_residual_and_partial_derivatives(
+        &self,
+        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
+        variables: &[f64],
+        residual: &mut f64,
+        first_derivative: &mut [f64],
+    ) {
+        let line_point1 = kurbo::Point {
+            x: variables[self.line_point1_idx as usize],
+            y: variables[self.line_point1_idx as usize + 1],
+        };
+        let line_point2 = kurbo::Point {
+            x: variables[self.line_point2_idx as usize],
+            y: variables[self.line_point2_idx as usize + 1],
+        };
+        let circle_midpoint = kurbo::Point {
+            x: variables[self.circle_midpoint_idx as usize],
+            y: variables[self.circle_midpoint_idx as usize + 1],
+        };
+        let circle_radius = variables[self.circle_radius_idx as usize];
+
+        let length2 = line_point1.distance_squared(line_point2);
+        let length = length2.sqrt();
+
+        // TODO: better handle degenerate lines of length 0.
+        if length == 0. {
+            return;
+        }
+
+        let length_recip = 1. / length;
+        let signed_area = line_point1.x * (line_point2.y - circle_midpoint.y)
+            + line_point2.x * (circle_midpoint.y - line_point1.y)
+            + circle_midpoint.x * (line_point1.y - line_point2.y);
+
+        // We are interested in the _unsigned_ area here, as it does not matter on which side of
+        // the line the circle midpoint lies. That does mean there is a cusp when the circle
+        // midpoint is exactly on the line.
+        *residual += length_recip * signed_area.abs() - circle_radius;
+
+        let sign = signed_area.signum();
+        let length3_recip = 1. / (length2 * length);
+        let derivative = [
+            sign * length3_recip
+                * (length2 * (line_point2.y - circle_midpoint.y)
+                    + signed_area * (line_point2.x - line_point1.x)),
+            sign * length3_recip
+                * (length2 * (-line_point2.x + circle_midpoint.x)
+                    + signed_area * (line_point2.y - line_point1.y)),
+            sign * length3_recip
+                * (length2 * (circle_midpoint.y - line_point1.y)
+                    - signed_area * (line_point2.x - line_point1.x)),
+            sign * length3_recip
+                * (length2 * (line_point1.x - circle_midpoint.x)
+                    - signed_area * (line_point2.y - line_point1.y)),
+            sign * length_recip * (line_point1.y - line_point2.y),
+            sign * length_recip * (-line_point1.x + line_point2.x),
+        ];
+
+        if let Some(idx) = free_variable_map.get(&self.line_point1_idx) {
+            first_derivative[*idx as usize] += derivative[0];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line_point1_idx + 1)) {
+            first_derivative[*idx as usize] += derivative[1];
+        }
+        if let Some(idx) = free_variable_map.get(&self.line_point2_idx) {
+            first_derivative[*idx as usize] += derivative[2];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line_point2_idx + 1)) {
+            first_derivative[*idx as usize] += derivative[3];
+        }
+        if let Some(idx) = free_variable_map.get(&self.circle_midpoint_idx) {
+            first_derivative[*idx as usize] += derivative[4];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.circle_midpoint_idx + 1)) {
+            first_derivative[*idx as usize] += derivative[5];
+        }
+        if let Some(idx) = free_variable_map.get(&self.circle_radius_idx) {
+            first_derivative[*idx as usize] += -1.;
+        }
+    }
+}
+
 pub(crate) mod sealed {
     pub(crate) trait ConstraintInner {
         fn as_edge(&self, vertices: &[crate::Vertex]) -> crate::Edge;
@@ -472,4 +609,5 @@ pub trait Constraint: sealed::ConstraintInner {}
 impl Constraint for PointPointDistance {}
 impl Constraint for PointPointPointAngle {}
 impl Constraint for PointLineIncidence {}
+impl Constraint for LineCircleTangency {}
 impl Constraint for LineLineAngle<'_> {}

@@ -28,15 +28,17 @@ pub(crate) fn levenberg_marquardt(
 
     let mut free_variables: Vec<u32> = vec![];
     for vertex in element_vertices {
-        #[expect(clippy::single_match, reason = "more to follow")]
         match vertex {
             Vertex::Point { idx } => {
                 free_variables.extend(&[*idx, idx + 1]);
             }
             // In the current setup, not all vertices in the set contribute free variables. E.g.
             // `Vertex::Line` only refers to existing points, meaning it does not contribute its
-            // own free variables. `Vertex::Circle` would refer to a point and has a radius as free
+            // own free variables. `Vertex::Circle` refers to a point and has a radius as free
             // variable.
+            Vertex::Circle { radius_idx, .. } => {
+                free_variables.extend(&[*radius_idx]);
+            }
             _ => {}
         }
     }
