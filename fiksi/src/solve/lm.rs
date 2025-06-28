@@ -34,8 +34,8 @@ pub(crate) fn levenberg_marquardt(
             }
             // In the current setup, not all vertices in the set contribute free variables. E.g.
             // `Vertex::Line` only refers to existing points, meaning it does not contribute its
-            // own free variables. `Vertex::Circle` refers to a point and has a radius as free
-            // variable.
+            // own free variables. `Vertex::Circle` refers to a point, but contributes its radius
+            // as free variable.
             Vertex::Circle { radius_idx, .. } => {
                 free_variables.extend(&[*radius_idx]);
             }
