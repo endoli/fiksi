@@ -474,7 +474,7 @@ impl sealed::ConstraintInner for LineCircleTangency {
             unreachable!()
         };
         let &Vertex::Circle {
-            midpoint_idx: circle_midpoint_idx,
+            center_idx: circle_center_idx,
             radius_idx: circle_radius_idx,
         } = &vertices[self.circle.id as usize]
         else {
@@ -483,7 +483,7 @@ impl sealed::ConstraintInner for LineCircleTangency {
         Edge::LineCircleTangency {
             line_point1_idx,
             line_point2_idx,
-            circle_midpoint_idx,
+            circle_center_idx,
             circle_radius_idx,
         }
     }
@@ -508,7 +508,7 @@ impl LineCircleTangency {
 pub(crate) struct LineCircleTangency_ {
     pub line_point1_idx: u32,
     pub line_point2_idx: u32,
-    pub circle_midpoint_idx: u32,
+    pub circle_center_idx: u32,
     pub circle_radius_idx: u32,
 }
 
@@ -528,9 +528,9 @@ impl LineCircleTangency_ {
             x: variables[self.line_point2_idx as usize],
             y: variables[self.line_point2_idx as usize + 1],
         };
-        let circle_midpoint = kurbo::Point {
-            x: variables[self.circle_midpoint_idx as usize],
-            y: variables[self.circle_midpoint_idx as usize + 1],
+        let circle_center = kurbo::Point {
+            x: variables[self.circle_center_idx as usize],
+            y: variables[self.circle_center_idx as usize + 1],
         };
         let circle_radius = variables[self.circle_radius_idx as usize];
 
@@ -543,29 +543,29 @@ impl LineCircleTangency_ {
         }
 
         let length_recip = 1. / length;
-        let signed_area = line_point1.x * (line_point2.y - circle_midpoint.y)
-            + line_point2.x * (circle_midpoint.y - line_point1.y)
-            + circle_midpoint.x * (line_point1.y - line_point2.y);
+        let signed_area = line_point1.x * (line_point2.y - circle_center.y)
+            + line_point2.x * (circle_center.y - line_point1.y)
+            + circle_center.x * (line_point1.y - line_point2.y);
 
         // We are interested in the _unsigned_ area here, as it does not matter on which side of
-        // the line the circle midpoint lies. That does mean there is a cusp when the circle
-        // midpoint is exactly on the line.
+        // the line the circle center lies. That does mean there is a cusp when the circle
+        // center is exactly on the line.
         *residual += length_recip * signed_area.abs() - circle_radius;
 
         let sign = signed_area.signum();
         let length3_recip = 1. / (length2 * length);
         let derivative = [
             sign * length3_recip
-                * (length2 * (line_point2.y - circle_midpoint.y)
+                * (length2 * (line_point2.y - circle_center.y)
                     + signed_area * (line_point2.x - line_point1.x)),
             sign * length3_recip
-                * (length2 * (-line_point2.x + circle_midpoint.x)
+                * (length2 * (-line_point2.x + circle_center.x)
                     + signed_area * (line_point2.y - line_point1.y)),
             sign * length3_recip
-                * (length2 * (circle_midpoint.y - line_point1.y)
+                * (length2 * (circle_center.y - line_point1.y)
                     - signed_area * (line_point2.x - line_point1.x)),
             sign * length3_recip
-                * (length2 * (line_point1.x - circle_midpoint.x)
+                * (length2 * (line_point1.x - circle_center.x)
                     - signed_area * (line_point2.y - line_point1.y)),
             sign * length_recip * (line_point1.y - line_point2.y),
             sign * length_recip * (-line_point1.x + line_point2.x),
@@ -583,10 +583,10 @@ impl LineCircleTangency_ {
         if let Some(idx) = free_variable_map.get(&(self.line_point2_idx + 1)) {
             first_derivative[*idx as usize] += derivative[3];
         }
-        if let Some(idx) = free_variable_map.get(&self.circle_midpoint_idx) {
+        if let Some(idx) = free_variable_map.get(&self.circle_center_idx) {
             first_derivative[*idx as usize] += derivative[4];
         }
-        if let Some(idx) = free_variable_map.get(&(self.circle_midpoint_idx + 1)) {
+        if let Some(idx) = free_variable_map.get(&(self.circle_center_idx + 1)) {
             first_derivative[*idx as usize] += derivative[5];
         }
         if let Some(idx) = free_variable_map.get(&self.circle_radius_idx) {

@@ -113,7 +113,7 @@ impl<'el> sealed::ElementInner for Line<'el> {
 #[derive(Debug)]
 pub struct Circle<'el> {
     /// The center of the circle.
-    pub midpoint: &'el ElementHandle<Point>,
+    pub center: &'el ElementHandle<Point>,
 
     /// The radius of the circle.
     pub radius: f64,
@@ -121,12 +121,11 @@ pub struct Circle<'el> {
 
 impl sealed::ElementInner for Circle<'_> {
     fn add_into(&self, element_vertices: &mut Vec<Vertex>, variables: &mut Vec<f64>) {
-        let &Vertex::Point { idx: midpoint_idx } = &element_vertices[self.midpoint.id as usize]
-        else {
+        let &Vertex::Point { idx: center_idx } = &element_vertices[self.center.id as usize] else {
             unreachable!()
         };
         element_vertices.push(Vertex::Circle {
-            midpoint_idx,
+            center_idx,
             radius_idx: variables
                 .len()
                 .try_into()

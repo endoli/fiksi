@@ -87,13 +87,13 @@ pub(crate) fn calculate_residuals_and_jacobian(
             Edge::LineCircleTangency {
                 line_point1_idx,
                 line_point2_idx,
-                circle_midpoint_idx,
+                circle_center_idx,
                 circle_radius_idx,
             } => {
                 LineCircleTangency_ {
                     line_point1_idx,
                     line_point2_idx,
-                    circle_midpoint_idx,
+                    circle_center_idx,
                     circle_radius_idx,
                 }
                 .compute_residual_and_partial_derivatives(

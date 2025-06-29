@@ -88,7 +88,7 @@ pub use elements::{Element, element::ElementHandle};
 pub(crate) enum Vertex {
     Point { idx: u32 },
     Line { point1_idx: u32, point2_idx: u32 },
-    Circle { midpoint_idx: u32, radius_idx: u32 },
+    Circle { center_idx: u32, radius_idx: u32 },
 }
 
 /// Edges are the constraints between geometric elements (i.e., edges between the vertices).
@@ -119,7 +119,7 @@ pub(crate) enum Edge {
     LineCircleTangency {
         line_point1_idx: u32,
         line_point2_idx: u32,
-        circle_midpoint_idx: u32,
+        circle_center_idx: u32,
         circle_radius_idx: u32,
     },
 }
