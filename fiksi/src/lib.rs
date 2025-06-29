@@ -262,7 +262,7 @@ impl System {
     }
 
     /// Get the value of an element.
-    pub fn get_element<T: Element>(&self, element: ElementHandle<T>) -> T {
+    pub fn get_element<T: Element>(&self, element: &ElementHandle<T>) -> <T as Element>::Output {
         // TODO: return `Result` instead of panicking?
         assert_eq!(
             self.id, element.system_id,
@@ -273,6 +273,7 @@ impl System {
             &self.element_vertices[element.drop_system_id().id as usize],
             &self.variables,
         )
+        .into()
     }
 
     /// Add a constraint.

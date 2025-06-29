@@ -59,6 +59,8 @@ pub struct Point {
 }
 
 impl sealed::ElementInner for Point {
+    type Output = kurbo::Point;
+
     fn add_into(&self, element_vertices: &mut Vec<Vertex>, variables: &mut Vec<f64>) {
         element_vertices.push(Vertex::Point {
             idx: variables
@@ -69,14 +71,13 @@ impl sealed::ElementInner for Point {
         variables.extend(&[self.x, self.y]);
     }
 
-    fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self {
-        if let &Vertex::Point { idx } = vertex {
-            Self {
-                x: variables[idx as usize],
-                y: variables[idx as usize + 1],
-            }
-        } else {
+    fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self::Output {
+        let &Vertex::Point { idx } = vertex else {
             unreachable!()
+        };
+        kurbo::Point {
+            x: variables[idx as usize],
+            y: variables[idx as usize + 1],
         }
     }
 }
@@ -90,7 +91,9 @@ pub struct Line<'el> {
     pub point2: &'el ElementHandle<Point>,
 }
 
-impl<'el> sealed::ElementInner for Line<'el> {
+impl sealed::ElementInner for Line<'_> {
+    type Output = kurbo::Line;
+
     fn add_into(&self, element_vertices: &mut Vec<Vertex>, _variables: &mut Vec<f64>) {
         let &Vertex::Point { idx: point1_idx } = &element_vertices[self.point1.id as usize] else {
             unreachable!()
@@ -104,8 +107,24 @@ impl<'el> sealed::ElementInner for Line<'el> {
         });
     }
 
-    fn from_vertex(_vertex: &Vertex, _variables: &[f64]) -> Self {
-        unimplemented!()
+    fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self::Output {
+        let &Vertex::Line {
+            point1_idx,
+            point2_idx,
+        } = vertex
+        else {
+            unreachable!()
+        };
+        kurbo::Line {
+            p0: kurbo::Point {
+                x: variables[point1_idx as usize],
+                y: variables[point1_idx as usize + 1],
+            },
+            p1: kurbo::Point {
+                x: variables[point2_idx as usize],
+                y: variables[point2_idx as usize + 1],
+            },
+        }
     }
 }
 
@@ -120,6 +139,8 @@ pub struct Circle<'el> {
 }
 
 impl sealed::ElementInner for Circle<'_> {
+    type Output = kurbo::Circle;
+
     fn add_into(&self, element_vertices: &mut Vec<Vertex>, variables: &mut Vec<f64>) {
         let &Vertex::Point { idx: center_idx } = &element_vertices[self.center.id as usize] else {
             unreachable!()
@@ -134,8 +155,21 @@ impl sealed::ElementInner for Circle<'_> {
         variables.extend(&[self.radius]);
     }
 
-    fn from_vertex(_vertex: &Vertex, _variables: &[f64]) -> Self {
-        unimplemented!()
+    fn from_vertex(vertex: &Vertex, variables: &[f64]) -> kurbo::Circle {
+        let &Vertex::Circle {
+            center_idx,
+            radius_idx,
+        } = vertex
+        else {
+            unreachable!()
+        };
+        kurbo::Circle {
+            center: kurbo::Point {
+                x: variables[center_idx as usize],
+                y: variables[center_idx as usize + 1],
+            },
+            radius: variables[radius_idx as usize],
+        }
     }
 }
 
@@ -145,8 +179,11 @@ pub(crate) mod sealed {
     use crate::Vertex;
 
     pub(crate) trait ElementInner {
+        /// The data type when retrieving an element's value.
+        type Output;
+
         fn add_into(&self, element_vertices: &mut Vec<Vertex>, variables: &mut Vec<f64>);
-        fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self;
+        fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self::Output;
     }
 }
 
@@ -154,8 +191,17 @@ pub(crate) mod sealed {
 ///
 /// These can be added to a [`System`](crate::System).
 #[expect(private_bounds, reason = "Sealed inner trait")]
-pub trait Element: sealed::ElementInner {}
+pub trait Element: sealed::ElementInner {
+    /// The data type when retrieving an element's value.
+    type Output: From<<Self as sealed::ElementInner>::Output>;
+}
 
-impl Element for Point {}
-impl<'el> Element for Line<'el> {}
-impl<'el> Element for Circle<'el> {}
+impl Element for Point {
+    type Output = kurbo::Point;
+}
+impl Element for Line<'_> {
+    type Output = kurbo::Line;
+}
+impl Element for Circle<'_> {
+    type Output = kurbo::Circle;
+}
