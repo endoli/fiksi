@@ -179,7 +179,7 @@ pub(crate) mod sealed {
     use crate::Vertex;
 
     pub(crate) trait ElementInner {
-        /// The data type when retrieving an elements value.
+        /// The data type when retrieving an element's value.
         type Output;
 
         fn add_into(&self, element_vertices: &mut Vec<Vertex>, variables: &mut Vec<f64>);
@@ -192,7 +192,7 @@ pub(crate) mod sealed {
 /// These can be added to a [`System`](crate::System).
 #[expect(private_bounds, reason = "Sealed inner trait")]
 pub trait Element: sealed::ElementInner {
-    /// The data type when retrieving an elements value.
+    /// The data type when retrieving an element's value.
     type Output: From<<Self as sealed::ElementInner>::Output>;
 }
 
@@ -200,7 +200,6 @@ impl Element for Point {
     type Output = kurbo::Point;
 }
 impl<'el> Element for Line<'el> {
-    // type Output = <Self as sealed::ElementInner>::Output;
     type Output = kurbo::Line;
 }
 impl<'el> Element for Circle<'el> {
