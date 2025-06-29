@@ -417,7 +417,7 @@ pub struct LineLineAngle<'el> {
     angle: f64,
 }
 
-impl<'el> sealed::ConstraintInner for LineLineAngle<'el> {
+impl sealed::ConstraintInner for LineLineAngle<'_> {
     fn as_edge(&self, vertices: &[Vertex]) -> Edge {
         let &Vertex::Line {
             point1_idx,

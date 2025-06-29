@@ -91,7 +91,7 @@ pub struct Line<'el> {
     pub point2: &'el ElementHandle<Point>,
 }
 
-impl<'el> sealed::ElementInner for Line<'el> {
+impl sealed::ElementInner for Line<'_> {
     type Output = kurbo::Line;
 
     fn add_into(&self, element_vertices: &mut Vec<Vertex>, _variables: &mut Vec<f64>) {
@@ -199,9 +199,9 @@ pub trait Element: sealed::ElementInner {
 impl Element for Point {
     type Output = kurbo::Point;
 }
-impl<'el> Element for Line<'el> {
+impl Element for Line<'_> {
     type Output = kurbo::Line;
 }
-impl<'el> Element for Circle<'el> {
+impl Element for Circle<'_> {
     type Output = kurbo::Circle;
 }
