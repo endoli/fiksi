@@ -110,15 +110,33 @@ impl<'el> sealed::ElementInner for Line<'el> {
 }
 
 /// A circle defined by a centerpoint and a radius.
-///
-/// TODO: use.
 #[derive(Debug)]
-pub struct Circle {
+pub struct Circle<'el> {
     /// The center of the circle.
-    pub center: ElementHandle<Point>,
+    pub center: &'el ElementHandle<Point>,
 
     /// The radius of the circle.
     pub radius: f64,
+}
+
+impl sealed::ElementInner for Circle<'_> {
+    fn add_into(&self, element_vertices: &mut Vec<Vertex>, variables: &mut Vec<f64>) {
+        let &Vertex::Point { idx: center_idx } = &element_vertices[self.center.id as usize] else {
+            unreachable!()
+        };
+        element_vertices.push(Vertex::Circle {
+            center_idx,
+            radius_idx: variables
+                .len()
+                .try_into()
+                .expect("less than 2^32 variables"),
+        });
+        variables.extend(&[self.radius]);
+    }
+
+    fn from_vertex(_vertex: &Vertex, _variables: &[f64]) -> Self {
+        unimplemented!()
+    }
 }
 
 pub(crate) mod sealed {
@@ -140,3 +158,4 @@ pub trait Element: sealed::ElementInner {}
 
 impl Element for Point {}
 impl<'el> Element for Line<'el> {}
+impl<'el> Element for Circle<'el> {}

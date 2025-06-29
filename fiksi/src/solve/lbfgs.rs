@@ -44,10 +44,12 @@ pub(crate) fn lbfgs(
     // index.
     let mut free_variables: Vec<u32> = vec![];
     for vertex in element_vertices {
-        #[expect(clippy::single_match, reason = "more to follow")]
         match vertex {
             Vertex::Point { idx } => {
                 free_variables.extend(&[*idx, idx + 1]);
+            }
+            Vertex::Circle { radius_idx, .. } => {
+                free_variables.extend(&[*radius_idx]);
             }
             // In the current setup, not all vertices in the set contribute free variables.
             _ => {}
