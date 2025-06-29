@@ -202,6 +202,7 @@ pub(crate) fn lbfgs(
             &mut variables_scratch,
             &mut jacobian,
             &mut residuals,
+            prev_sum_squared_residuals,
             &mut gradient,
             &direction,
         );
@@ -503,7 +504,7 @@ mod hager_zhang {
     /// `x <- x + alpha * direction`, with `alpha` such that the [Wolfe] conditions are satisfied.
     ///
     /// When this search returns with the found step size, the buffers `jacobian`, `residuals`, and
-    /// `gradient`, are filled with the values at `f(x + step_size * direction)`.
+    /// `gradient`, are filled with the values at `f(x + alpha * direction)`.
     ///
     /// See the main paper:
     /// Hager, William W., and Hongchao Zhang. "A new conjugate gradient method with guaranteed
@@ -523,10 +524,11 @@ mod hager_zhang {
         variables_scratch: &mut [f64],
         jacobian: &mut [f64],
         residuals: &mut [f64],
+        sum_squared_residuals: f64,
         gradient: &mut [f64],
         direction: &[f64],
     ) -> Param {
-        let phi0 = sum_squares(&*residuals);
+        let phi0 = sum_squared_residuals;
         let dphi0 = dot_product(&*gradient, direction);
         let hz = HagerZhangLineSearch { phi0, dphi0 };
 
