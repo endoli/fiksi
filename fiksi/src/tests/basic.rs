@@ -1,3 +1,6 @@
+// Copyright 2025 the Fiksi Authors
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 use crate::{System, constraints, elements, utils::sum_squares};
 
 /// A "good enough" sum of squared residuals that is considered to have solved the system.
