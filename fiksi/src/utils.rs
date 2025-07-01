@@ -3,12 +3,7 @@
 
 //! Utility functions.
 
-use crate::{
-    Edge,
-    constraints::{
-        LineCircleTangency_, PointLineIncidence_, PointPointDistance_, PointPointPointAngle_,
-    },
-};
+use crate::Edge;
 
 /// Compute residuals and Jacobian for all constraints.
 ///
@@ -27,18 +22,9 @@ pub(crate) fn calculate_residuals_and_jacobian(
     let num_free_variables = free_variable_map.len();
 
     for (constraint_idx, &constraint) in constraints.iter().enumerate() {
-        match *constraint {
-            Edge::PointPointDistance {
-                point1_idx,
-                point2_idx,
-                distance,
-            } => {
-                PointPointDistance_ {
-                    point1_idx,
-                    point2_idx,
-                    distance,
-                }
-                .compute_residual_and_partial_derivatives(
+        match constraint {
+            Edge::PointPointDistance(constraint) => {
+                constraint.compute_residual_and_partial_derivatives(
                     free_variable_map,
                     variables,
                     &mut residuals[constraint_idx],
@@ -46,19 +32,8 @@ pub(crate) fn calculate_residuals_and_jacobian(
                         ..(constraint_idx + 1) * num_free_variables],
                 );
             }
-            Edge::PointPointPointAngle {
-                point1_idx,
-                point2_idx,
-                point3_idx,
-                angle,
-            } => {
-                PointPointPointAngle_ {
-                    point1_idx,
-                    point2_idx,
-                    point3_idx,
-                    angle,
-                }
-                .compute_residual_and_partial_derivatives(
+            Edge::PointPointPointAngle(constraint) => {
+                constraint.compute_residual_and_partial_derivatives(
                     free_variable_map,
                     variables,
                     &mut residuals[constraint_idx],
@@ -66,17 +41,8 @@ pub(crate) fn calculate_residuals_and_jacobian(
                         ..(constraint_idx + 1) * num_free_variables],
                 );
             }
-            Edge::PointLineIncidence {
-                point_idx,
-                line_point1_idx,
-                line_point2_idx,
-            } => {
-                PointLineIncidence_ {
-                    point_idx,
-                    line_point1_idx,
-                    line_point2_idx,
-                }
-                .compute_residual_and_partial_derivatives(
+            Edge::PointLineIncidence(constraint) => {
+                constraint.compute_residual_and_partial_derivatives(
                     free_variable_map,
                     variables,
                     &mut residuals[constraint_idx],
@@ -84,19 +50,8 @@ pub(crate) fn calculate_residuals_and_jacobian(
                         ..(constraint_idx + 1) * num_free_variables],
                 );
             }
-            Edge::LineCircleTangency {
-                line_point1_idx,
-                line_point2_idx,
-                circle_center_idx,
-                circle_radius_idx,
-            } => {
-                LineCircleTangency_ {
-                    line_point1_idx,
-                    line_point2_idx,
-                    circle_center_idx,
-                    circle_radius_idx,
-                }
-                .compute_residual_and_partial_derivatives(
+            Edge::LineCircleTangency(constraint) => {
+                constraint.compute_residual_and_partial_derivatives(
                     free_variable_map,
                     variables,
                     &mut residuals[constraint_idx],

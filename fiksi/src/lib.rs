@@ -82,6 +82,11 @@ pub use constraints::{Constraint, constraint::ConstraintHandle};
 use elements::element::ElementId;
 pub use elements::{Element, element::ElementHandle};
 
+use crate::constraints::{
+    LineCircleTangency_, LineLineAngle_, PointLineIncidence_, PointPointDistance_,
+    PointPointPointAngle_,
+};
+
 /// Vertices are the geometric elements of the constraint system.
 ///
 /// The indices point into the start of the vertex's variables in [`System::variables`].
@@ -93,35 +98,11 @@ pub(crate) enum Vertex {
 
 /// Edges are the constraints between geometric elements (i.e., edges between the vertices).
 pub(crate) enum Edge {
-    PointPointDistance {
-        point1_idx: u32,
-        point2_idx: u32,
-        distance: f64,
-    },
-    PointPointPointAngle {
-        point1_idx: u32,
-        point2_idx: u32,
-        point3_idx: u32,
-        angle: f64,
-    },
-    PointLineIncidence {
-        point_idx: u32,
-        line_point1_idx: u32,
-        line_point2_idx: u32,
-    },
-    LineLineAngle {
-        point1_idx: u32,
-        point2_idx: u32,
-        point3_idx: u32,
-        point4_idx: u32,
-        angle: f64,
-    },
-    LineCircleTangency {
-        line_point1_idx: u32,
-        line_point2_idx: u32,
-        circle_center_idx: u32,
-        circle_radius_idx: u32,
-    },
+    PointPointDistance(PointPointDistance_),
+    PointPointPointAngle(PointPointPointAngle_),
+    PointLineIncidence(PointLineIncidence_),
+    LineLineAngle(LineLineAngle_),
+    LineCircleTangency(LineCircleTangency_),
 }
 
 /// A handle to an element set.
