@@ -139,7 +139,7 @@ impl SolvingOptions {
     ///
     /// ```rust
     /// assert_eq!(fiksi::SolvingOptions::DEFAULT, fiksi::SolvingOptions {
-    ///         optimizer: fiksi::solve::Optimizer::LevenbergMarquardt,
+    ///     optimizer: fiksi::solve::Optimizer::LevenbergMarquardt,
     /// });
     /// ```
     pub const DEFAULT: Self = Self {
