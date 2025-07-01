@@ -51,6 +51,7 @@ fn overconstrained_triangle_line_incidence() {
     let p3 = s.add_element(&[&element_set], elements::Point { x: 2., y: 1. });
     let p4 = s.add_element(&[&element_set], elements::Point { x: 3., y: 1.5 });
     let line1 = s.add_element(&[&element_set], elements::Line::new(&p3, &p4));
+    // Overconstrain the triangle angles to something that's geometrically impossible.
     let angle1 = s.add_constraint(
         &[&constraint_set],
         constraints::PointPointPointAngle::new(&p1, &p2, &p3, 40_f64.to_radians()),
