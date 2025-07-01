@@ -88,8 +88,8 @@ pub(crate) fn lbfgs(
         &mut jacobian,
     );
 
-    let mut prev_residual_sum = sum_squared_residuals(&residuals);
-    if prev_residual_sum < 1e-4 {
+    let mut prev_sum_squared_residuals = sum_squares(&residuals);
+    if prev_sum_squared_residuals < 1e-4 {
         return;
     }
 
@@ -190,7 +190,11 @@ pub(crate) fn lbfgs(
         variables_scratch.copy_from_slice(variables);
         // When the line search returns with `step_size`, the buffers `jacobian`, `residuals`, and
         // `gradient`, are filled with the values at `f(x + step_size * direction)`.
-        let step_size_ = hager_zhang::line_search(
+        let hager_zhang::Param {
+            p: step_size,
+            phi: sum_squared_residuals,
+            ..
+        } = hager_zhang::line_search(
             &constraints,
             &free_variables,
             &free_variable_map,
@@ -198,10 +202,10 @@ pub(crate) fn lbfgs(
             &mut variables_scratch,
             &mut jacobian,
             &mut residuals,
+            prev_sum_squared_residuals,
             &mut gradient,
             &direction,
         );
-        let step_size = step_size_.p;
 
         // Update variables.
         variables.copy_from_slice(&variables_scratch);
@@ -218,14 +222,13 @@ pub(crate) fn lbfgs(
         let rho_k = 1.0 / s_dot_y;
         rho_history[history_idx] = rho_k;
 
-        let residual_sum = sum_squared_residuals(&residuals);
-        if (prev_residual_sum - residual_sum).abs() < CONVERGENCE_THRESHOLD {
+        if (prev_sum_squared_residuals - sum_squared_residuals).abs() < CONVERGENCE_THRESHOLD {
             break;
         }
-        if residual_sum < RESIDUAL_THRESHOLD {
+        if sum_squared_residuals < RESIDUAL_THRESHOLD {
             break;
         }
-        prev_residual_sum = residual_sum;
+        prev_sum_squared_residuals = sum_squared_residuals;
     }
 }
 
@@ -247,8 +250,8 @@ fn compute_gradient(jacobian: &[f64], residuals: &[f64], gradient: &mut [f64]) {
 }
 
 #[inline]
-fn sum_squared_residuals(residuals: &[f64]) -> f64 {
-    residuals.iter().map(|r| r * r).sum()
+fn sum_squares(values: &[f64]) -> f64 {
+    values.iter().map(|v| v * v).sum()
 }
 
 /// Calculate dot product of two vectors
@@ -260,7 +263,7 @@ fn dot_product(a: &[f64], b: &[f64]) -> f64 {
 mod hager_zhang {
     use crate::{Edge, utils::calculate_residuals_and_jacobian};
 
-    use super::{compute_gradient, dot_product, sum_squared_residuals};
+    use super::{compute_gradient, dot_product, sum_squares};
 
     /// Parameter for the first Wolfe condition, aka Armijo or sufficient descent, sometimes called `c1`.
     const DELTA: f64 = 1e-4;
@@ -324,7 +327,7 @@ mod hager_zhang {
                 self.jacobian,
             );
             compute_gradient(self.jacobian, self.residuals, self.gradient);
-            let phi = sum_squared_residuals(self.residuals);
+            let phi = sum_squares(self.residuals);
             let dphi = dot_product(self.gradient, self.direction);
 
             Param { p, phi, dphi }
@@ -501,7 +504,7 @@ mod hager_zhang {
     /// `x <- x + alpha * direction`, with `alpha` such that the [Wolfe] conditions are satisfied.
     ///
     /// When this search returns with the found step size, the buffers `jacobian`, `residuals`, and
-    /// `gradient`, are filled with the values at `f(x + step_size * direction)`.
+    /// `gradient`, are filled with the values at `f(x + alpha * direction)`.
     ///
     /// See the main paper:
     /// Hager, William W., and Hongchao Zhang. "A new conjugate gradient method with guaranteed
@@ -521,10 +524,11 @@ mod hager_zhang {
         variables_scratch: &mut [f64],
         jacobian: &mut [f64],
         residuals: &mut [f64],
+        sum_squared_residuals: f64,
         gradient: &mut [f64],
         direction: &[f64],
     ) -> Param {
-        let phi0 = sum_squared_residuals(&*residuals);
+        let phi0 = sum_squared_residuals;
         let dphi0 = dot_product(&*gradient, direction);
         let hz = HagerZhangLineSearch { phi0, dphi0 };
 
