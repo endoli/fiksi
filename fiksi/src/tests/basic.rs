@@ -17,11 +17,11 @@ fn triangle() {
     let p3 = s.add_element(&[&element_set], elements::Point { x: 2., y: 1. });
     let angle1 = s.add_constraint(
         &[&constraint_set],
-        constraints::PointPointPointAngle::new(&p1, &p2, &p3, 40f64.to_radians()),
+        constraints::PointPointPointAngle::new(&p1, &p2, &p3, 40_f64.to_radians()),
     );
     let angle2 = s.add_constraint(
         &[&constraint_set],
-        constraints::PointPointPointAngle::new(&p2, &p3, &p1, 80f64.to_radians()),
+        constraints::PointPointPointAngle::new(&p2, &p3, &p1, 80_f64.to_radians()),
     );
     s.solve(
         &element_set,
@@ -53,15 +53,15 @@ fn overconstrained_triangle_line_incidence() {
     let line1 = s.add_element(&[&element_set], elements::Line::new(&p3, &p4));
     let angle1 = s.add_constraint(
         &[&constraint_set],
-        constraints::PointPointPointAngle::new(&p1, &p2, &p3, 40f64.to_radians()),
+        constraints::PointPointPointAngle::new(&p1, &p2, &p3, 40_f64.to_radians()),
     );
     let angle2 = s.add_constraint(
         &[&constraint_set],
-        constraints::PointPointPointAngle::new(&p2, &p3, &p1, 80f64.to_radians()),
+        constraints::PointPointPointAngle::new(&p2, &p3, &p1, 80_f64.to_radians()),
     );
     let angle3 = s.add_constraint(
         &[&constraint_set],
-        constraints::PointPointPointAngle::new(&p3, &p1, &p2, 100f64.to_radians()),
+        constraints::PointPointPointAngle::new(&p3, &p1, &p2, 100_f64.to_radians()),
     );
     let incidence = s.add_constraint(
         &[&constraint_set],
