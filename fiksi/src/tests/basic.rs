@@ -10,7 +10,7 @@ const RESIDUAL_THRESHOLD: f64 = 1e-5;
 
 /// Tests whether an under-constrained triangle configuration gets solved.
 #[test]
-fn triangle() {
+fn underconstrained_triangle() {
     let mut s = System::new();
     let element_set = s.add_element_set();
     let constraint_set = s.add_constraint_set();
