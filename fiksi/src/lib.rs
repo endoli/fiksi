@@ -77,6 +77,9 @@ pub mod elements;
 pub mod solve;
 pub(crate) mod utils;
 
+#[cfg(test)]
+mod tests;
+
 pub(crate) use constraints::constraint::ConstraintId;
 pub use constraints::{Constraint, constraint::ConstraintHandle};
 use elements::element::ElementId;
@@ -336,12 +339,4 @@ impl Default for System {
     fn default() -> Self {
         Self::new()
     }
-}
-
-#[cfg(test)]
-mod tests {
-    // CI will fail unless cargo nextest can execute at least one test per workspace.
-    // Delete this dummy test once we have an actual real test.
-    #[test]
-    fn dummy_test_until_we_have_a_real_test() {}
 }
