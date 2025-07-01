@@ -78,11 +78,11 @@ impl sealed::ConstraintInner for PointPointDistance {
         let &Vertex::Point { idx: point2_idx } = &vertices[self.point2.id as usize] else {
             unreachable!()
         };
-        Edge::PointPointDistance {
+        Edge::PointPointDistance(PointPointDistance_ {
             point1_idx,
             point2_idx,
             distance: self.distance,
-        }
+        })
     }
 }
 
@@ -179,12 +179,12 @@ impl sealed::ConstraintInner for PointPointPointAngle {
         let &Vertex::Point { idx: point3_idx } = &vertices[self.point3.id as usize] else {
             unreachable!()
         };
-        Edge::PointPointPointAngle {
+        Edge::PointPointPointAngle(PointPointPointAngle_ {
             point1_idx,
             point2_idx,
             point3_idx,
             angle: self.angle,
-        }
+        })
     }
 }
 
@@ -398,11 +398,11 @@ impl sealed::ConstraintInner for PointLineIncidence {
         else {
             unreachable!()
         };
-        Edge::PointLineIncidence {
+        Edge::PointLineIncidence(PointLineIncidence_ {
             point_idx,
             line_point1_idx,
             line_point2_idx,
-        }
+        })
     }
 }
 
@@ -433,13 +433,13 @@ impl sealed::ConstraintInner for LineLineAngle<'_> {
         else {
             unreachable!()
         };
-        Edge::LineLineAngle {
+        Edge::LineLineAngle(LineLineAngle_ {
             point1_idx,
             point2_idx,
             point3_idx,
             point4_idx,
             angle: self.angle,
-        }
+        })
     }
 }
 
@@ -480,12 +480,12 @@ impl sealed::ConstraintInner for LineCircleTangency {
         else {
             unreachable!()
         };
-        Edge::LineCircleTangency {
+        Edge::LineCircleTangency(LineCircleTangency_ {
             line_point1_idx,
             line_point2_idx,
             circle_center_idx,
             circle_radius_idx,
-        }
+        })
     }
 }
 
