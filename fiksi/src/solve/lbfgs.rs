@@ -6,7 +6,7 @@ use core::f64;
 use alloc::{vec, vec::Vec};
 
 use crate::{
-    ConstraintId, Edge, ElementId, Vertex,
+    Edge, SolveSet, Vertex,
     utils::{calculate_residuals_and_jacobian, sum_squares},
 };
 
@@ -22,9 +22,8 @@ use crate::{
 /// optimization." Mathematical programming 45.1 (1989): 503-528.
 pub(crate) fn lbfgs(
     variables: &mut [f64],
-    // TODO: actually use `element_set`
-    _element_set: &[ElementId],
-    constraint_set: &[ConstraintId],
+    // TODO: actually use variables given by `solve_set`
+    solve_set: Option<&SolveSet>,
     element_vertices: &[Vertex],
     constraint_edges: &[Edge],
 ) {
@@ -71,10 +70,14 @@ pub(crate) fn lbfgs(
         );
     }
 
-    let constraints: Vec<&Edge> = constraint_set
-        .iter()
-        .map(|id| &constraint_edges[id.id as usize])
-        .collect();
+    let constraints: Vec<&Edge> = match solve_set {
+        Some(solve_set) => solve_set
+            .constraints
+            .iter()
+            .map(|id| &constraint_edges[id.id as usize])
+            .collect(),
+        None => constraint_edges.iter().collect(),
+    };
 
     // The (non-squared) residuals of the constraints.
     let mut residuals = vec![0.; constraints.len()];

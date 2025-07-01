@@ -33,9 +33,9 @@ pub(crate) mod constraint {
     /// A handle to a constraint within a [`System`](crate::System).
     pub struct ConstraintHandle<T> {
         /// The ID of the system the constraint belongs to.
-        system_id: u32,
+        pub(crate) system_id: u32,
         /// The ID of the constraint within the system.
-        id: u32,
+        pub(crate) id: u32,
         _t: PhantomData<T>,
     }
 
