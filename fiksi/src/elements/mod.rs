@@ -58,6 +58,13 @@ pub struct Point {
     pub y: f64,
 }
 
+impl Point {
+    /// Construct a new `Point` at the given coordinate.
+    pub fn new(x: f64, y: f64) -> Self {
+        Self { x, y }
+    }
+}
+
 impl sealed::ElementInner for Point {
     type Output = kurbo::Point;
 
@@ -89,6 +96,13 @@ pub struct Line<'el> {
     pub point1: &'el ElementHandle<Point>,
     /// Second point of the line.
     pub point2: &'el ElementHandle<Point>,
+}
+
+impl<'el> Line<'el> {
+    /// Construct a new `Line` with the given points.
+    pub fn new(point1: &'el ElementHandle<Point>, point2: &'el ElementHandle<Point>) -> Self {
+        Self { point1, point2 }
+    }
 }
 
 impl sealed::ElementInner for Line<'_> {
@@ -136,6 +150,13 @@ pub struct Circle<'el> {
 
     /// The radius of the circle.
     pub radius: f64,
+}
+
+impl<'el> Circle<'el> {
+    /// Construct a new `Circle` with the given point and radius.
+    pub fn new(center: &'el ElementHandle<Point>, radius: f64) -> Self {
+        Self { center, radius }
+    }
 }
 
 impl sealed::ElementInner for Circle<'_> {

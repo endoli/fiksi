@@ -5,7 +5,10 @@ use core::f64;
 
 use alloc::{vec, vec::Vec};
 
-use crate::{ConstraintId, Edge, ElementId, Vertex, utils::calculate_residuals_and_jacobian};
+use crate::{
+    ConstraintId, Edge, ElementId, Vertex,
+    utils::{calculate_residuals_and_jacobian, sum_squares},
+};
 
 /// The limited-memory BFGS solver by Liu and Nocedal (1989), approximating the
 /// Broyden–Fletcher–Goldfarb–Shanno method.
@@ -249,11 +252,6 @@ fn compute_gradient(jacobian: &[f64], residuals: &[f64], gradient: &mut [f64]) {
     }
 }
 
-#[inline]
-fn sum_squares(values: &[f64]) -> f64 {
-    values.iter().map(|v| v * v).sum()
-}
-
 /// Calculate dot product of two vectors
 #[inline]
 fn dot_product(a: &[f64], b: &[f64]) -> f64 {
@@ -261,9 +259,12 @@ fn dot_product(a: &[f64], b: &[f64]) -> f64 {
 }
 
 mod hager_zhang {
-    use crate::{Edge, utils::calculate_residuals_and_jacobian};
+    use crate::{
+        Edge,
+        utils::{calculate_residuals_and_jacobian, sum_squares},
+    };
 
-    use super::{compute_gradient, dot_product, sum_squares};
+    use super::{compute_gradient, dot_product};
 
     /// Parameter for the first Wolfe condition, aka Armijo or sufficient descent, sometimes called `c1`.
     const DELTA: f64 = 1e-4;

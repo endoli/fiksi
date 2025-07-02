@@ -65,3 +65,8 @@ pub(crate) fn calculate_residuals_and_jacobian(
         }
     }
 }
+
+#[inline]
+pub(crate) fn sum_squares(values: &[f64]) -> f64 {
+    values.iter().map(|v| v * v).sum()
+}

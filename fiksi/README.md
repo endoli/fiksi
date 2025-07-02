@@ -44,9 +44,9 @@ let constraint_set = gcs.add_constraint_set();
 // - one corner has an angle of 10 degrees;
 // - one corner has an angle of 60 degrees; and
 // - the side between those corners is of length 5.
-let p1 = gcs.add_element(&[&element_set], fiksi::elements::Point { x: 1., y: 0. });
-let p2 = gcs.add_element(&[&element_set], fiksi::elements::Point { x: 0.8, y: 1. });
-let p3 = gcs.add_element(&[&element_set], fiksi::elements::Point { x: 1.1, y: 2. });
+let p1 = gcs.add_element(&[&element_set], fiksi::elements::Point::new(1., 0.));
+let p2 = gcs.add_element(&[&element_set], fiksi::elements::Point::new(0.8, 1.));
+let p3 = gcs.add_element(&[&element_set], fiksi::elements::Point::new(1.1, 2.));
 
 gcs.add_constraint(
     &[&constraint_set],

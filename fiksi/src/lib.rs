@@ -22,9 +22,9 @@
 //! // - one corner has an angle of 10 degrees;
 //! // - one corner has an angle of 60 degrees; and
 //! // - the side between those corners is of length 5.
-//! let p1 = gcs.add_element(&[&element_set], fiksi::elements::Point { x: 1., y: 0. });
-//! let p2 = gcs.add_element(&[&element_set], fiksi::elements::Point { x: 0.8, y: 1. });
-//! let p3 = gcs.add_element(&[&element_set], fiksi::elements::Point { x: 1.1, y: 2. });
+//! let p1 = gcs.add_element(&[&element_set], fiksi::elements::Point::new(1., 0.));
+//! let p2 = gcs.add_element(&[&element_set], fiksi::elements::Point::new(0.8, 1.));
+//! let p3 = gcs.add_element(&[&element_set], fiksi::elements::Point::new(1.1, 2.));
 //!
 //! gcs.add_constraint(
 //!     &[&constraint_set],
@@ -76,6 +76,9 @@ pub mod constraints;
 pub mod elements;
 pub mod solve;
 pub(crate) mod utils;
+
+#[cfg(test)]
+mod tests;
 
 pub(crate) use constraints::constraint::ConstraintId;
 pub use constraints::{Constraint, constraint::ConstraintHandle};
@@ -336,12 +339,4 @@ impl Default for System {
     fn default() -> Self {
         Self::new()
     }
-}
-
-#[cfg(test)]
-mod tests {
-    // CI will fail unless cargo nextest can execute at least one test per workspace.
-    // Delete this dummy test once we have an actual real test.
-    #[test]
-    fn dummy_test_until_we_have_a_real_test() {}
 }
