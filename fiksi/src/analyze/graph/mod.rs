@@ -119,12 +119,24 @@ pub(crate) fn decompose<const D: i16>(
             // TODO: For now just push the entire subgraph (though that's not very efficient).
             // Perhaps this should figure out which constraints to solve in which order, and which
             // elements get fixed by that.
+            let constraints = available_edges
+                .iter()
+                .copied()
+                .filter(|edge| {
+                    edge.id < num_real_constraints && !constraints_handled.contains(edge)
+                })
+                .collect();
+            let fixes_elements = vertices
+                .iter()
+                .copied()
+                .filter(|vertex| {
+                    vertex.id < num_real_elements && !vertices_handled.contains(vertex)
+                })
+                .collect();
+
             recombination_plan.steps.push(RecombinationStep {
-                constraints: available_edges
-                    .difference(&constraints_handled)
-                    .copied()
-                    .collect(),
-                fixes_elements: vertices.difference(&vertices_handled).copied().collect(),
+                constraints,
+                fixes_elements,
             });
 
             break;
