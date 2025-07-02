@@ -257,6 +257,20 @@ impl System {
         .into()
     }
 
+    /// Calculate the residual of a constraint.
+    pub fn calculate_constraint_residual<T>(&self, constraint: &ConstraintHandle<T>) -> f64 {
+        let edge = &self.constraint_edges[constraint.drop_system_id().id as usize];
+        let residual = &mut [0.];
+        utils::calculate_residuals_and_jacobian(
+            &[edge],
+            &alloc::collections::BTreeMap::new(),
+            &self.variables,
+            residual,
+            &mut [],
+        );
+        residual[0]
+    }
+
     /// Add a constraint.
     ///
     /// Give the constraint sets the constraint belongs to in `sets`.
