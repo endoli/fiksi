@@ -446,6 +446,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "fiksi_svg"
+version = "0.1.0"
+dependencies = [
+ "color",
+ "fiksi",
+]
+
+[[package]]
+name = "fiksi_svg_tests"
+version = "0.1.0"
+dependencies = [
+ "fiksi",
+ "fiksi_svg",
+]
+
+[[package]]
 name = "fiksi_toy"
 version = "0.1.0"
 dependencies = [
