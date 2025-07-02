@@ -9,7 +9,6 @@ pub(crate) mod element {
     use core::marker::PhantomData;
 
     /// A handle to an element within a [`System`](crate::System).
-    #[derive(Debug)]
     pub struct ElementHandle<T> {
         /// The ID of the system the element belongs to.
         pub(crate) system_id: u32,
@@ -29,6 +28,43 @@ pub(crate) mod element {
 
         pub(crate) fn drop_system_id(&self) -> ElementId {
             ElementId { id: self.id }
+        }
+    }
+
+    impl<T> core::fmt::Debug for ElementHandle<T> {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            let mut s = f.debug_struct("ElementHandle");
+            s.field("system_id", &self.system_id);
+            s.field("id", &self.id);
+            s.finish()
+        }
+    }
+
+    impl<T> Clone for ElementHandle<T> {
+        fn clone(&self) -> Self {
+            Self {
+                _t: PhantomData::default(),
+                ..*self
+            }
+        }
+    }
+    impl<T> Copy for ElementHandle<T> {}
+
+    impl<T> PartialEq for ElementHandle<T> {
+        fn eq(&self, other: &Self) -> bool {
+            self.system_id == other.system_id && self.id == other.id
+        }
+    }
+    impl<T> Eq for ElementHandle<T> {}
+
+    impl<T> Ord for ElementHandle<T> {
+        fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+            (self.system_id, self.id).cmp(&(other.system_id, other.id))
+        }
+    }
+    impl<T> PartialOrd for ElementHandle<T> {
+        fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+            Some(self.cmp(other))
         }
     }
 
@@ -91,21 +127,21 @@ impl sealed::ElementInner for Point {
 
 /// A line defined by two endpoints.
 #[derive(Debug)]
-pub struct Line<'el> {
+pub struct Line {
     /// First point of the line.
-    pub point1: &'el ElementHandle<Point>,
+    pub point1: ElementHandle<Point>,
     /// Second point of the line.
-    pub point2: &'el ElementHandle<Point>,
+    pub point2: ElementHandle<Point>,
 }
 
-impl<'el> Line<'el> {
+impl Line {
     /// Construct a new `Line` with the given points.
-    pub fn new(point1: &'el ElementHandle<Point>, point2: &'el ElementHandle<Point>) -> Self {
+    pub fn new(point1: ElementHandle<Point>, point2: ElementHandle<Point>) -> Self {
         Self { point1, point2 }
     }
 }
 
-impl sealed::ElementInner for Line<'_> {
+impl sealed::ElementInner for Line {
     type Output = kurbo::Line;
 
     fn add_into(&self, element_vertices: &mut Vec<Vertex>, _variables: &mut Vec<f64>) {
@@ -144,22 +180,22 @@ impl sealed::ElementInner for Line<'_> {
 
 /// A circle defined by a centerpoint and a radius.
 #[derive(Debug)]
-pub struct Circle<'el> {
+pub struct Circle {
     /// The center of the circle.
-    pub center: &'el ElementHandle<Point>,
+    pub center: ElementHandle<Point>,
 
     /// The radius of the circle.
     pub radius: f64,
 }
 
-impl<'el> Circle<'el> {
+impl Circle {
     /// Construct a new `Circle` with the given point and radius.
-    pub fn new(center: &'el ElementHandle<Point>, radius: f64) -> Self {
+    pub fn new(center: ElementHandle<Point>, radius: f64) -> Self {
         Self { center, radius }
     }
 }
 
-impl sealed::ElementInner for Circle<'_> {
+impl sealed::ElementInner for Circle {
     type Output = kurbo::Circle;
 
     fn add_into(&self, element_vertices: &mut Vec<Vertex>, variables: &mut Vec<f64>) {
@@ -220,9 +256,9 @@ pub trait Element: sealed::ElementInner {
 impl Element for Point {
     type Output = kurbo::Point;
 }
-impl Element for Line<'_> {
+impl Element for Line {
     type Output = kurbo::Line;
 }
-impl Element for Circle<'_> {
+impl Element for Circle {
     type Output = kurbo::Circle;
 }
