@@ -442,17 +442,20 @@ impl System {
             let (elements, constraints) = if let Some(solve_set) = solve_set {
                 let solve_set = &self.solve_sets[solve_set.id as usize];
                 let elements = connected_component
+                    .elements
                     .intersection(&solve_set.elements)
                     .copied()
                     .collect();
-                let constraints = solve_set.constraints.clone();
+                let constraints = connected_component
+                    .constraints
+                    .intersection(&solve_set.constraints)
+                    .copied()
+                    .collect();
                 (elements, constraints)
             } else {
                 (
-                    connected_component.clone(),
-                    (0..self.constraint_edges.len().try_into().unwrap())
-                        .map(|id| ConstraintId { id })
-                        .collect(),
+                    connected_component.elements.clone(),
+                    connected_component.constraints.clone(),
                 )
             };
 
