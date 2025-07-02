@@ -1,0 +1,20 @@
+[package]
+name = "fiksi_svg"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+fiksi = { workspace = true, features = ["std"] }
+
+color = "0.3.1"
+
+[features]
+default = ["std"]
+std = ["fiksi/std"]
+
+[lints]
+workspace = true
