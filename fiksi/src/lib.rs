@@ -77,9 +77,12 @@ pub use constraints::{Constraint, constraint::ConstraintHandle};
 use elements::element::ElementId;
 pub use elements::{Element, element::ElementHandle};
 
-use crate::constraints::{
-    LineCircleTangency, LineLineAngle, LineLineParallelism, PointLineIncidence, PointPointDistance,
-    PointPointPointAngle,
+use crate::{
+    constraints::{
+        LineCircleTangency, LineLineAngle, LineLineParallelism, PointLineIncidence,
+        PointPointDistance, PointPointPointAngle,
+    },
+    elements::sealed::ElementInner,
 };
 
 /// Vertices are the geometric elements of the constraint system.
@@ -109,6 +112,31 @@ pub struct SolveSetHandle {
     system_id: u32,
     /// The ID of the element set within the system.
     id: u32,
+}
+
+/// An element value (and handle).
+pub enum ElementValue {
+    /// An [`elements::Point`] value.
+    Point {
+        /// The handle to the element in the system.
+        handle: ElementHandle<elements::Point>,
+        /// The value of the element in the system.
+        value: kurbo::Point,
+    },
+    /// An [`elements::Line`] value.
+    Line {
+        /// The handle to the element in the system.
+        handle: ElementHandle<elements::Line>,
+        /// The value of the element in the system.
+        value: kurbo::Line,
+    },
+    /// An [`elements::Circle`] value.
+    Circle {
+        /// The handle to the element in the system.
+        handle: ElementHandle<elements::Circle>,
+        /// The value of the element in the system.
+        value: kurbo::Circle,
+    },
 }
 
 /// Options used by [`System::solve`].
@@ -233,6 +261,36 @@ impl System {
             &self.variables,
         )
         .into()
+    }
+
+    /// Get the values of all the elements in the system.
+    pub fn get_elements(&self) -> impl Iterator<Item = ElementValue> {
+        self.element_vertices
+            .iter()
+            .enumerate()
+            .map(|(id, vertex)| match vertex {
+                Vertex::Point { .. } => ElementValue::Point {
+                    handle: ElementHandle::from_ids(
+                        self.id,
+                        id.try_into().expect("less than 2^32 elements"),
+                    ),
+                    value: elements::Point::from_vertex(vertex, &self.variables),
+                },
+                Vertex::Line { .. } => ElementValue::Line {
+                    handle: ElementHandle::from_ids(
+                        self.id,
+                        id.try_into().expect("less than 2^32 elements"),
+                    ),
+                    value: elements::Line::from_vertex(vertex, &self.variables),
+                },
+                Vertex::Circle { .. } => ElementValue::Circle {
+                    handle: ElementHandle::from_ids(
+                        self.id,
+                        id.try_into().expect("less than 2^32 elements"),
+                    ),
+                    value: elements::Circle::from_vertex(vertex, &self.variables),
+                },
+            })
     }
 
     /// Calculate the residual of a constraint.
