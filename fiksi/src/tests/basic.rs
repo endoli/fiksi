@@ -20,11 +20,11 @@ fn underconstrained_triangle() {
     let p3 = s.add_element(&[&element_set], elements::Point { x: 2., y: 1. });
     let angle1 = s.add_constraint(
         &[&constraint_set],
-        constraints::PointPointPointAngle::new(&p1, &p2, &p3, 40_f64.to_radians()),
+        constraints::PointPointPointAngle::new(p1, p2, p3, 40_f64.to_radians()),
     );
     let angle2 = s.add_constraint(
         &[&constraint_set],
-        constraints::PointPointPointAngle::new(&p2, &p3, &p1, 80_f64.to_radians()),
+        constraints::PointPointPointAngle::new(p2, p3, p1, 80_f64.to_radians()),
     );
     s.solve(
         &element_set,
@@ -33,8 +33,8 @@ fn underconstrained_triangle() {
     );
 
     let sum_squared_residuals = sum_squares(&[
-        s.calculate_constraint_residual(&angle1),
-        s.calculate_constraint_residual(&angle2),
+        s.calculate_constraint_residual(angle1),
+        s.calculate_constraint_residual(angle2),
     ]);
     assert!(
         sum_squared_residuals < RESIDUAL_THRESHOLD,
@@ -53,23 +53,23 @@ fn overconstrained_triangle_line_incidence() {
     let p2 = s.add_element(&[&element_set], elements::Point { x: 1., y: 0.5 });
     let p3 = s.add_element(&[&element_set], elements::Point { x: 2., y: 1. });
     let p4 = s.add_element(&[&element_set], elements::Point { x: 3., y: 1.5 });
-    let line1 = s.add_element(&[&element_set], elements::Line::new(&p3, &p4));
+    let line1 = s.add_element(&[&element_set], elements::Line::new(p3, p4));
     // Overconstrain the triangle angles to something that's geometrically impossible.
     let angle1 = s.add_constraint(
         &[&constraint_set],
-        constraints::PointPointPointAngle::new(&p1, &p2, &p3, 40_f64.to_radians()),
+        constraints::PointPointPointAngle::new(p1, p2, p3, 40_f64.to_radians()),
     );
     let angle2 = s.add_constraint(
         &[&constraint_set],
-        constraints::PointPointPointAngle::new(&p2, &p3, &p1, 80_f64.to_radians()),
+        constraints::PointPointPointAngle::new(p2, p3, p1, 80_f64.to_radians()),
     );
     let angle3 = s.add_constraint(
         &[&constraint_set],
-        constraints::PointPointPointAngle::new(&p3, &p1, &p2, 100_f64.to_radians()),
+        constraints::PointPointPointAngle::new(p3, p1, p2, 100_f64.to_radians()),
     );
     let incidence = s.add_constraint(
         &[&constraint_set],
-        constraints::PointLineIncidence::new(&p2, &line1),
+        constraints::PointLineIncidence::new(p2, line1),
     );
     s.solve(
         &element_set,
@@ -78,16 +78,16 @@ fn overconstrained_triangle_line_incidence() {
     );
 
     let sum_squared_residuals = sum_squares(&[
-        s.calculate_constraint_residual(&angle1),
-        s.calculate_constraint_residual(&angle2),
-        s.calculate_constraint_residual(&angle3),
+        s.calculate_constraint_residual(angle1),
+        s.calculate_constraint_residual(angle2),
+        s.calculate_constraint_residual(angle3),
     ]);
     assert!(
         sum_squared_residuals >= RESIDUAL_THRESHOLD,
         "The angle constraints were unexpectedly solved (this shouldn't be possible geometrically)"
     );
 
-    let squared_incidence_residual = sum_squares(&[s.calculate_constraint_residual(&incidence)]);
+    let squared_incidence_residual = sum_squares(&[s.calculate_constraint_residual(incidence)]);
     assert!(
         squared_incidence_residual < RESIDUAL_THRESHOLD,
         "The point-line incidence was not solved (sum of squared residuals: {sum_squared_residuals})"

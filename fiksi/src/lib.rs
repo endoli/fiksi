@@ -28,15 +28,15 @@
 //!
 //! gcs.add_constraint(
 //!     &[&constraint_set],
-//!     fiksi::constraints::PointPointDistance::new(&p2, &p3, 5.),
+//!     fiksi::constraints::PointPointDistance::new(p2, p3, 5.),
 //! );
 //! gcs.add_constraint(
 //!     &[&constraint_set],
-//!     fiksi::constraints::PointPointPointAngle::new(&p1, &p2, &p3, 10f64.to_radians()),
+//!     fiksi::constraints::PointPointPointAngle::new(p1, p2, p3, 10f64.to_radians()),
 //! );
 //! gcs.add_constraint(
 //!     &[&constraint_set],
-//!     fiksi::constraints::PointPointPointAngle::new(&p2, &p3, &p1, 60f64.to_radians()),
+//!     fiksi::constraints::PointPointPointAngle::new(p2, p3, p1, 60f64.to_radians()),
 //! );
 //! gcs.solve(&element_set, &constraint_set, fiksi::SolvingOptions::DEFAULT);
 //! ```
@@ -246,7 +246,7 @@ impl System {
     }
 
     /// Get the value of an element.
-    pub fn get_element<T: Element>(&self, element: &ElementHandle<T>) -> <T as Element>::Output {
+    pub fn get_element<T: Element>(&self, element: ElementHandle<T>) -> <T as Element>::Output {
         // TODO: return `Result` instead of panicking?
         assert_eq!(
             self.id, element.system_id,
@@ -261,7 +261,7 @@ impl System {
     }
 
     /// Calculate the residual of a constraint.
-    pub fn calculate_constraint_residual<T>(&self, constraint: &ConstraintHandle<T>) -> f64 {
+    pub fn calculate_constraint_residual<T>(&self, constraint: ConstraintHandle<T>) -> f64 {
         let edge = &self.constraint_edges[constraint.drop_system_id().id as usize];
         let residual = &mut [0.];
         utils::calculate_residuals_and_jacobian(

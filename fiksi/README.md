@@ -50,15 +50,15 @@ let p3 = gcs.add_element(&[&element_set], fiksi::elements::Point::new(1.1, 2.));
 
 gcs.add_constraint(
     &[&constraint_set],
-    fiksi::constraints::PointPointDistance::new(&p2, &p3, 5.),
+    fiksi::constraints::PointPointDistance::new(p2, p3, 5.),
 );
 gcs.add_constraint(
     &[&constraint_set],
-    fiksi::constraints::PointPointPointAngle::new(&p1, &p2, &p3, 10f64.to_radians()),
+    fiksi::constraints::PointPointPointAngle::new(p1, p2, p3, 10f64.to_radians()),
 );
 gcs.add_constraint(
     &[&constraint_set],
-    fiksi::constraints::PointPointPointAngle::new(&p2, &p3, &p1, 60f64.to_radians()),
+    fiksi::constraints::PointPointPointAngle::new(p2, p3, p1, 60f64.to_radians()),
 );
 gcs.solve(&element_set, &constraint_set, fiksi::SolvingOptions::DEFAULT);
 ```

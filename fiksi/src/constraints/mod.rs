@@ -31,7 +31,6 @@ pub(crate) mod constraint {
     use core::marker::PhantomData;
 
     /// A handle to a constraint within a [`System`](crate::System).
-    #[derive(Debug)]
     pub struct ConstraintHandle<T> {
         /// The ID of the system the constraint belongs to.
         system_id: u32,
@@ -49,8 +48,42 @@ pub(crate) mod constraint {
             }
         }
 
-        pub(crate) fn drop_system_id(&self) -> ConstraintId {
+        pub(crate) fn drop_system_id(self) -> ConstraintId {
             ConstraintId { id: self.id }
+        }
+    }
+
+    impl<T> core::fmt::Debug for ConstraintHandle<T> {
+        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+            let mut s = f.debug_struct("ConstraintHandle");
+            s.field("system_id", &self.system_id);
+            s.field("id", &self.id);
+            s.finish()
+        }
+    }
+
+    impl<T> Clone for ConstraintHandle<T> {
+        fn clone(&self) -> Self {
+            *self
+        }
+    }
+    impl<T> Copy for ConstraintHandle<T> {}
+
+    impl<T> PartialEq for ConstraintHandle<T> {
+        fn eq(&self, other: &Self) -> bool {
+            self.system_id == other.system_id && self.id == other.id
+        }
+    }
+    impl<T> Eq for ConstraintHandle<T> {}
+
+    impl<T> Ord for ConstraintHandle<T> {
+        fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+            (self.system_id, self.id).cmp(&(other.system_id, other.id))
+        }
+    }
+    impl<T> PartialOrd for ConstraintHandle<T> {
+        fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+            Some(self.cmp(other))
         }
     }
 
@@ -91,8 +124,8 @@ impl PointPointDistance {
     ///
     /// `distance` is the Euclidean distance between `point1` and `point2`.
     pub fn new(
-        point1: &ElementHandle<elements::Point>,
-        point2: &ElementHandle<elements::Point>,
+        point1: ElementHandle<elements::Point>,
+        point2: ElementHandle<elements::Point>,
         distance: f64,
     ) -> Self {
         Self {
@@ -193,9 +226,9 @@ impl PointPointPointAngle {
     ///
     /// `angle` is the angle in radians the points should describe.
     pub fn new(
-        point1: &ElementHandle<elements::Point>,
-        point2: &ElementHandle<elements::Point>,
-        point3: &ElementHandle<elements::Point>,
+        point1: ElementHandle<elements::Point>,
+        point2: ElementHandle<elements::Point>,
+        point3: ElementHandle<elements::Point>,
         angle: f64,
     ) -> Self {
         Self {
@@ -309,10 +342,7 @@ pub struct PointLineIncidence {
 impl PointLineIncidence {
     /// Construct a constraint between a point and a line such that the point lies on the
     /// (infinite) line.
-    pub fn new(
-        point: &ElementHandle<elements::Point>,
-        line: &ElementHandle<elements::Line<'_>>,
-    ) -> Self {
+    pub fn new(point: ElementHandle<elements::Point>, line: ElementHandle<elements::Line>) -> Self {
         Self {
             point: point.drop_system_id(),
             line: line.drop_system_id(),
@@ -409,15 +439,15 @@ impl sealed::ConstraintInner for PointLineIncidence {
 /// Constrain two lines to describe a given angle.
 ///
 /// TODO: actually implement this, or require using [`PointPointPointAngle`]?
-pub struct LineLineAngle<'el> {
-    line1: ElementHandle<elements::Line<'el>>,
-    line2: ElementHandle<elements::Line<'el>>,
+pub struct LineLineAngle {
+    line1: ElementHandle<elements::Line>,
+    line2: ElementHandle<elements::Line>,
 
     /// Angle in radians.
     angle: f64,
 }
 
-impl sealed::ConstraintInner for LineLineAngle<'_> {
+impl sealed::ConstraintInner for LineLineAngle {
     fn as_edge(&self, vertices: &[Vertex]) -> Edge {
         let &Vertex::Line {
             point1_idx,
@@ -493,8 +523,8 @@ impl LineCircleTangency {
     /// Construct a constraint between a line and a circle such that the line is tangent on the
     /// circle.
     pub fn new(
-        line: &ElementHandle<elements::Line<'_>>,
-        circle: &ElementHandle<elements::Circle<'_>>,
+        line: ElementHandle<elements::Line>,
+        circle: ElementHandle<elements::Circle>,
     ) -> Self {
         Self {
             line: line.drop_system_id(),
@@ -610,4 +640,4 @@ impl Constraint for PointPointDistance {}
 impl Constraint for PointPointPointAngle {}
 impl Constraint for PointLineIncidence {}
 impl Constraint for LineCircleTangency {}
-impl Constraint for LineLineAngle<'_> {}
+impl Constraint for LineLineAngle {}
