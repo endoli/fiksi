@@ -8,6 +8,16 @@ use alloc::vec::Vec;
 pub(crate) mod element {
     use core::marker::PhantomData;
 
+    /// Dynmically-tagged, typed handles to elements.
+    pub enum TaggedElementHandle {
+        /// A handle to a [`Point`](super::Point) element.
+        Point(ElementHandle<super::Point>),
+        /// A handle to a [`Line`](super::Line) element.
+        Line(ElementHandle<super::Line>),
+        /// A handle to a [`Circle`](super::Circle) element.
+        Circle(ElementHandle<super::Circle>),
+    }
+
     /// A handle to an element within a [`System`](crate::System).
     pub struct ElementHandle<T> {
         /// The ID of the system the element belongs to.
@@ -28,6 +38,39 @@ pub(crate) mod element {
 
         pub(crate) fn drop_system_id(self) -> ElementId {
             ElementId { id: self.id }
+        }
+
+        /// Get a type-erased handle to the element.
+        ///
+        /// To turn the returned handle back into a typed handle, use
+        /// [`ElementHandle<AnyElement>::as_tagged_element`](ElementHandle<super::AnyElement>::as_tagged_element).
+        pub fn as_any_element(self) -> ElementHandle<super::AnyElement> {
+            ElementHandle::from_ids(self.system_id, self.id)
+        }
+    }
+
+    impl ElementHandle<super::AnyElement> {
+        /// Get a typed handle to the element.
+        pub fn as_tagged_element(self, system: &crate::System) -> TaggedElementHandle {
+            use crate::Vertex;
+
+            // TODO: return `Result` instead of panicking?
+            assert_eq!(
+                system.id, self.system_id,
+                "Tried to use an element handle that is not part of this `System`"
+            );
+
+            match system.element_vertices[self.id as usize] {
+                Vertex::Point { .. } => {
+                    TaggedElementHandle::Point(ElementHandle::from_ids(self.system_id, self.id))
+                }
+                Vertex::Line { .. } => {
+                    TaggedElementHandle::Line(ElementHandle::from_ids(self.system_id, self.id))
+                }
+                Vertex::Circle { .. } => {
+                    TaggedElementHandle::Circle(ElementHandle::from_ids(self.system_id, self.id))
+                }
+            }
         }
     }
 
@@ -80,7 +123,7 @@ pub(crate) mod element {
 
 use element::ElementHandle;
 
-use crate::Vertex;
+use crate::{ElementValue, Vertex};
 
 /// A point given by a 2D coordinate.
 #[derive(Debug)]
@@ -241,6 +284,27 @@ pub(crate) mod sealed {
     }
 }
 
+/// A type-erased element.
+///
+/// See [`ElementHandle::as_any_element`].
+pub struct AnyElement {}
+
+impl sealed::ElementInner for AnyElement {
+    type Output = ElementValue;
+
+    fn add_into(&self, _element_vertices: &mut Vec<Vertex>, _variables: &mut Vec<f64>) {
+        // This element can't be constructed manually, it's used for type-erased element handles.
+        unreachable!()
+    }
+    fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self::Output {
+        match vertex {
+            Vertex::Point { .. } => ElementValue::Point(Point::from_vertex(vertex, variables)),
+            Vertex::Line { .. } => ElementValue::Line(Line::from_vertex(vertex, variables)),
+            Vertex::Circle { .. } => ElementValue::Circle(Circle::from_vertex(vertex, variables)),
+        }
+    }
+}
+
 /// A geometric element that can be [constrained](crate::Constraint).
 ///
 /// These can be added to a [`System`](crate::System).
@@ -258,4 +322,7 @@ impl Element for Line {
 }
 impl Element for Circle {
     type Output = kurbo::Circle;
+}
+impl Element for AnyElement {
+    type Output = ElementValue;
 }
