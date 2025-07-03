@@ -48,7 +48,7 @@ pub(crate) mod constraint {
             }
         }
 
-        pub(crate) fn drop_system_id(&self) -> ConstraintId {
+        pub(crate) fn drop_system_id(self) -> ConstraintId {
             ConstraintId { id: self.id }
         }
     }
@@ -64,10 +64,7 @@ pub(crate) mod constraint {
 
     impl<T> Clone for ConstraintHandle<T> {
         fn clone(&self) -> Self {
-            Self {
-                _t: PhantomData::default(),
-                ..*self
-            }
+            *self
         }
     }
     impl<T> Copy for ConstraintHandle<T> {}

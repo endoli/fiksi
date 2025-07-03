@@ -26,7 +26,7 @@ pub(crate) mod element {
             }
         }
 
-        pub(crate) fn drop_system_id(&self) -> ElementId {
+        pub(crate) fn drop_system_id(self) -> ElementId {
             ElementId { id: self.id }
         }
     }
@@ -42,10 +42,7 @@ pub(crate) mod element {
 
     impl<T> Clone for ElementHandle<T> {
         fn clone(&self) -> Self {
-            Self {
-                _t: PhantomData::default(),
-                ..*self
-            }
+            *self
         }
     }
     impl<T> Copy for ElementHandle<T> {}
