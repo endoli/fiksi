@@ -83,14 +83,14 @@ mod tests;
 pub(crate) use constraints::constraint::ConstraintId;
 pub use constraints::{Constraint, constraint::ConstraintHandle};
 use elements::element::ElementId;
-pub use elements::{Element, element::ElementHandle};
+pub use elements::{
+    Element,
+    element::{ElementHandle, TaggedElementHandle},
+};
 
-use crate::{
-    constraints::{
-        LineCircleTangency_, LineLineAngle_, PointLineIncidence_, PointPointDistance_,
-        PointPointPointAngle_,
-    },
-    elements::sealed::ElementInner,
+use crate::constraints::{
+    LineCircleTangency_, LineLineAngle_, PointLineIncidence_, PointPointDistance_,
+    PointPointPointAngle_,
 };
 
 /// Vertices are the geometric elements of the constraint system.
@@ -131,29 +131,14 @@ pub struct ConstraintSetHandle {
     id: u32,
 }
 
-/// An element value (and handle).
+/// An element value.
 pub enum ElementValue {
     /// An [`elements::Point`] value.
-    Point {
-        /// The handle to the element in the system.
-        handle: ElementHandle<elements::Point>,
-        /// The value of the element in the system.
-        value: kurbo::Point,
-    },
+    Point(kurbo::Point),
     /// An [`elements::Line`] value.
-    Line {
-        /// The handle to the element in the system.
-        handle: ElementHandle<elements::Line>,
-        /// The value of the element in the system.
-        value: kurbo::Line,
-    },
+    Line(kurbo::Line),
     /// An [`elements::Circle`] value.
-    Circle {
-        /// The handle to the element in the system.
-        handle: ElementHandle<elements::Circle>,
-        /// The value of the element in the system.
-        value: kurbo::Circle,
-    },
+    Circle(kurbo::Circle),
 }
 
 /// Options used by [`System::solve`].
@@ -288,34 +273,15 @@ impl System {
         .into()
     }
 
-    /// Get the values of all the elements in the system.
-    pub fn get_elements(&self) -> impl Iterator<Item = ElementValue> {
-        self.element_vertices
-            .iter()
-            .enumerate()
-            .map(|(id, vertex)| match vertex {
-                Vertex::Point { .. } => ElementValue::Point {
-                    handle: ElementHandle::from_ids(
-                        self.id,
-                        id.try_into().expect("less than 2^32 elements"),
-                    ),
-                    value: elements::Point::from_vertex(vertex, &self.variables),
-                },
-                Vertex::Line { .. } => ElementValue::Line {
-                    handle: ElementHandle::from_ids(
-                        self.id,
-                        id.try_into().expect("less than 2^32 elements"),
-                    ),
-                    value: elements::Line::from_vertex(vertex, &self.variables),
-                },
-                Vertex::Circle { .. } => ElementValue::Circle {
-                    handle: ElementHandle::from_ids(
-                        self.id,
-                        id.try_into().expect("less than 2^32 elements"),
-                    ),
-                    value: elements::Circle::from_vertex(vertex, &self.variables),
-                },
-            })
+    /// Iterate over the handles of all elements in the system.
+    ///
+    /// You can use [`System::get_element`] to get an element-tagged value or
+    /// [`ElementHandle::get_tagged_element`](ElementHandle<elements::AnyElement>::as_tagged_element)
+    /// to get a typed handle.
+    pub fn get_element_handles(&self) -> impl Iterator<Item = ElementHandle<elements::AnyElement>> {
+        (0..self.element_vertices.len()).map(|id| {
+            ElementHandle::from_ids(self.id, id.try_into().expect("less than 2^32 elements"))
+        })
     }
 
     /// Calculate the residual of a constraint.
