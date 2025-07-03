@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 pub(crate) mod element {
     use core::marker::PhantomData;
 
-    /// Dynmically-tagged, typed handles to elements.
+    /// Dynamically tagged, typed handles to elements.
     pub enum TaggedElementHandle {
         /// A handle to a [`Point`](super::Point) element.
         Point(ElementHandle<super::Point>),
