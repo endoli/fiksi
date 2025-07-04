@@ -437,8 +437,6 @@ impl sealed::ConstraintInner for PointLineIncidence {
 }
 
 /// Constrain two lines to describe a given angle.
-///
-/// TODO: actually implement this, or require using [`PointPointPointAngle`]?
 pub struct LineLineAngle {
     line1: ElementHandle<elements::Line>,
     line2: ElementHandle<elements::Line>,
@@ -491,7 +489,6 @@ impl sealed::ConstraintInner for LineLineAngle {
 /// A representation of a [`LineLineAngle`] constraint within a [`crate::System`], allowing
 /// evaluation.
 ///
-/// TODO: implement
 /// TODO: can this be merged with [`LineLineAngle`]?
 pub(crate) struct LineLineAngle_ {
     pub line1_point1_idx: u32,
