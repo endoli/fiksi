@@ -59,8 +59,14 @@ pub(crate) fn calculate_residuals_and_jacobian(
                         ..(constraint_idx + 1) * num_free_variables],
                 );
             }
-            Edge::LineLineAngle { .. } => {
-                unimplemented!()
+            Edge::LineLineAngle(constraint) => {
+                constraint.compute_residual_and_partial_derivatives(
+                    free_variable_map,
+                    variables,
+                    &mut residuals[constraint_idx],
+                    &mut jacobian[constraint_idx * num_free_variables
+                        ..(constraint_idx + 1) * num_free_variables],
+                );
             }
         }
     }
