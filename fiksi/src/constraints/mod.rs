@@ -437,8 +437,6 @@ impl sealed::ConstraintInner for PointLineIncidence {
 }
 
 /// Constrain two lines to describe a given angle.
-///
-/// TODO: actually implement this, or require using [`PointPointPointAngle`]?
 pub struct LineLineAngle {
     line1: ElementHandle<elements::Line>,
     line2: ElementHandle<elements::Line>,
@@ -447,27 +445,42 @@ pub struct LineLineAngle {
     angle: f64,
 }
 
+impl LineLineAngle {
+    /// Construct a constraint between two lines to describe a given angle.
+    pub fn new(
+        line1: ElementHandle<elements::Line>,
+        line2: ElementHandle<elements::Line>,
+        angle: f64,
+    ) -> Self {
+        Self {
+            line1,
+            line2,
+            angle,
+        }
+    }
+}
+
 impl sealed::ConstraintInner for LineLineAngle {
     fn as_edge(&self, vertices: &[Vertex]) -> Edge {
         let &Vertex::Line {
-            point1_idx,
-            point2_idx,
+            point1_idx: line1_point1_idx,
+            point2_idx: line1_point2_idx,
         } = &vertices[self.line1.id as usize]
         else {
             unreachable!()
         };
         let &Vertex::Line {
-            point1_idx: point3_idx,
-            point2_idx: point4_idx,
+            point1_idx: line2_point1_idx,
+            point2_idx: line2_point2_idx,
         } = &vertices[self.line2.id as usize]
         else {
             unreachable!()
         };
         Edge::LineLineAngle(LineLineAngle_ {
-            point1_idx,
-            point2_idx,
-            point3_idx,
-            point4_idx,
+            line1_point1_idx,
+            line1_point2_idx,
+            line2_point1_idx,
+            line2_point2_idx,
             angle: self.angle,
         })
     }
@@ -476,16 +489,100 @@ impl sealed::ConstraintInner for LineLineAngle {
 /// A representation of a [`LineLineAngle`] constraint within a [`crate::System`], allowing
 /// evaluation.
 ///
-/// TODO: implement
 /// TODO: can this be merged with [`LineLineAngle`]?
 pub(crate) struct LineLineAngle_ {
-    pub point1_idx: u32,
-    pub point2_idx: u32,
-    pub point3_idx: u32,
-    pub point4_idx: u32,
+    pub line1_point1_idx: u32,
+    pub line1_point2_idx: u32,
+    pub line2_point1_idx: u32,
+    pub line2_point2_idx: u32,
 
     /// Angle in radians.
     pub angle: f64,
+}
+
+impl LineLineAngle_ {
+    pub(crate) fn compute_residual_and_partial_derivatives(
+        &self,
+        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
+        variables: &[f64],
+        residual: &mut f64,
+        first_derivative: &mut [f64],
+    ) {
+        let line1_point1 = kurbo::Point {
+            x: variables[self.line1_point1_idx as usize],
+            y: variables[self.line1_point1_idx as usize + 1],
+        };
+        let line1_point2 = kurbo::Point {
+            x: variables[self.line1_point2_idx as usize],
+            y: variables[self.line1_point2_idx as usize + 1],
+        };
+        let line2_point1 = kurbo::Point {
+            x: variables[self.line2_point1_idx as usize],
+            y: variables[self.line2_point1_idx as usize + 1],
+        };
+        let line2_point2 = kurbo::Point {
+            x: variables[self.line2_point2_idx as usize],
+            y: variables[self.line2_point2_idx as usize + 1],
+        };
+
+        let u = line1_point2 - line1_point1;
+        let v = line2_point2 - line2_point1;
+
+        let angle = v.atan2() - u.atan2();
+        let angle = if angle > core::f64::consts::PI {
+            angle - 2.0 * core::f64::consts::PI
+        } else if angle < -core::f64::consts::PI {
+            angle + 2.0 * core::f64::consts::PI
+        } else {
+            angle
+        };
+
+        *residual += angle - self.angle;
+
+        let u_squared_recip = u.length_squared().recip();
+        let v_squared_recip = v.length_squared().recip();
+
+        let dangle_dline1_point1x = -u.y * u_squared_recip;
+        let dangle_dline1_point1y = u.x * u_squared_recip;
+        let dangle_dline2_point1x = v.y * v_squared_recip;
+        let dangle_dline2_point1y = -v.x * v_squared_recip;
+
+        let derivative = [
+            dangle_dline1_point1x,
+            dangle_dline1_point1y,
+            -dangle_dline1_point1x,
+            -dangle_dline1_point1y,
+            dangle_dline2_point1x,
+            dangle_dline2_point1y,
+            -dangle_dline2_point1x,
+            -dangle_dline2_point1y,
+        ];
+
+        if let Some(idx) = free_variable_map.get(&self.line1_point1_idx) {
+            first_derivative[*idx as usize] += derivative[0];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line1_point1_idx + 1)) {
+            first_derivative[*idx as usize] += derivative[1];
+        }
+        if let Some(idx) = free_variable_map.get(&self.line1_point2_idx) {
+            first_derivative[*idx as usize] += derivative[2];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line1_point2_idx + 1)) {
+            first_derivative[*idx as usize] += derivative[3];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line2_point1_idx)) {
+            first_derivative[*idx as usize] += derivative[4];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line2_point1_idx + 1)) {
+            first_derivative[*idx as usize] += derivative[5];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line2_point2_idx)) {
+            first_derivative[*idx as usize] += derivative[6];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line2_point2_idx + 1)) {
+            first_derivative[*idx as usize] += derivative[7];
+        }
+    }
 }
 
 /// Constrain a line and a circle such that the line is tangent on the circle.
