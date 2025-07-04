@@ -512,6 +512,110 @@ impl LineLineAngle {
     }
 }
 
+/// Constrain two lines to be parallel to each other.
+pub struct LineLineParallelism {
+    line1_point1_idx: u32,
+    line1_point2_idx: u32,
+    line2_point1_idx: u32,
+    line2_point2_idx: u32,
+}
+
+impl LineLineParallelism {
+    /// Construct a constraint between two lines to be parallel to each other.
+    pub fn create(
+        system: &mut System,
+        line1: ElementHandle<elements::Line>,
+        line2: ElementHandle<elements::Line>,
+    ) -> ConstraintHandle<Self> {
+        let &Vertex::Line {
+            point1_idx: line1_point1_idx,
+            point2_idx: line1_point2_idx,
+        } = &system.element_vertices[line1.id as usize]
+        else {
+            unreachable!()
+        };
+        let &Vertex::Line {
+            point1_idx: line2_point1_idx,
+            point2_idx: line2_point2_idx,
+        } = &system.element_vertices[line2.id as usize]
+        else {
+            unreachable!()
+        };
+        system.add_constraint(Edge::LineLineParallelism(Self {
+            line1_point1_idx,
+            line1_point2_idx,
+            line2_point1_idx,
+            line2_point2_idx,
+        }))
+    }
+
+    pub(crate) fn compute_residual_and_partial_derivatives(
+        &self,
+        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
+        variables: &[f64],
+        residual: &mut f64,
+        first_derivative: &mut [f64],
+    ) {
+        let line1_point1 = kurbo::Point {
+            x: variables[self.line1_point1_idx as usize],
+            y: variables[self.line1_point1_idx as usize + 1],
+        };
+        let line1_point2 = kurbo::Point {
+            x: variables[self.line1_point2_idx as usize],
+            y: variables[self.line1_point2_idx as usize + 1],
+        };
+        let line2_point1 = kurbo::Point {
+            x: variables[self.line2_point1_idx as usize],
+            y: variables[self.line2_point1_idx as usize + 1],
+        };
+        let line2_point2 = kurbo::Point {
+            x: variables[self.line2_point2_idx as usize],
+            y: variables[self.line2_point2_idx as usize + 1],
+        };
+
+        let u = line1_point2 - line1_point1;
+        let v = line2_point2 - line2_point1;
+
+        *residual += v.cross(u);
+
+        let derivative = [
+            v.y,  // l1p1x
+            -v.x, // l1p1y
+            -v.y, // l1p2x
+            v.x,  // l1p2y
+            -u.y, // l2p1x
+            u.x,  // l2p1y
+            u.y,  // l2p2x
+            -u.x, // l2p2y
+        ];
+
+        if let Some(idx) = free_variable_map.get(&self.line1_point1_idx) {
+            first_derivative[*idx as usize] += derivative[0];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line1_point1_idx + 1)) {
+            first_derivative[*idx as usize] += derivative[1];
+        }
+        if let Some(idx) = free_variable_map.get(&self.line1_point2_idx) {
+            first_derivative[*idx as usize] += derivative[2];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line1_point2_idx + 1)) {
+            first_derivative[*idx as usize] += derivative[3];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line2_point1_idx)) {
+            first_derivative[*idx as usize] += derivative[4];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line2_point1_idx + 1)) {
+            first_derivative[*idx as usize] += derivative[5];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line2_point2_idx)) {
+            first_derivative[*idx as usize] += derivative[6];
+        }
+        if let Some(idx) = free_variable_map.get(&(self.line2_point2_idx + 1)) {
+            first_derivative[*idx as usize] += derivative[7];
+        }
+    }
+}
+
 /// Constrain a line and a circle such that the line is tangent on the circle.
 pub struct LineCircleTangency {
     line_point1_idx: u32,
@@ -642,5 +746,6 @@ pub trait Constraint {}
 impl Constraint for PointPointDistance {}
 impl Constraint for PointPointPointAngle {}
 impl Constraint for PointLineIncidence {}
-impl Constraint for LineCircleTangency {}
 impl Constraint for LineLineAngle {}
+impl Constraint for LineLineParallelism {}
+impl Constraint for LineCircleTangency {}

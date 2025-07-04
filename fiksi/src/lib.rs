@@ -78,7 +78,8 @@ use elements::element::ElementId;
 pub use elements::{Element, element::ElementHandle};
 
 use crate::constraints::{
-    LineCircleTangency, LineLineAngle, PointLineIncidence, PointPointDistance, PointPointPointAngle,
+    LineCircleTangency, LineLineAngle, LineLineParallelism, PointLineIncidence, PointPointDistance,
+    PointPointPointAngle,
 };
 
 /// Vertices are the geometric elements of the constraint system.
@@ -96,6 +97,7 @@ pub(crate) enum Edge {
     PointPointPointAngle(PointPointPointAngle),
     PointLineIncidence(PointLineIncidence),
     LineLineAngle(LineLineAngle),
+    LineLineParallelism(LineLineParallelism),
     LineCircleTangency(LineCircleTangency),
 }
 
