@@ -15,30 +15,29 @@
 //!
 //! ```rust
 //! let mut gcs = fiksi::System::new();
-//! let element_set = gcs.add_element_set();
-//! let constraint_set = gcs.add_constraint_set();
 //!
 //! // Add three points, and constrain them into a triangle, such that
 //! // - one corner has an angle of 10 degrees;
 //! // - one corner has an angle of 60 degrees; and
 //! // - the side between those corners is of length 5.
-//! let p1 = gcs.add_element(&[&element_set], fiksi::elements::Point::new(1., 0.));
-//! let p2 = gcs.add_element(&[&element_set], fiksi::elements::Point::new(0.8, 1.));
-//! let p3 = gcs.add_element(&[&element_set], fiksi::elements::Point::new(1.1, 2.));
+//! let p1 = gcs.add_element(fiksi::elements::Point::new(1., 0.));
+//! let p2 = gcs.add_element(fiksi::elements::Point::new(0.8, 1.));
+//! let p3 = gcs.add_element(fiksi::elements::Point::new(1.1, 2.));
 //!
-//! gcs.add_constraint(
-//!     &[&constraint_set],
-//!     fiksi::constraints::PointPointDistance::new(p2, p3, 5.),
-//! );
-//! gcs.add_constraint(
-//!     &[&constraint_set],
-//!     fiksi::constraints::PointPointPointAngle::new(p1, p2, p3, 10f64.to_radians()),
-//! );
-//! gcs.add_constraint(
-//!     &[&constraint_set],
-//!     fiksi::constraints::PointPointPointAngle::new(p2, p3, p1, 60f64.to_radians()),
-//! );
-//! gcs.solve(&element_set, &constraint_set, fiksi::SolvingOptions::DEFAULT);
+//! gcs.add_constraint(fiksi::constraints::PointPointDistance::new(p2, p3, 5.));
+//! gcs.add_constraint(fiksi::constraints::PointPointPointAngle::new(
+//!     p1,
+//!     p2,
+//!     p3,
+//!     10f64.to_radians(),
+//! ));
+//! gcs.add_constraint(fiksi::constraints::PointPointPointAngle::new(
+//!     p2,
+//!     p3,
+//!     p1,
+//!     60f64.to_radians(),
+//! ));
+//! gcs.solve(None, fiksi::SolvingOptions::DEFAULT);
 //! ```
 #![cfg_attr(feature = "libm", doc = "[libm]: libm")]
 #![cfg_attr(not(feature = "libm"), doc = "[libm]: https://crates.io/crates/libm")]
@@ -68,7 +67,7 @@ fn ensure_libm_dependency_used() -> f32 {
 }
 
 extern crate alloc;
-use alloc::{vec, vec::Vec};
+use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
 
 pub use kurbo;
 
@@ -108,23 +107,13 @@ pub(crate) enum Edge {
     LineCircleTangency(LineCircleTangency_),
 }
 
-/// A handle to an element set.
+/// A handle to a set of constraints to solve for and variables that are considered free.
 ///
-/// See [`System::add_element_set`].
-pub struct ElementSetHandle {
+/// See [`System::create_solve_set`].
+pub struct SolveSetHandle {
     /// The ID of the system the element set belongs to.
     system_id: u32,
     /// The ID of the element set within the system.
-    id: u32,
-}
-
-/// A handle to a constraint set.
-///
-/// See [`System::add_constraint_set`].
-pub struct ConstraintSetHandle {
-    /// The ID of the system the constraint set belongs to.
-    system_id: u32,
-    /// The ID of the constraint set within the system.
     id: u32,
 }
 
@@ -156,6 +145,21 @@ impl Default for SolvingOptions {
     }
 }
 
+/// Contains constraints that should be solved and elements whose variables are free.
+pub(crate) struct SolveSet {
+    pub(crate) elements: BTreeSet<ElementId>,
+    pub(crate) constraints: BTreeSet<ConstraintId>,
+}
+
+impl SolveSet {
+    pub(crate) fn new() -> Self {
+        Self {
+            elements: BTreeSet::new(),
+            constraints: BTreeSet::new(),
+        }
+    }
+}
+
 /// A geometric constraint system.
 ///
 /// Build the system by [adding elements](System::add_element) and
@@ -168,8 +172,8 @@ pub struct System {
     constraint_edges: Vec<Edge>,
     /// The variables of the geometric elements, such as point coordinates.
     variables: Vec<f64>,
-    element_sets: Vec<Vec<ElementId>>,
-    constraint_sets: Vec<Vec<ConstraintId>>,
+    /// The sets of elements and constraints that can be solved for.
+    solve_sets: Vec<SolveSet>,
 }
 
 impl System {
@@ -181,49 +185,36 @@ impl System {
         Self {
             id,
             variables: vec![],
-            element_sets: vec![],
-            constraint_sets: vec![],
             element_vertices: vec![],
             constraint_edges: vec![],
+            solve_sets: vec![],
         }
     }
 
-    /// Add an element set to the geometric constraint system.
+    /// Add a solve set to the geometric constraint system.
     ///
-    /// Element sets are used to isolate distinct parts of constraint systems to be solved separately.
-    /// You always solve for exactly one element set at once.
+    /// Solve sets can be used to create separate sets of constraints that should be solved, and
+    /// elements whose variables are free and can be used for solving.
     ///
-    /// In simple cases, you may just create two groups: one group for fixed parameters, and the
-    /// other group for free variables.
-    pub fn add_element_set(&mut self) -> ElementSetHandle {
-        let id = self.element_sets.len();
-        self.element_sets.push(vec![]);
+    /// This can be used to isolate distinct parts of constraint systems that should be solved
+    /// separately, or to choose which variables are free and which are kept fixed.
+    ///
+    /// You always solve for at most one solve set at once. If you don't use a solve set, all
+    /// constraints are solved for, and all variables are considered free.
+    pub fn create_solve_set(&mut self) -> SolveSetHandle {
+        let id = self.solve_sets.len();
+        self.solve_sets.push(SolveSet::new());
 
-        ElementSetHandle {
+        SolveSetHandle {
             system_id: self.id,
-            id: id.try_into().expect("less than 2^32 element sets"),
-        }
-    }
-
-    /// Add a constraint set to the geometric constraint system.
-    pub fn add_constraint_set(&mut self) -> ConstraintSetHandle {
-        let id = self.constraint_sets.len();
-        self.constraint_sets.push(vec![]);
-
-        ConstraintSetHandle {
-            system_id: self.id,
-            id: id.try_into().expect("less than 2^32 constraint sets"),
+            id: id.try_into().expect("less than 2^32 solve sets"),
         }
     }
 
     /// Add an element.
     ///
     /// Give the element sets the element belongs to in `sets`.
-    pub fn add_element<T: Element>(
-        &mut self,
-        sets: &[&ElementSetHandle],
-        element: T,
-    ) -> ElementHandle<T> {
+    pub fn add_element<T: Element>(&mut self, element: T) -> ElementHandle<T> {
         let id = self
             .element_vertices
             .len()
@@ -232,17 +223,7 @@ impl System {
 
         element.add_into(&mut self.element_vertices, &mut self.variables);
 
-        let handle = ElementHandle::from_ids(self.id, id);
-        for set in sets {
-            // TODO: return `Result` instead of panicking?
-            assert_eq!(
-                self.id, set.system_id,
-                "Tried to use an element set that is not part of this `System`"
-            );
-            self.element_sets[set.id as usize].push(handle.drop_system_id());
-        }
-
-        handle
+        ElementHandle::from_ids(self.id, id)
     }
 
     /// Get the value of an element.
@@ -277,11 +258,7 @@ impl System {
     /// Add a constraint.
     ///
     /// Give the constraint sets the constraint belongs to in `sets`.
-    pub fn add_constraint<T: Constraint>(
-        &mut self,
-        sets: &[&ConstraintSetHandle],
-        constraint: T,
-    ) -> ConstraintHandle<T> {
+    pub fn add_constraint<T: Constraint>(&mut self, constraint: T) -> ConstraintHandle<T> {
         let id = self
             .constraint_edges
             .len()
@@ -290,44 +267,71 @@ impl System {
         self.constraint_edges
             .push(constraint.as_edge(&self.element_vertices));
 
-        let handle = ConstraintHandle::from_ids(self.id, id);
-        for set in sets {
-            // TODO: return `Result` instead of panicking?
-            assert_eq!(
-                self.id, set.system_id,
-                "Tried to use a constraint set that is not part of this `System`"
-            );
-            self.constraint_sets[set.id as usize].push(handle.drop_system_id());
-        }
+        ConstraintHandle::from_ids(self.id, id)
+    }
 
-        handle
+    /// Add an element to the solve set.
+    ///
+    /// See [`System::create_solve_set`].
+    pub fn add_element_to_solve_set<T>(
+        &mut self,
+        solve_set: &SolveSetHandle,
+        element: &ElementHandle<T>,
+    ) {
+        // TODO: return `Result` instead of panicking?
+        assert_eq!(
+            self.id, solve_set.system_id,
+            "Tried to use a solve set that is not part of this `System`"
+        );
+        assert_eq!(
+            self.id, element.system_id,
+            "Tried to use an element that is not part of this `System`"
+        );
+        let solve_set = &mut self.solve_sets[solve_set.id as usize];
+        solve_set.elements.insert(element.drop_system_id());
+    }
+
+    /// Add a constraint to the solve set.
+    ///
+    /// See [`System::create_solve_set`].
+    pub fn add_constraint_to_solve_set<T>(
+        &mut self,
+        solve_set: &SolveSetHandle,
+        constraint: &ConstraintHandle<T>,
+    ) {
+        // TODO: return `Result` instead of panicking?
+        assert_eq!(
+            self.id, solve_set.system_id,
+            "Tried to use a solve set that is not part of this `System`"
+        );
+        assert_eq!(
+            self.id, constraint.system_id,
+            "Tried to use an element that is not part of this `System`"
+        );
+        let solve_set = &mut self.solve_sets[solve_set.id as usize];
+        solve_set.constraints.insert(constraint.drop_system_id());
     }
 
     /// Solve the system.
     ///
-    /// The system is solved for constraints in `constraint_set`. Values of elements in
-    /// `element_set` are free variables. Other values are taken as fixed parameters. Note handle
-    /// values (such as the center point of a circle) are free if and only if the element the
-    /// handle corresponds to is in `element_set`, regardless of whether the circle itself is in
-    /// `element_set`.
-    pub fn solve(
-        &mut self,
-        element_set: &ElementSetHandle,
-        constraint_set: &ConstraintSetHandle,
-        opts: SolvingOptions,
-    ) {
+    /// The system is solved for constraints and free variables in `solve_set`. Variables not in
+    /// `solve_set` are taken as fixed parameters. If no `solve_set` is given, all constraints are
+    /// solved for, and all variables are considered free.
+    ///
+    /// Note handle values (such as the center point of a circle) are free if and only if the
+    /// element the handle corresponds to is considered free, regardless of whether the circle
+    /// itself is in `solve_set`.
+    pub fn solve(&mut self, solve_set: Option<&SolveSetHandle>, opts: SolvingOptions) {
         match opts.optimizer {
             solve::Optimizer::LevenbergMarquardt => crate::solve::levenberg_marquardt(
                 &mut self.variables,
-                &self.element_sets[element_set.id as usize],
-                &self.constraint_sets[constraint_set.id as usize],
+                solve_set.map(|solve_set| &self.solve_sets[solve_set.id as usize]),
                 &self.element_vertices,
                 &self.constraint_edges,
             ),
             solve::Optimizer::LBfgs => crate::solve::lbfgs(
                 &mut self.variables,
-                &self.element_sets[element_set.id as usize],
-                &self.constraint_sets[constraint_set.id as usize],
+                solve_set.map(|solve_set| &self.solve_sets[solve_set.id as usize]),
                 &self.element_vertices,
                 &self.constraint_edges,
             ),
