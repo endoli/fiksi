@@ -83,7 +83,10 @@ mod tests;
 pub(crate) use constraints::constraint::ConstraintId;
 pub use constraints::{Constraint, constraint::ConstraintHandle};
 use elements::element::ElementId;
-pub use elements::{Element, element::ElementHandle};
+pub use elements::{
+    Element,
+    element::{ElementHandle, TaggedElementHandle},
+};
 
 use crate::constraints::{
     LineCircleTangency_, LineLineAngle_, PointLineIncidence_, PointPointDistance_,
@@ -126,6 +129,16 @@ pub struct ConstraintSetHandle {
     system_id: u32,
     /// The ID of the constraint set within the system.
     id: u32,
+}
+
+/// An element value.
+pub enum ElementValue {
+    /// An [`elements::Point`] value.
+    Point(kurbo::Point),
+    /// An [`elements::Line`] value.
+    Line(kurbo::Line),
+    /// An [`elements::Circle`] value.
+    Circle(kurbo::Circle),
 }
 
 /// Options used by [`System::solve`].
@@ -258,6 +271,17 @@ impl System {
             &self.variables,
         )
         .into()
+    }
+
+    /// Iterate over the handles of all elements in the system.
+    ///
+    /// You can use [`System::get_element`] to get an element-tagged value or
+    /// [`ElementHandle::get_tagged_element`](ElementHandle<elements::AnyElement>::as_tagged_element)
+    /// to get a typed handle.
+    pub fn get_element_handles(&self) -> impl Iterator<Item = ElementHandle<elements::AnyElement>> {
+        (0..self.element_vertices.len()).map(|id| {
+            ElementHandle::from_ids(self.id, id.try_into().expect("less than 2^32 elements"))
+        })
     }
 
     /// Calculate the residual of a constraint.
