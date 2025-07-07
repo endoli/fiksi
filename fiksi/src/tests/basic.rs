@@ -16,18 +16,8 @@ fn underconstrained_triangle() {
     let p1 = s.add_element(elements::Point { x: 0., y: 0. });
     let p2 = s.add_element(elements::Point { x: 1., y: 0.5 });
     let p3 = s.add_element(elements::Point { x: 2., y: 1. });
-    let angle1 = s.add_constraint(constraints::PointPointPointAngle::new(
-        p1,
-        p2,
-        p3,
-        40_f64.to_radians(),
-    ));
-    let angle2 = s.add_constraint(constraints::PointPointPointAngle::new(
-        p2,
-        p3,
-        p1,
-        80_f64.to_radians(),
-    ));
+    let angle1 = constraints::PointPointPointAngle::create(&mut s, p1, p2, p3, 40_f64.to_radians());
+    let angle2 = constraints::PointPointPointAngle::create(&mut s, p2, p3, p1, 80_f64.to_radians());
     s.solve(None, crate::SolvingOptions::default());
 
     let sum_squared_residuals = sum_squares(&[
@@ -51,25 +41,11 @@ fn overconstrained_triangle_line_incidence() {
     let p4 = s.add_element(elements::Point { x: 3., y: 1.5 });
     let line1 = s.add_element(elements::Line::new(p3, p4));
     // Overconstrain the triangle angles to something that's geometrically impossible.
-    let angle1 = s.add_constraint(constraints::PointPointPointAngle::new(
-        p1,
-        p2,
-        p3,
-        40_f64.to_radians(),
-    ));
-    let angle2 = s.add_constraint(constraints::PointPointPointAngle::new(
-        p2,
-        p3,
-        p1,
-        80_f64.to_radians(),
-    ));
-    let angle3 = s.add_constraint(constraints::PointPointPointAngle::new(
-        p3,
-        p1,
-        p2,
-        100_f64.to_radians(),
-    ));
-    let incidence = s.add_constraint(constraints::PointLineIncidence::new(p2, line1));
+    let angle1 = constraints::PointPointPointAngle::create(&mut s, p1, p2, p3, 40_f64.to_radians());
+    let angle2 = constraints::PointPointPointAngle::create(&mut s, p2, p3, p1, 80_f64.to_radians());
+    let angle3 =
+        constraints::PointPointPointAngle::create(&mut s, p3, p1, p2, 100_f64.to_radians());
+    let incidence = constraints::PointLineIncidence::create(&mut s, p2, line1);
     s.solve(None, crate::SolvingOptions::default());
 
     let sum_squared_residuals = sum_squares(&[
