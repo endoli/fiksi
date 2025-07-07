@@ -5,7 +5,7 @@ use core::f64;
 
 use alloc::{vec, vec::Vec};
 
-use crate::{ConstraintId, Edge, ElementId, Vertex, utils::calculate_residuals_and_jacobian};
+use crate::{Edge, SolveSet, Vertex, utils::calculate_residuals_and_jacobian};
 
 /// The Levenberg-Marquardt solver.
 ///
@@ -14,9 +14,8 @@ use crate::{ConstraintId, Edge, ElementId, Vertex, utils::calculate_residuals_an
 /// variables are seen as fixed parameters.
 pub(crate) fn levenberg_marquardt(
     variables: &mut [f64],
-    // TODO: actually use `element_set`
-    _element_set: &[ElementId],
-    constraint_set: &[ConstraintId],
+    // TODO: actually use variables given by `solve_set`
+    solve_set: Option<&SolveSet>,
     element_vertices: &[Vertex],
     constraint_edges: &[Edge],
 ) {
@@ -51,10 +50,14 @@ pub(crate) fn levenberg_marquardt(
         );
     }
 
-    let constraints: Vec<&Edge> = constraint_set
-        .iter()
-        .map(|id| &constraint_edges[id.id as usize])
-        .collect();
+    let constraints: Vec<&Edge> = match solve_set {
+        Some(solve_set) => solve_set
+            .constraints
+            .iter()
+            .map(|id| &constraint_edges[id.id as usize])
+            .collect(),
+        None => constraint_edges.iter().collect(),
+    };
 
     // The (non-squared) residuals of the constraints.
     let mut residuals = vec![0.; constraints.len()];
