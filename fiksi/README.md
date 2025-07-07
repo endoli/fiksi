@@ -36,29 +36,22 @@ At least one of `std` and `libm` is required; `std` overrides `libm`.
 # Example
 
 ```rust
+use fiksi::{System, constraints, elements};
+
 let mut gcs = fiksi::System::new();
 
 // Add three points, and constrain them into a triangle, such that
 // - one corner has an angle of 10 degrees;
 // - one corner has an angle of 60 degrees; and
 // - the side between those corners is of length 5.
-let p1 = gcs.add_element(fiksi::elements::Point::new(1., 0.));
-let p2 = gcs.add_element(fiksi::elements::Point::new(0.8, 1.));
-let p3 = gcs.add_element(fiksi::elements::Point::new(1.1, 2.));
+let p1 = gcs.add_element(elements::Point::new(1., 0.));
+let p2 = gcs.add_element(elements::Point::new(0.8, 1.));
+let p3 = gcs.add_element(elements::Point::new(1.1, 2.));
 
-gcs.add_constraint(fiksi::constraints::PointPointDistance::new(p2, p3, 5.));
-gcs.add_constraint(fiksi::constraints::PointPointPointAngle::new(
-    p1,
-    p2,
-    p3,
-    10f64.to_radians(),
-));
-gcs.add_constraint(fiksi::constraints::PointPointPointAngle::new(
-    p2,
-    p3,
-    p1,
-    60f64.to_radians(),
-));
+constraints::PointPointDistance::create(&mut gcs, p2, p3, 5.);
+constraints::PointPointPointAngle::create(&mut gcs, p1, p2, p3, 10f64.to_radians());
+constraints::PointPointPointAngle::create(&mut gcs, p2, p3, p1, 60f64.to_radians());
+
 gcs.solve(None, fiksi::SolvingOptions::DEFAULT);
 ```
 

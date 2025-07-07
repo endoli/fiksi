@@ -6,10 +6,7 @@
 #[cfg(not(feature = "std"))]
 use crate::floatfuncs::FloatFuncs;
 
-use crate::Edge;
-use crate::Vertex;
-use crate::elements;
-use crate::{ElementHandle, ElementId};
+use crate::{ConstraintHandle, Edge, ElementHandle, System, Vertex, elements};
 
 trait FloatExt {
     /// Returns the square of `self`.
@@ -96,59 +93,41 @@ pub(crate) mod constraint {
 
 /// Constrain two points to have a given straight-line distance between each other.
 pub struct PointPointDistance {
-    point1: ElementId,
-    point2: ElementId,
+    point1_idx: u32,
+    point2_idx: u32,
 
     /// Euclidean distance.
     distance: f64,
-}
-
-impl sealed::ConstraintInner for PointPointDistance {
-    fn as_edge(&self, vertices: &[Vertex]) -> Edge {
-        let &Vertex::Point { idx: point1_idx } = &vertices[self.point1.id as usize] else {
-            unreachable!()
-        };
-        let &Vertex::Point { idx: point2_idx } = &vertices[self.point2.id as usize] else {
-            unreachable!()
-        };
-        Edge::PointPointDistance(PointPointDistance_ {
-            point1_idx,
-            point2_idx,
-            distance: self.distance,
-        })
-    }
 }
 
 impl PointPointDistance {
     /// Construct a constraint between two points to have a given straight-line distance between each other.
     ///
     /// `distance` is the Euclidean distance between `point1` and `point2`.
-    pub fn new(
+    pub fn create(
+        system: &mut System,
         point1: ElementHandle<elements::Point>,
         point2: ElementHandle<elements::Point>,
         distance: f64,
-    ) -> Self {
-        Self {
-            point1: point1.drop_system_id(),
-            point2: point2.drop_system_id(),
+    ) -> ConstraintHandle<Self> {
+        let &Vertex::Point { idx: point1_idx } = &system.element_vertices[point1.id as usize]
+        else {
+            unreachable!()
+        };
+        let &Vertex::Point { idx: point2_idx } = &system.element_vertices[point2.id as usize]
+        else {
+            unreachable!()
+        };
+
+        let constraint = Self {
+            point1_idx,
+            point2_idx,
             distance,
-        }
+        };
+
+        system.add_constraint(Edge::PointPointDistance(constraint))
     }
-}
 
-/// A representation of a [`PointPointDistance`] constraint within a [`crate::System`], allowing
-/// evaluation.
-///
-/// TODO: can this be merged with [`PointPointDistance`]?
-pub(crate) struct PointPointDistance_ {
-    pub point1_idx: u32,
-    pub point2_idx: u32,
-
-    /// Euclidean distance.
-    pub distance: f64,
-}
-
-impl PointPointDistance_ {
     pub(crate) fn compute_residual_and_partial_derivatives(
         &self,
         free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
@@ -193,67 +172,48 @@ impl PointPointDistance_ {
 
 /// Constrain three points to describe a given angle.
 pub struct PointPointPointAngle {
-    point1: ElementId,
-    point2: ElementId,
-    point3: ElementId,
+    point1_idx: u32,
+    point2_idx: u32,
+    point3_idx: u32,
 
     /// Angle in radians.
     angle: f64,
 }
 
-impl sealed::ConstraintInner for PointPointPointAngle {
-    fn as_edge(&self, vertices: &[Vertex]) -> Edge {
-        let &Vertex::Point { idx: point1_idx } = &vertices[self.point1.id as usize] else {
-            unreachable!()
-        };
-        let &Vertex::Point { idx: point2_idx } = &vertices[self.point2.id as usize] else {
-            unreachable!()
-        };
-        let &Vertex::Point { idx: point3_idx } = &vertices[self.point3.id as usize] else {
-            unreachable!()
-        };
-        Edge::PointPointPointAngle(PointPointPointAngle_ {
-            point1_idx,
-            point2_idx,
-            point3_idx,
-            angle: self.angle,
-        })
-    }
-}
-
 impl PointPointPointAngle {
-    /// Construct a constraint between three points to describe ag iven angle.
+    /// Construct a constraint between three points to describe a given angle.
     ///
     /// `angle` is the angle in radians the points should describe.
-    pub fn new(
+    pub fn create(
+        system: &mut System,
         point1: ElementHandle<elements::Point>,
         point2: ElementHandle<elements::Point>,
         point3: ElementHandle<elements::Point>,
         angle: f64,
-    ) -> Self {
-        Self {
-            point1: point1.drop_system_id(),
-            point2: point2.drop_system_id(),
-            point3: point3.drop_system_id(),
+    ) -> ConstraintHandle<Self> {
+        let &Vertex::Point { idx: point1_idx } = &system.element_vertices[point1.id as usize]
+        else {
+            unreachable!()
+        };
+        let &Vertex::Point { idx: point2_idx } = &system.element_vertices[point2.id as usize]
+        else {
+            unreachable!()
+        };
+        let &Vertex::Point { idx: point3_idx } = &system.element_vertices[point3.id as usize]
+        else {
+            unreachable!()
+        };
+
+        let constraint = Self {
+            point1_idx,
+            point2_idx,
+            point3_idx,
             angle,
-        }
+        };
+
+        system.add_constraint(Edge::PointPointPointAngle(constraint))
     }
-}
 
-/// A representation of a [`PointPointPointAngle`] constraint within a [`crate::System`], allowing
-/// evaluation.
-///
-/// TODO: can this be merged with [`PointPointPointAngle`]?
-pub(crate) struct PointPointPointAngle_ {
-    pub point1_idx: u32,
-    pub point2_idx: u32,
-    pub point3_idx: u32,
-
-    /// Angle in radians.
-    pub angle: f64,
-}
-
-impl PointPointPointAngle_ {
     pub(crate) fn compute_residual_and_partial_derivatives(
         &self,
         free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
@@ -335,32 +295,39 @@ impl PointPointPointAngle_ {
 /// equivalent to constraining the three points (the two points of the line and the point proper)
 /// to be collinear.
 pub struct PointLineIncidence {
-    point: ElementId,
-    line: ElementId,
+    point_idx: u32,
+    line_point1_idx: u32,
+    line_point2_idx: u32,
 }
 
 impl PointLineIncidence {
     /// Construct a constraint between a point and a line such that the point lies on the
     /// (infinite) line.
-    pub fn new(point: ElementHandle<elements::Point>, line: ElementHandle<elements::Line>) -> Self {
-        Self {
-            point: point.drop_system_id(),
-            line: line.drop_system_id(),
-        }
+    pub fn create(
+        system: &mut System,
+        point: ElementHandle<elements::Point>,
+        line: ElementHandle<elements::Line>,
+    ) -> ConstraintHandle<Self> {
+        let &Vertex::Point { idx: point_idx } = &system.element_vertices[point.id as usize] else {
+            unreachable!()
+        };
+        let &Vertex::Line {
+            point1_idx: line_point1_idx,
+            point2_idx: line_point2_idx,
+        } = &system.element_vertices[line.id as usize]
+        else {
+            unreachable!()
+        };
+
+        let constraint = Self {
+            point_idx,
+            line_point1_idx,
+            line_point2_idx,
+        };
+
+        system.add_constraint(Edge::PointLineIncidence(constraint))
     }
-}
 
-/// A representation of a [`PointLineIncidence`] constraint within a [`crate::System`], allowing
-/// evaluation.
-///
-/// TODO: can this be merged with [`PointLineIncidence`]?
-pub(crate) struct PointLineIncidence_ {
-    pub point_idx: u32,
-    pub line_point1_idx: u32,
-    pub line_point2_idx: u32,
-}
-
-impl PointLineIncidence_ {
     pub(crate) fn compute_residual_and_partial_derivatives(
         &self,
         free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
@@ -416,30 +383,12 @@ impl PointLineIncidence_ {
     }
 }
 
-impl sealed::ConstraintInner for PointLineIncidence {
-    fn as_edge(&self, vertices: &[Vertex]) -> Edge {
-        let &Vertex::Point { idx: point_idx } = &vertices[self.point.id as usize] else {
-            unreachable!()
-        };
-        let &Vertex::Line {
-            point1_idx: line_point1_idx,
-            point2_idx: line_point2_idx,
-        } = &vertices[self.line.id as usize]
-        else {
-            unreachable!()
-        };
-        Edge::PointLineIncidence(PointLineIncidence_ {
-            point_idx,
-            line_point1_idx,
-            line_point2_idx,
-        })
-    }
-}
-
 /// Constrain two lines to describe a given angle.
 pub struct LineLineAngle {
-    line1: ElementHandle<elements::Line>,
-    line2: ElementHandle<elements::Line>,
+    line1_point1_idx: u32,
+    line1_point2_idx: u32,
+    line2_point1_idx: u32,
+    line2_point2_idx: u32,
 
     /// Angle in radians.
     angle: f64,
@@ -447,60 +396,38 @@ pub struct LineLineAngle {
 
 impl LineLineAngle {
     /// Construct a constraint between two lines to describe a given angle.
-    pub fn new(
+    pub fn create(
+        system: &mut System,
         line1: ElementHandle<elements::Line>,
         line2: ElementHandle<elements::Line>,
         angle: f64,
-    ) -> Self {
-        Self {
-            line1,
-            line2,
-            angle,
-        }
-    }
-}
-
-impl sealed::ConstraintInner for LineLineAngle {
-    fn as_edge(&self, vertices: &[Vertex]) -> Edge {
+    ) -> ConstraintHandle<Self> {
         let &Vertex::Line {
             point1_idx: line1_point1_idx,
             point2_idx: line1_point2_idx,
-        } = &vertices[self.line1.id as usize]
+        } = &system.element_vertices[line1.id as usize]
         else {
             unreachable!()
         };
         let &Vertex::Line {
             point1_idx: line2_point1_idx,
             point2_idx: line2_point2_idx,
-        } = &vertices[self.line2.id as usize]
+        } = &system.element_vertices[line2.id as usize]
         else {
             unreachable!()
         };
-        Edge::LineLineAngle(LineLineAngle_ {
+
+        let constraint = Self {
             line1_point1_idx,
             line1_point2_idx,
             line2_point1_idx,
             line2_point2_idx,
-            angle: self.angle,
-        })
+            angle,
+        };
+
+        system.add_constraint(Edge::LineLineAngle(constraint))
     }
-}
 
-/// A representation of a [`LineLineAngle`] constraint within a [`crate::System`], allowing
-/// evaluation.
-///
-/// TODO: can this be merged with [`LineLineAngle`]?
-pub(crate) struct LineLineAngle_ {
-    pub line1_point1_idx: u32,
-    pub line1_point2_idx: u32,
-    pub line2_point1_idx: u32,
-    pub line2_point2_idx: u32,
-
-    /// Angle in radians.
-    pub angle: f64,
-}
-
-impl LineLineAngle_ {
     pub(crate) fn compute_residual_and_partial_derivatives(
         &self,
         free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
@@ -587,59 +514,45 @@ impl LineLineAngle_ {
 
 /// Constrain a line and a circle such that the line is tangent on the circle.
 pub struct LineCircleTangency {
-    line: ElementId,
-    circle: ElementId,
+    line_point1_idx: u32,
+    line_point2_idx: u32,
+    circle_center_idx: u32,
+    circle_radius_idx: u32,
 }
 
-impl sealed::ConstraintInner for LineCircleTangency {
-    fn as_edge(&self, vertices: &[Vertex]) -> Edge {
+impl LineCircleTangency {
+    /// Construct a constraint between a line and a circle such that the line is tangent on the
+    /// circle.
+    pub fn create(
+        system: &mut System,
+        line: ElementHandle<elements::Line>,
+        circle: ElementHandle<elements::Circle>,
+    ) -> ConstraintHandle<Self> {
         let &Vertex::Line {
             point1_idx: line_point1_idx,
             point2_idx: line_point2_idx,
-        } = &vertices[self.line.id as usize]
+        } = &system.element_vertices[line.id as usize]
         else {
             unreachable!()
         };
         let &Vertex::Circle {
             center_idx: circle_center_idx,
             radius_idx: circle_radius_idx,
-        } = &vertices[self.circle.id as usize]
+        } = &system.element_vertices[circle.id as usize]
         else {
             unreachable!()
         };
-        Edge::LineCircleTangency(LineCircleTangency_ {
+
+        let constraint = Self {
             line_point1_idx,
             line_point2_idx,
             circle_center_idx,
             circle_radius_idx,
-        })
+        };
+
+        system.add_constraint(Edge::LineCircleTangency(constraint))
     }
-}
 
-impl LineCircleTangency {
-    /// Construct a constraint between a line and a circle such that the line is tangent on the
-    /// circle.
-    pub fn new(
-        line: ElementHandle<elements::Line>,
-        circle: ElementHandle<elements::Circle>,
-    ) -> Self {
-        Self {
-            line: line.drop_system_id(),
-            circle: circle.drop_system_id(),
-        }
-    }
-}
-
-/// A representation of a [`LineCircleTangency`] constraint within a [`crate::System`], allowing
-/// evaluation.
-pub(crate) struct LineCircleTangency_ {
-    pub line_point1_idx: u32,
-    pub line_point2_idx: u32,
-    pub circle_center_idx: u32,
-    pub circle_radius_idx: u32,
-}
-
-impl LineCircleTangency_ {
     pub(crate) fn compute_residual_and_partial_derivatives(
         &self,
         free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
@@ -722,17 +635,10 @@ impl LineCircleTangency_ {
     }
 }
 
-pub(crate) mod sealed {
-    pub(crate) trait ConstraintInner {
-        fn as_edge(&self, vertices: &[crate::Vertex]) -> crate::Edge;
-    }
-}
-
 /// A constraint between geometric [elements](crate::Element).
 ///
-/// These can be added to a [`System`](crate::System).
-#[expect(private_bounds, reason = "Sealed inner trait")]
-pub trait Constraint: sealed::ConstraintInner {}
+/// These can be added to a [`System`].
+pub trait Constraint {}
 impl Constraint for PointPointDistance {}
 impl Constraint for PointPointPointAngle {}
 impl Constraint for PointLineIncidence {}
