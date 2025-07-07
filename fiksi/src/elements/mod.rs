@@ -6,7 +6,7 @@
 use alloc::vec::Vec;
 
 pub(crate) mod element {
-    use core::marker::PhantomData;
+    use super::{Element, sealed::ElementInner};
 
     /// Dynamically tagged, typed handles to elements.
     pub enum TaggedElementHandle {
@@ -19,20 +19,23 @@ pub(crate) mod element {
     }
 
     /// A handle to an element within a [`System`](crate::System).
-    pub struct ElementHandle<T> {
+    pub struct ElementHandle<T: Element> {
         /// The ID of the system the element belongs to.
         pub(crate) system_id: u32,
         /// The ID of the element within the system.
         pub(crate) id: u32,
-        _t: PhantomData<T>,
+        /// Additional data stored in the handle.
+        ///
+        /// Currently only used by [`super::AnyElement`] to store the tag.
+        pub(crate) data: <T as ElementInner>::HandleData,
     }
 
-    impl<T> ElementHandle<T> {
+    impl<T: Element> ElementHandle<T> {
         pub(crate) fn from_ids(system_id: u32, id: u32) -> Self {
             Self {
                 system_id,
                 id,
-                _t: PhantomData,
+                data: Default::default(),
             }
         }
 
@@ -51,58 +54,53 @@ pub(crate) mod element {
 
     impl ElementHandle<super::AnyElement> {
         /// Get a typed handle to the element.
-        pub fn as_tagged_element(self, system: &crate::System) -> TaggedElementHandle {
-            use crate::Vertex;
+        pub fn as_tagged_element(self) -> TaggedElementHandle {
+            use super::AnyElementTag;
 
-            // TODO: return `Result` instead of panicking?
-            assert_eq!(
-                system.id, self.system_id,
-                "Tried to use an element handle that is not part of this `System`"
-            );
-
-            match system.element_vertices[self.id as usize] {
-                Vertex::Point { .. } => {
+            match self.data {
+                AnyElementTag::Point => {
                     TaggedElementHandle::Point(ElementHandle::from_ids(self.system_id, self.id))
                 }
-                Vertex::Line { .. } => {
+                AnyElementTag::Line => {
                     TaggedElementHandle::Line(ElementHandle::from_ids(self.system_id, self.id))
                 }
-                Vertex::Circle { .. } => {
+                AnyElementTag::Circle => {
                     TaggedElementHandle::Circle(ElementHandle::from_ids(self.system_id, self.id))
                 }
             }
         }
     }
 
-    impl<T> core::fmt::Debug for ElementHandle<T> {
+    impl<T: Element> core::fmt::Debug for ElementHandle<T> {
         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
             let mut s = f.debug_struct("ElementHandle");
             s.field("system_id", &self.system_id);
             s.field("id", &self.id);
+            s.field("debug", &self.data);
             s.finish()
         }
     }
 
-    impl<T> Clone for ElementHandle<T> {
+    impl<T: Element> Clone for ElementHandle<T> {
         fn clone(&self) -> Self {
             *self
         }
     }
-    impl<T> Copy for ElementHandle<T> {}
+    impl<T: Element> Copy for ElementHandle<T> {}
 
-    impl<T> PartialEq for ElementHandle<T> {
+    impl<T: Element> PartialEq for ElementHandle<T> {
         fn eq(&self, other: &Self) -> bool {
             self.system_id == other.system_id && self.id == other.id
         }
     }
-    impl<T> Eq for ElementHandle<T> {}
+    impl<T: Element> Eq for ElementHandle<T> {}
 
-    impl<T> Ord for ElementHandle<T> {
+    impl<T: Element> Ord for ElementHandle<T> {
         fn cmp(&self, other: &Self) -> core::cmp::Ordering {
             (self.system_id, self.id).cmp(&(other.system_id, other.id))
         }
     }
-    impl<T> PartialOrd for ElementHandle<T> {
+    impl<T: Element> PartialOrd for ElementHandle<T> {
         fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
             Some(self.cmp(other))
         }
@@ -143,6 +141,7 @@ impl Point {
 
 impl sealed::ElementInner for Point {
     type Output = kurbo::Point;
+    type HandleData = ();
 
     fn add_into(&self, element_vertices: &mut Vec<Vertex>, variables: &mut Vec<f64>) {
         element_vertices.push(Vertex::Point {
@@ -183,6 +182,7 @@ impl Line {
 
 impl sealed::ElementInner for Line {
     type Output = kurbo::Line;
+    type HandleData = ();
 
     fn add_into(&self, element_vertices: &mut Vec<Vertex>, _variables: &mut Vec<f64>) {
         let &Vertex::Point { idx: point1_idx } = &element_vertices[self.point1.id as usize] else {
@@ -237,6 +237,7 @@ impl Circle {
 
 impl sealed::ElementInner for Circle {
     type Output = kurbo::Circle;
+    type HandleData = ();
 
     fn add_into(&self, element_vertices: &mut Vec<Vertex>, variables: &mut Vec<f64>) {
         let &Vertex::Point { idx: center_idx } = &element_vertices[self.center.id as usize] else {
@@ -279,6 +280,9 @@ pub(crate) mod sealed {
         /// The data type when retrieving an element's value.
         type Output;
 
+        /// Additional data stored in element handles of this element type.
+        type HandleData: Copy + core::fmt::Debug + Default;
+
         fn add_into(&self, element_vertices: &mut Vec<Vertex>, variables: &mut Vec<f64>);
         fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self::Output;
     }
@@ -289,8 +293,18 @@ pub(crate) mod sealed {
 /// See [`ElementHandle::as_any_element`].
 pub struct AnyElement {}
 
+/// The actual type of the element.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) enum AnyElementTag {
+    #[default]
+    Point,
+    Line,
+    Circle,
+}
+
 impl sealed::ElementInner for AnyElement {
     type Output = ElementValue;
+    type HandleData = AnyElementTag;
 
     fn add_into(&self, _element_vertices: &mut Vec<Vertex>, _variables: &mut Vec<f64>) {
         // This element can't be constructed manually, it's used for type-erased element handles.

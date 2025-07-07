@@ -290,7 +290,7 @@ impl System {
     /// Add an element to the solve set.
     ///
     /// See [`System::create_solve_set`].
-    pub fn add_element_to_solve_set<T>(
+    pub fn add_element_to_solve_set<T: Element>(
         &mut self,
         solve_set: &SolveSetHandle,
         element: &ElementHandle<T>,
