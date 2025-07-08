@@ -20,7 +20,7 @@ pub(crate) mod element {
         Circle(ElementHandle<super::Circle>),
     }
 
-    /// A handle to an element within a [`System`](crate::System).
+    /// A handle to an element within a [`System`].
     pub struct ElementHandle<T: Element> {
         /// The ID of the system the element belongs to.
         pub(crate) system_id: u32,

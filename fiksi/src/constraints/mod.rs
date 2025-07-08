@@ -29,7 +29,7 @@ pub(crate) mod constraint {
 
     use crate::{System, utils};
 
-    /// A handle to a constraint within a [`System`](crate::System).
+    /// A handle to a constraint within a [`System`].
     pub struct ConstraintHandle<T> {
         /// The ID of the system the constraint belongs to.
         pub(crate) system_id: u32,
