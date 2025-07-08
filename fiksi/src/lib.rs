@@ -75,7 +75,10 @@ mod tests;
 pub(crate) use constraints::constraint::ConstraintId;
 pub use constraints::{Constraint, constraint::ConstraintHandle};
 use elements::element::ElementId;
-pub use elements::{Element, element::ElementHandle};
+pub use elements::{
+    Element,
+    element::{ElementHandle, TaggedElementHandle},
+};
 
 use crate::constraints::{
     LineCircleTangency, LineLineAngle, LineLineParallelism, PointLineIncidence, PointPointDistance,
@@ -109,6 +112,16 @@ pub struct SolveSetHandle {
     system_id: u32,
     /// The ID of the element set within the system.
     id: u32,
+}
+
+/// An element value.
+pub enum ElementValue {
+    /// An [`elements::Point`] value.
+    Point(kurbo::Point),
+    /// An [`elements::Line`] value.
+    Line(kurbo::Line),
+    /// An [`elements::Circle`] value.
+    Circle(kurbo::Circle),
 }
 
 /// Options used by [`System::solve`].
@@ -235,6 +248,17 @@ impl System {
         .into()
     }
 
+    /// Iterate over the handles of all elements in the system.
+    ///
+    /// You can use [`System::get_element`] to get an element-tagged value or
+    /// [`ElementHandle::get_tagged_element`](ElementHandle<elements::AnyElement>::as_tagged_element)
+    /// to get a typed handle.
+    pub fn get_element_handles(&self) -> impl Iterator<Item = ElementHandle<elements::AnyElement>> {
+        (0..self.element_vertices.len()).map(|id| {
+            ElementHandle::from_ids(self.id, id.try_into().expect("less than 2^32 elements"))
+        })
+    }
+
     /// Calculate the residual of a constraint.
     pub fn calculate_constraint_residual<T>(&self, constraint: ConstraintHandle<T>) -> f64 {
         let edge = &self.constraint_edges[constraint.drop_system_id().id as usize];
@@ -266,7 +290,7 @@ impl System {
     /// Add an element to the solve set.
     ///
     /// See [`System::create_solve_set`].
-    pub fn add_element_to_solve_set<T>(
+    pub fn add_element_to_solve_set<T: Element>(
         &mut self,
         solve_set: &SolveSetHandle,
         element: &ElementHandle<T>,
