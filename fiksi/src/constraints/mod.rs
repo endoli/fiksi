@@ -27,7 +27,9 @@ impl FloatExt for f64 {
 pub(crate) mod constraint {
     use core::marker::PhantomData;
 
-    /// A handle to a constraint within a [`System`](crate::System).
+    use crate::{System, utils};
+
+    /// A handle to a constraint within a [`System`].
     pub struct ConstraintHandle<T> {
         /// The ID of the system the constraint belongs to.
         pub(crate) system_id: u32,
@@ -47,6 +49,20 @@ pub(crate) mod constraint {
 
         pub(crate) fn drop_system_id(self) -> ConstraintId {
             ConstraintId { id: self.id }
+        }
+
+        /// Calculate the residual of this constraint.
+        pub fn calculate_residual(self, system: &System) -> f64 {
+            let edge = &system.constraint_edges[self.id as usize];
+            let residual = &mut [0.];
+            utils::calculate_residuals_and_jacobian(
+                &[edge],
+                &alloc::collections::BTreeMap::new(),
+                &system.variables,
+                residual,
+                &mut [],
+            );
+            residual[0]
         }
     }
 

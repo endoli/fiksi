@@ -233,44 +233,15 @@ impl System {
         ElementHandle::from_ids(self.id, id)
     }
 
-    /// Get the value of an element.
-    pub fn get_element<T: Element>(&self, element: ElementHandle<T>) -> <T as Element>::Output {
-        // TODO: return `Result` instead of panicking?
-        assert_eq!(
-            self.id, element.system_id,
-            "Tried to get an element that is not part of this `System`"
-        );
-
-        T::from_vertex(
-            &self.element_vertices[element.drop_system_id().id as usize],
-            &self.variables,
-        )
-        .into()
-    }
-
     /// Iterate over the handles of all elements in the system.
     ///
-    /// You can use [`System::get_element`] to get an element-tagged value or
+    /// You can use [`ElementHandle::get_value`] to get an element-tagged value or
     /// [`ElementHandle::get_tagged_element`](ElementHandle<elements::AnyElement>::as_tagged_element)
     /// to get a typed handle.
     pub fn get_element_handles(&self) -> impl Iterator<Item = ElementHandle<elements::AnyElement>> {
         (0..self.element_vertices.len()).map(|id| {
             ElementHandle::from_ids(self.id, id.try_into().expect("less than 2^32 elements"))
         })
-    }
-
-    /// Calculate the residual of a constraint.
-    pub fn calculate_constraint_residual<T>(&self, constraint: ConstraintHandle<T>) -> f64 {
-        let edge = &self.constraint_edges[constraint.drop_system_id().id as usize];
-        let residual = &mut [0.];
-        utils::calculate_residuals_and_jacobian(
-            &[edge],
-            &alloc::collections::BTreeMap::new(),
-            &self.variables,
-            residual,
-            &mut [],
-        );
-        residual[0]
     }
 
     /// Add a constraint.
