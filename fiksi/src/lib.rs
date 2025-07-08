@@ -235,7 +235,7 @@ impl System {
 
     /// Iterate over the handles of all elements in the system.
     ///
-    /// You can use [`System::get_element`] to get an element-tagged value or
+    /// You can use [`ElementHandle::get_value`] to get an element-tagged value or
     /// [`ElementHandle::get_tagged_element`](ElementHandle<elements::AnyElement>::as_tagged_element)
     /// to get a typed handle.
     pub fn get_element_handles(&self) -> impl Iterator<Item = ElementHandle<elements::AnyElement>> {
