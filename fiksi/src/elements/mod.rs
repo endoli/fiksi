@@ -3,8 +3,6 @@
 
 //! Geometric elements like points and lines.
 
-use alloc::vec::Vec;
-
 pub(crate) mod element {
     use crate::System;
 
@@ -138,37 +136,28 @@ pub(crate) mod element {
 
 use element::ElementHandle;
 
-use crate::{ElementValue, Vertex};
+use crate::{ElementValue, System, Vertex};
 
 /// A point given by a 2D coordinate.
 #[derive(Debug)]
 pub struct Point {
     /// The x-coordinate of the point.
-    pub x: f64,
+    x: f64,
     /// The y-coordinate of the point.
-    pub y: f64,
+    y: f64,
 }
 
 impl Point {
     /// Construct a new `Point` at the given coordinate.
-    pub fn new(x: f64, y: f64) -> Self {
-        Self { x, y }
+    pub fn create(system: &mut System, x: f64, y: f64) -> ElementHandle<Self> {
+        let idx = system.add_variables([x, y]);
+        system.add_element(Vertex::Point { idx })
     }
 }
 
 impl sealed::ElementInner for Point {
     type Output = kurbo::Point;
     type HandleData = ();
-
-    fn add_into(&self, element_vertices: &mut Vec<Vertex>, variables: &mut Vec<f64>) {
-        element_vertices.push(Vertex::Point {
-            idx: variables
-                .len()
-                .try_into()
-                .expect("less than 2^32 variables"),
-        });
-        variables.extend(&[self.x, self.y]);
-    }
 
     fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self::Output {
         let &Vertex::Point { idx } = vertex else {
@@ -185,34 +174,36 @@ impl sealed::ElementInner for Point {
 #[derive(Debug)]
 pub struct Line {
     /// First point of the line.
-    pub point1: ElementHandle<Point>,
+    point1: ElementHandle<Point>,
     /// Second point of the line.
-    pub point2: ElementHandle<Point>,
+    point2: ElementHandle<Point>,
 }
 
 impl Line {
     /// Construct a new `Line` with the given points.
-    pub fn new(point1: ElementHandle<Point>, point2: ElementHandle<Point>) -> Self {
-        Self { point1, point2 }
+    pub fn create(
+        system: &mut System,
+        point1: ElementHandle<Point>,
+        point2: ElementHandle<Point>,
+    ) -> ElementHandle<Self> {
+        let &Vertex::Point { idx: point1_idx } = &system.element_vertices[point1.id as usize]
+        else {
+            unreachable!()
+        };
+        let &Vertex::Point { idx: point2_idx } = &system.element_vertices[point2.id as usize]
+        else {
+            unreachable!()
+        };
+        system.add_element(Vertex::Line {
+            point1_idx,
+            point2_idx,
+        })
     }
 }
 
 impl sealed::ElementInner for Line {
     type Output = kurbo::Line;
     type HandleData = ();
-
-    fn add_into(&self, element_vertices: &mut Vec<Vertex>, _variables: &mut Vec<f64>) {
-        let &Vertex::Point { idx: point1_idx } = &element_vertices[self.point1.id as usize] else {
-            unreachable!()
-        };
-        let &Vertex::Point { idx: point2_idx } = &element_vertices[self.point2.id as usize] else {
-            unreachable!()
-        };
-        element_vertices.push(Vertex::Line {
-            point1_idx,
-            point2_idx,
-        });
-    }
 
     fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self::Output {
         let &Vertex::Line {
@@ -239,36 +230,34 @@ impl sealed::ElementInner for Line {
 #[derive(Debug)]
 pub struct Circle {
     /// The center of the circle.
-    pub center: ElementHandle<Point>,
+    center: ElementHandle<Point>,
 
     /// The radius of the circle.
-    pub radius: f64,
+    radius: f64,
 }
 
 impl Circle {
     /// Construct a new `Circle` with the given point and radius.
-    pub fn new(center: ElementHandle<Point>, radius: f64) -> Self {
-        Self { center, radius }
+    pub fn create(
+        system: &mut System,
+        center: ElementHandle<Point>,
+        radius: f64,
+    ) -> ElementHandle<Self> {
+        let &Vertex::Point { idx: center_idx } = &system.element_vertices[center.id as usize]
+        else {
+            unreachable!()
+        };
+        let radius_idx = system.add_variables([radius]);
+        system.add_element(Vertex::Circle {
+            center_idx,
+            radius_idx,
+        })
     }
 }
 
 impl sealed::ElementInner for Circle {
     type Output = kurbo::Circle;
     type HandleData = ();
-
-    fn add_into(&self, element_vertices: &mut Vec<Vertex>, variables: &mut Vec<f64>) {
-        let &Vertex::Point { idx: center_idx } = &element_vertices[self.center.id as usize] else {
-            unreachable!()
-        };
-        element_vertices.push(Vertex::Circle {
-            center_idx,
-            radius_idx: variables
-                .len()
-                .try_into()
-                .expect("less than 2^32 variables"),
-        });
-        variables.extend(&[self.radius]);
-    }
 
     fn from_vertex(vertex: &Vertex, variables: &[f64]) -> kurbo::Circle {
         let &Vertex::Circle {
@@ -289,8 +278,6 @@ impl sealed::ElementInner for Circle {
 }
 
 pub(crate) mod sealed {
-    use alloc::vec::Vec;
-
     use crate::Vertex;
 
     pub(crate) trait ElementInner {
@@ -300,7 +287,6 @@ pub(crate) mod sealed {
         /// Additional data stored in element handles of this element type.
         type HandleData: Copy + core::fmt::Debug + Default;
 
-        fn add_into(&self, element_vertices: &mut Vec<Vertex>, variables: &mut Vec<f64>);
         fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self::Output;
     }
 }
@@ -323,10 +309,6 @@ impl sealed::ElementInner for AnyElement {
     type Output = ElementValue;
     type HandleData = AnyElementTag;
 
-    fn add_into(&self, _element_vertices: &mut Vec<Vertex>, _variables: &mut Vec<f64>) {
-        // This element can't be constructed manually, it's used for type-erased element handles.
-        unreachable!()
-    }
     fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self::Output {
         match vertex {
             Vertex::Point { .. } => ElementValue::Point(Point::from_vertex(vertex, variables)),
@@ -338,7 +320,7 @@ impl sealed::ElementInner for AnyElement {
 
 /// A geometric element that can be [constrained](crate::Constraint).
 ///
-/// These can be added to a [`System`](crate::System).
+/// These can be added to a [`System`].
 #[expect(private_bounds, reason = "Sealed inner trait")]
 pub trait Element: sealed::ElementInner {
     /// The data type when retrieving an element's value.
