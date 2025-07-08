@@ -70,7 +70,7 @@ pub(crate) mod element {
         }
     }
 
-    /// A type-erased handle to an element within a [`System`](crate::System).
+    /// A type-erased handle to an element within a [`System`].
     pub struct AnyElementHandle {
         /// The ID of the system the element belongs to.
         pub(crate) system_id: u32,
