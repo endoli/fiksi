@@ -6,6 +6,8 @@
 use alloc::vec::Vec;
 
 pub(crate) mod element {
+    use crate::System;
+
     use super::{Element, sealed::ElementInner};
 
     /// Dynamically tagged, typed handles to elements.
@@ -41,6 +43,21 @@ pub(crate) mod element {
 
         pub(crate) fn drop_system_id(self) -> ElementId {
             ElementId { id: self.id }
+        }
+
+        /// Get the value of the element.
+        pub fn get_value(&self, system: &System) -> <T as Element>::Output {
+            // TODO: return `Result` instead of panicking?
+            assert_eq!(
+                self.system_id, system.id,
+                "Tried to get an element that is not part of this `System`"
+            );
+
+            <T as ElementInner>::from_vertex(
+                &system.element_vertices[self.drop_system_id().id as usize],
+                &system.variables,
+            )
+            .into()
         }
 
         /// Get a type-erased handle to the element.

@@ -20,10 +20,8 @@ fn underconstrained_triangle() {
     let angle2 = constraints::PointPointPointAngle::create(&mut s, p2, p3, p1, 80_f64.to_radians());
     s.solve(None, crate::SolvingOptions::default());
 
-    let sum_squared_residuals = sum_squares(&[
-        s.calculate_constraint_residual(angle1),
-        s.calculate_constraint_residual(angle2),
-    ]);
+    let sum_squared_residuals =
+        sum_squares(&[angle1.calculate_residual(&s), angle2.calculate_residual(&s)]);
     assert!(
         sum_squared_residuals < RESIDUAL_THRESHOLD,
         "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
@@ -49,16 +47,16 @@ fn overconstrained_triangle_line_incidence() {
     s.solve(None, crate::SolvingOptions::default());
 
     let sum_squared_residuals = sum_squares(&[
-        s.calculate_constraint_residual(angle1),
-        s.calculate_constraint_residual(angle2),
-        s.calculate_constraint_residual(angle3),
+        angle1.calculate_residual(&s),
+        angle2.calculate_residual(&s),
+        angle3.calculate_residual(&s),
     ]);
     assert!(
         sum_squared_residuals >= RESIDUAL_THRESHOLD,
         "The angle constraints were unexpectedly solved (this shouldn't be possible geometrically)"
     );
 
-    let squared_incidence_residual = sum_squares(&[s.calculate_constraint_residual(incidence)]);
+    let squared_incidence_residual = sum_squares(&[incidence.calculate_residual(&s)]);
     assert!(
         squared_incidence_residual < RESIDUAL_THRESHOLD,
         "The point-line incidence was not solved (sum of squared residuals: {sum_squared_residuals})"
