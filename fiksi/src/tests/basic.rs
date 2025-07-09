@@ -13,9 +13,9 @@ const RESIDUAL_THRESHOLD: f64 = 1e-5;
 fn underconstrained_triangle() {
     let mut s = System::new();
 
-    let p1 = s.add_element(elements::Point { x: 0., y: 0. });
-    let p2 = s.add_element(elements::Point { x: 1., y: 0.5 });
-    let p3 = s.add_element(elements::Point { x: 2., y: 1. });
+    let p1 = elements::Point::create(&mut s, 0., 0.);
+    let p2 = elements::Point::create(&mut s, 1., 0.5);
+    let p3 = elements::Point::create(&mut s, 2., 1.);
     let angle1 = constraints::PointPointPointAngle::create(&mut s, p1, p2, p3, 40_f64.to_radians());
     let angle2 = constraints::PointPointPointAngle::create(&mut s, p2, p3, p1, 80_f64.to_radians());
     s.solve(None, crate::SolvingOptions::default());
@@ -33,11 +33,11 @@ fn underconstrained_triangle() {
 fn overconstrained_triangle_line_incidence() {
     let mut s = System::new();
 
-    let p1 = s.add_element(elements::Point { x: 0., y: 0. });
-    let p2 = s.add_element(elements::Point { x: 1., y: 0.5 });
-    let p3 = s.add_element(elements::Point { x: 2., y: 1. });
-    let p4 = s.add_element(elements::Point { x: 3., y: 1.5 });
-    let line1 = s.add_element(elements::Line::new(p3, p4));
+    let p1 = elements::Point::create(&mut s, 0., 0.);
+    let p2 = elements::Point::create(&mut s, 1., 0.5);
+    let p3 = elements::Point::create(&mut s, 2., 1.);
+    let p4 = elements::Point::create(&mut s, 3., 1.5);
+    let line1 = elements::Line::create(&mut s, p3, p4);
     // Overconstrain the triangle angles to something that's geometrically impossible.
     let angle1 = constraints::PointPointPointAngle::create(&mut s, p1, p2, p3, 40_f64.to_radians());
     let angle2 = constraints::PointPointPointAngle::create(&mut s, p2, p3, p1, 80_f64.to_radians());

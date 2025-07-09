@@ -22,9 +22,9 @@
 //! // - one corner has an angle of 10 degrees;
 //! // - one corner has an angle of 60 degrees; and
 //! // - the side between those corners is of length 5.
-//! let p1 = gcs.add_element(elements::Point::new(1., 0.));
-//! let p2 = gcs.add_element(elements::Point::new(0.8, 1.));
-//! let p3 = gcs.add_element(elements::Point::new(1.1, 2.));
+//! let p1 = elements::Point::create(&mut gcs, 1., 0.);
+//! let p2 = elements::Point::create(&mut gcs, 0.8, 1.);
+//! let p3 = elements::Point::create(&mut gcs, 1.1, 2.);
 //!
 //! constraints::PointPointDistance::create(&mut gcs, p2, p3, 5.);
 //! constraints::PointPointPointAngle::create(&mut gcs, p1, p2, p3, 10f64.to_radians());
@@ -169,8 +169,8 @@ impl SolveSet {
 
 /// A geometric constraint system.
 ///
-/// Build the system by [adding elements](System::add_element) and [constraints](Constraint). Then
-/// solve (sub)systems using [`System::solve`].
+/// Build the system by [adding elements](Element) and [constraints](Constraint). Then solve
+/// (sub)systems using [`System::solve`].
 pub struct System {
     id: u32,
     /// Geometric elements.
@@ -218,21 +218,6 @@ impl System {
         }
     }
 
-    /// Add an element.
-    ///
-    /// Give the element sets the element belongs to in `sets`.
-    pub fn add_element<T: Element>(&mut self, element: T) -> ElementHandle<T> {
-        let id = self
-            .element_vertices
-            .len()
-            .try_into()
-            .expect("less than 2^32 elements");
-
-        element.add_into(&mut self.element_vertices, &mut self.variables);
-
-        ElementHandle::from_ids(self.id, id)
-    }
-
     /// Iterate over the handles of all elements in the system.
     ///
     /// You can use [`ElementHandle::get_value`] to get an element-tagged value or
@@ -242,6 +227,27 @@ impl System {
         (0..self.element_vertices.len()).map(|id| {
             ElementHandle::from_ids(self.id, id.try_into().expect("less than 2^32 elements"))
         })
+    }
+
+    /// Add the given values to the variables vec, returning the index to the first variable added.
+    pub(crate) fn add_variables<const N: usize>(&mut self, variables: [f64; N]) -> u32 {
+        let idx = self.variables.len();
+        self.variables.extend_from_slice(&variables);
+        idx.try_into().expect("less than 2^32 variables")
+    }
+
+    /// Add an element.
+    ///
+    /// Give the element sets the element belongs to in `sets`.
+    pub(crate) fn add_element<T: Element>(&mut self, vertex: Vertex) -> ElementHandle<T> {
+        let id = self
+            .element_vertices
+            .len()
+            .try_into()
+            .expect("less than 2^32 elements");
+        self.element_vertices.push(vertex);
+
+        ElementHandle::from_ids(self.id, id)
     }
 
     /// Add a constraint.
