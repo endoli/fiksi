@@ -5,9 +5,7 @@ use alloc::{vec, vec::Vec};
 
 use nalgebra::DMatrix;
 
-use crate::{
-    AnyConstraintHandle, Edge, SolveSet, System, Vertex, constraints::ConstraintTag, utils,
-};
+use crate::{AnyConstraintHandle, Subsystem, System, constraints::ConstraintTag, utils};
 const EPSILON: f64 = 1e-8;
 
 /// Transform the matrix to reduced row echelon form through Gauss-Jordan elimination.
@@ -115,59 +113,27 @@ pub(crate) fn incremental_gauss_jordan_elimination(
 /// one of those could be designated as causing the system to become overconstrained.
 pub(crate) fn find_overconstraints(
     system: &System,
-    solve_set: Option<&SolveSet>,
+    subsystem: &Subsystem<'_>,
 ) -> Vec<AnyConstraintHandle> {
-    let mut free_variables: Vec<u32> = vec![];
-    for vertex in &system.element_vertices {
-        match vertex {
-            Vertex::Point { idx } => {
-                free_variables.extend(&[*idx, idx + 1]);
-            }
-            Vertex::Circle { radius_idx, .. } => {
-                free_variables.extend(&[*radius_idx]);
-            }
-            // In the current setup, not all vertices in the set contribute free variables.
-            _ => {}
-        }
-    }
-    let num_variables = free_variables.len();
-    free_variables.sort_unstable();
-
-    // Map from variable index into free variable index within the Jacobian matrix, gradient
-    // vector, etc.
-    let mut free_variable_map = alloc::collections::BTreeMap::new();
-    for (idx, &free_variable) in free_variables.iter().enumerate() {
-        free_variable_map.insert(
-            free_variable,
-            idx.try_into().expect("less than 2^32 elements"),
-        );
-    }
-    let constraints: Vec<&Edge> = match solve_set {
-        Some(solve_set) => solve_set
-            .constraints
-            .iter()
-            .map(|id| &system.constraint_edges[id.id as usize])
-            .collect(),
-        None => system.constraint_edges.iter().collect(),
-    };
-
     // The (non-squared) residuals of the constraints.
-    let mut residuals = vec![0.; constraints.len()];
+    let mut residuals = vec![0.; subsystem.constraints().len()];
     // All first-order partial derivatives of the constraints, as constraints x free variables.
     // This is in row-major order.
-    let mut jacobian = vec![0.; constraints.len() * num_variables];
+    let mut jacobian = vec![0.; subsystem.constraints().len() * subsystem.free_variables().len()];
     utils::calculate_residuals_and_jacobian(
-        &constraints,
-        &free_variable_map,
+        subsystem,
         &system.variables,
         &mut residuals,
         &mut jacobian,
     );
 
-    let mut jacobian_ = nalgebra::DMatrix::zeros(constraints.len(), free_variables.len());
-    for i in 0..constraints.len() {
-        for j in 0..free_variables.len() {
-            jacobian_[(i, j)] = jacobian[i * free_variables.len() + j];
+    let mut jacobian_ = nalgebra::DMatrix::zeros(
+        subsystem.constraints().len(),
+        subsystem.free_variables().len(),
+    );
+    for i in 0..subsystem.constraints().len() {
+        for j in 0..subsystem.free_variables().len() {
+            jacobian_[(i, j)] = jacobian[i * subsystem.free_variables().len() + j];
         }
     }
 
@@ -182,15 +148,10 @@ pub(crate) fn find_overconstraints(
             reason = "there are fewer than 2^32 constraints"
         )]
         if !independent {
-            let id_in_system = solve_set
-                .map(|solve_set| {
-                    solve_set
-                        .constraints
-                        .iter()
-                        .position(|c| c.id == constraint_idx as u32)
-                        .expect("constraint is present") as u32
-                })
-                .unwrap_or(constraint_idx as u32);
+            let id_in_system = subsystem
+                .constraint_ids()
+                .position(|c| c.id == constraint_idx as u32)
+                .expect("constraint is present") as u32;
             dependent.push(AnyConstraintHandle::from_ids_and_tag(
                 system.id,
                 id_in_system,
