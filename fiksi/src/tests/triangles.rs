@@ -34,3 +34,38 @@ fn connected_triangles() {
         "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
     );
 }
+
+/// Three rigid triangles hinged at a point (i.e., not connected rigidly).
+#[test]
+fn hinged_triangles() {
+    let mut s = System::new();
+
+    let p0 = elements::Point::create(&mut s, 0.5, 0.);
+    let p1 = elements::Point::create(&mut s, 1.1, 0.5);
+    let p2 = elements::Point::create(&mut s, 2.1, 1.);
+    let p3 = elements::Point::create(&mut s, 3.1, 1.5);
+    let p4 = elements::Point::create(&mut s, 4.1, 2.);
+    let p5 = elements::Point::create(&mut s, 5.1, 2.5);
+    let p6 = elements::Point::create(&mut s, 6.1, 3.);
+
+    constraints::PointPointDistance::create(&mut s, p0, p1, 1.);
+    constraints::PointPointDistance::create(&mut s, p0, p2, 1.);
+    constraints::PointPointDistance::create(&mut s, p1, p2, 1.);
+
+    constraints::PointPointDistance::create(&mut s, p0, p3, 1.);
+    constraints::PointPointDistance::create(&mut s, p0, p4, 1.);
+    constraints::PointPointDistance::create(&mut s, p3, p4, 1.);
+
+    constraints::PointPointDistance::create(&mut s, p0, p5, 1.);
+    constraints::PointPointDistance::create(&mut s, p0, p6, 1.);
+    constraints::PointPointDistance::create(&mut s, p5, p6, 1.);
+
+    s.solve(None, crate::SolvingOptions::default());
+
+    let sum_squared_residuals =
+        sum_squares(s.get_constraint_handles().map(|c| c.calculate_residual(&s)));
+    assert!(
+        sum_squared_residuals < 1e-8,
+        "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
+    );
+}
