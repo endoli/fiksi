@@ -73,7 +73,10 @@ pub(crate) mod utils;
 mod tests;
 
 pub(crate) use constraints::constraint::ConstraintId;
-pub use constraints::{Constraint, constraint::ConstraintHandle};
+pub use constraints::{
+    Constraint,
+    constraint::{AnyConstraintHandle, ConstraintHandle, TaggedConstraintHandle},
+};
 use elements::element::ElementId;
 pub use elements::{
     Element,
@@ -294,7 +297,7 @@ impl System {
     /// Add a constraint to the solve set.
     ///
     /// See [`System::create_solve_set`].
-    pub fn add_constraint_to_solve_set<T>(
+    pub fn add_constraint_to_solve_set<T: Constraint>(
         &mut self,
         solve_set: &SolveSetHandle,
         constraint: &ConstraintHandle<T>,
