@@ -77,7 +77,7 @@ pub use constraints::{Constraint, constraint::ConstraintHandle};
 use elements::element::ElementId;
 pub use elements::{
     Element,
-    element::{ElementHandle, TaggedElementHandle},
+    element::{AnyElementHandle, ElementHandle, TaggedElementHandle},
 };
 
 use crate::constraints::{
@@ -220,13 +220,19 @@ impl System {
 
     /// Iterate over the handles of all elements in the system.
     ///
-    /// You can use [`ElementHandle::get_value`] to get an element-tagged value or
-    /// [`ElementHandle::get_tagged_element`](ElementHandle<elements::AnyElement>::as_tagged_element)
-    /// to get a typed handle.
-    pub fn get_element_handles(&self) -> impl Iterator<Item = ElementHandle<elements::AnyElement>> {
-        (0..self.element_vertices.len()).map(|id| {
-            ElementHandle::from_ids(self.id, id.try_into().expect("less than 2^32 elements"))
-        })
+    /// You can use [`AnyElementHandle::get_value`] to get an element-tagged value or
+    /// [`AnyElementHandle::as_tagged_element`] to get a typed handle.
+    pub fn get_element_handles(&self) -> impl Iterator<Item = AnyElementHandle> {
+        self.element_vertices
+            .iter()
+            .enumerate()
+            .map(|(id, vertex)| {
+                AnyElementHandle::from_ids_and_tag(
+                    self.id,
+                    id.try_into().expect("less than 2^32 elements"),
+                    vertex.into(),
+                )
+            })
     }
 
     /// Add the given values to the variables vec, returning the index to the first variable added.

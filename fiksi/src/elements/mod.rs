@@ -4,9 +4,11 @@
 //! Geometric elements like points and lines.
 
 pub(crate) mod element {
-    use crate::System;
+    use core::marker::PhantomData;
 
-    use super::{Element, sealed::ElementInner};
+    use crate::{ElementValue, System};
+
+    use super::{Element, ElementTag, sealed::ElementInner};
 
     /// Dynamically tagged, typed handles to elements.
     pub enum TaggedElementHandle {
@@ -24,10 +26,7 @@ pub(crate) mod element {
         pub(crate) system_id: u32,
         /// The ID of the element within the system.
         pub(crate) id: u32,
-        /// Additional data stored in the handle.
-        ///
-        /// Currently only used by [`super::AnyElement`] to store the tag.
-        pub(crate) data: <T as ElementInner>::HandleData,
+        _t: PhantomData<T>,
     }
 
     impl<T: Element> ElementHandle<T> {
@@ -35,7 +34,7 @@ pub(crate) mod element {
             Self {
                 system_id,
                 id,
-                data: Default::default(),
+                _t: PhantomData,
             }
         }
 
@@ -61,25 +60,62 @@ pub(crate) mod element {
         /// Get a type-erased handle to the element.
         ///
         /// To turn the returned handle back into a typed handle, use
-        /// [`ElementHandle<AnyElement>::as_tagged_element`](ElementHandle<super::AnyElement>::as_tagged_element).
-        pub fn as_any_element(self) -> ElementHandle<super::AnyElement> {
-            ElementHandle::from_ids(self.system_id, self.id)
+        /// [`AnyElementHandle::as_tagged_element`].
+        pub fn as_any_element(self) -> AnyElementHandle {
+            AnyElementHandle {
+                system_id: self.system_id,
+                id: self.id,
+                tag: T::tag(),
+            }
         }
     }
 
-    impl ElementHandle<super::AnyElement> {
+    /// A type-erased handle to an element within a [`System`].
+    pub struct AnyElementHandle {
+        /// The ID of the system the element belongs to.
+        pub(crate) system_id: u32,
+        /// The ID of the element within the system.
+        pub(crate) id: u32,
+        tag: ElementTag,
+    }
+
+    impl AnyElementHandle {
+        pub(crate) fn from_ids_and_tag(system_id: u32, id: u32, tag: ElementTag) -> Self {
+            Self { system_id, id, tag }
+        }
+
+        /// Get the value of the element.
+        pub fn get_value(&self, system: &System) -> ElementValue {
+            // TODO: return `Result` instead of panicking?
+            assert_eq!(
+                self.system_id, system.id,
+                "Tried to get an element that is not part of this `System`"
+            );
+
+            let vertex = &system.element_vertices[self.id as usize];
+            match self.tag {
+                ElementTag::Point => {
+                    ElementValue::Point(super::Point::from_vertex(vertex, &system.variables))
+                }
+                ElementTag::Line => {
+                    ElementValue::Line(super::Line::from_vertex(vertex, &system.variables))
+                }
+                ElementTag::Circle => {
+                    ElementValue::Circle(super::Circle::from_vertex(vertex, &system.variables))
+                }
+            }
+        }
+
         /// Get a typed handle to the element.
         pub fn as_tagged_element(self) -> TaggedElementHandle {
-            use super::AnyElementTag;
-
-            match self.data {
-                AnyElementTag::Point => {
+            match self.tag {
+                ElementTag::Point => {
                     TaggedElementHandle::Point(ElementHandle::from_ids(self.system_id, self.id))
                 }
-                AnyElementTag::Line => {
+                ElementTag::Line => {
                     TaggedElementHandle::Line(ElementHandle::from_ids(self.system_id, self.id))
                 }
-                AnyElementTag::Circle => {
+                ElementTag::Circle => {
                     TaggedElementHandle::Circle(ElementHandle::from_ids(self.system_id, self.id))
                 }
             }
@@ -91,7 +127,6 @@ pub(crate) mod element {
             let mut s = f.debug_struct("ElementHandle");
             s.field("system_id", &self.system_id);
             s.field("id", &self.id);
-            s.field("debug", &self.data);
             s.finish()
         }
     }
@@ -136,7 +171,7 @@ pub(crate) mod element {
 
 use element::ElementHandle;
 
-use crate::{ElementValue, System, Vertex};
+use crate::{System, Vertex};
 
 /// A point given by a 2D coordinate.
 #[derive(Debug)]
@@ -158,6 +193,10 @@ impl Point {
 impl sealed::ElementInner for Point {
     type Output = kurbo::Point;
     type HandleData = ();
+
+    fn tag() -> ElementTag {
+        ElementTag::Point
+    }
 
     fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self::Output {
         let &Vertex::Point { idx } = vertex else {
@@ -204,6 +243,10 @@ impl Line {
 impl sealed::ElementInner for Line {
     type Output = kurbo::Line;
     type HandleData = ();
+
+    fn tag() -> ElementTag {
+        ElementTag::Line
+    }
 
     fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self::Output {
         let &Vertex::Line {
@@ -259,6 +302,10 @@ impl sealed::ElementInner for Circle {
     type Output = kurbo::Circle;
     type HandleData = ();
 
+    fn tag() -> ElementTag {
+        ElementTag::Circle
+    }
+
     fn from_vertex(vertex: &Vertex, variables: &[f64]) -> kurbo::Circle {
         let &Vertex::Circle {
             center_idx,
@@ -277,6 +324,24 @@ impl sealed::ElementInner for Circle {
     }
 }
 
+/// The actual type of the element.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum ElementTag {
+    Point,
+    Line,
+    Circle,
+}
+
+impl<'a> From<&'a Vertex> for ElementTag {
+    fn from(vertex: &'a Vertex) -> Self {
+        match vertex {
+            Vertex::Point { .. } => Self::Point,
+            Vertex::Line { .. } => Self::Line,
+            Vertex::Circle { .. } => Self::Circle,
+        }
+    }
+}
+
 pub(crate) mod sealed {
     use crate::Vertex;
 
@@ -287,34 +352,8 @@ pub(crate) mod sealed {
         /// Additional data stored in element handles of this element type.
         type HandleData: Copy + core::fmt::Debug + Default;
 
+        fn tag() -> super::ElementTag;
         fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self::Output;
-    }
-}
-
-/// A type-erased element.
-///
-/// See [`ElementHandle::as_any_element`].
-pub struct AnyElement {}
-
-/// The actual type of the element.
-#[derive(Clone, Copy, Debug, Default)]
-pub(crate) enum AnyElementTag {
-    #[default]
-    Point,
-    Line,
-    Circle,
-}
-
-impl sealed::ElementInner for AnyElement {
-    type Output = ElementValue;
-    type HandleData = AnyElementTag;
-
-    fn from_vertex(vertex: &Vertex, variables: &[f64]) -> Self::Output {
-        match vertex {
-            Vertex::Point { .. } => ElementValue::Point(Point::from_vertex(vertex, variables)),
-            Vertex::Line { .. } => ElementValue::Line(Line::from_vertex(vertex, variables)),
-            Vertex::Circle { .. } => ElementValue::Circle(Circle::from_vertex(vertex, variables)),
-        }
     }
 }
 
@@ -335,7 +374,4 @@ impl Element for Line {
 }
 impl Element for Circle {
     type Output = kurbo::Circle;
-}
-impl Element for AnyElement {
-    type Output = ElementValue;
 }
