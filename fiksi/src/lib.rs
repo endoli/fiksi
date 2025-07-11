@@ -67,6 +67,7 @@ pub use kurbo;
 mod analyze;
 pub mod constraints;
 pub mod elements;
+pub(crate) mod graph;
 pub mod solve;
 mod subsystem;
 pub(crate) mod utils;
@@ -86,9 +87,12 @@ pub use elements::{
 };
 pub(crate) use subsystem::Subsystem;
 
-use crate::constraints::{
-    LineCircleTangency, LineLineAngle, LineLineParallelism, PointLineIncidence, PointPointDistance,
-    PointPointPointAngle,
+use crate::{
+    constraints::{
+        LineCircleTangency, LineLineAngle, LineLineParallelism, PointLineIncidence,
+        PointPointDistance, PointPointPointAngle,
+    },
+    graph::Graph,
 };
 
 /// Vertices are the geometric elements of the constraint system.
@@ -186,12 +190,14 @@ impl SolveSet {
 /// (sub)systems using [`System::solve`].
 pub struct System {
     id: u32,
+    graph: Graph,
     /// Geometric elements.
     element_vertices: Vec<Vertex>,
     /// Constraints between geometric elements.
     constraint_edges: Vec<Edge>,
     /// The variables of the geometric elements, such as point coordinates.
     variables: Vec<f64>,
+    variable_to_primitive: Vec<ElementId>,
     /// The sets of elements and constraints that can be solved for.
     solve_sets: Vec<SolveSet>,
 }
@@ -204,7 +210,9 @@ impl System {
 
         Self {
             id,
+            graph: Graph::new(),
             variables: vec![],
+            variable_to_primitive: vec![],
             element_vertices: vec![],
             constraint_edges: vec![],
             solve_sets: vec![],
@@ -268,10 +276,15 @@ impl System {
         idx.try_into().expect("less than 2^32 variables")
     }
 
+    pub(crate) fn assign_variable_primitive<const N: usize>(&mut self, element: ElementId) {
+        self.variable_to_primitive.extend((0..N).map(|_| element));
+    }
+
     /// Add an element.
     ///
     /// Give the element sets the element belongs to in `sets`.
-    pub(crate) fn add_element<T: Element>(&mut self, vertex: Vertex) -> ElementHandle<T> {
+    pub(crate) fn add_element<T: Element>(&mut self, vertex: Vertex, dof: i16) -> ElementHandle<T> {
+        self.graph.add_element(dof);
         let id = self
             .element_vertices
             .len()
@@ -397,52 +410,55 @@ impl System {
     /// element the handle corresponds to is considered free, regardless of whether the circle
     /// itself is in `solve_set`.
     pub fn solve(&mut self, solve_set: Option<&SolveSetHandle>, opts: SolvingOptions) {
-        let (elements, constraints) = if let Some(solve_set) = solve_set {
-            let solve_set = &self.solve_sets[solve_set.id as usize];
-            let elements = solve_set.elements.clone();
-            let constraints = solve_set.constraints.clone();
-            (elements, constraints)
-        } else {
-            (
-                (0..self.element_vertices.len().try_into().unwrap())
-                    .map(|id| ElementId { id })
-                    .collect(),
-                (0..self.constraint_edges.len().try_into().unwrap())
-                    .map(|id| ConstraintId { id })
-                    .collect(),
-            )
-        };
+        for connected_component in self.graph.connected_components() {
+            let (elements, constraints) = if let Some(solve_set) = solve_set {
+                let solve_set = &self.solve_sets[solve_set.id as usize];
+                let elements = connected_component
+                    .intersection(&solve_set.elements)
+                    .copied()
+                    .collect();
+                let constraints = solve_set.constraints.clone();
+                (elements, constraints)
+            } else {
+                (
+                    connected_component.clone(),
+                    (0..self.constraint_edges.len().try_into().unwrap())
+                        .map(|id| ConstraintId { id })
+                        .collect(),
+                )
+            };
 
-        let mut free_variables: Vec<u32> = vec![];
-        for element_id in &elements {
-            let element = &self.element_vertices[element_id.id as usize];
-            match element {
-                Vertex::Point { idx } => {
-                    free_variables.extend(&[*idx, *idx + 1]);
+            let mut free_variables: Vec<u32> = vec![];
+            for element_id in elements {
+                let element = &self.element_vertices[element_id.id as usize];
+                match element {
+                    Vertex::Point { idx } => {
+                        free_variables.extend(&[*idx, *idx + 1]);
+                    }
+                    // In the current setup, not all vertices in the set contribute free variables. E.g.
+                    // `Vertex::Line` only refers to existing points, meaning it does not contribute its
+                    // own free variables. `Vertex::Circle` refers to a point, but contributes its radius
+                    // as free variable.
+                    Vertex::Circle { radius_idx, .. } => {
+                        free_variables.extend(&[*radius_idx]);
+                    }
+                    _ => {}
                 }
-                // In the current setup, not all vertices in the set contribute free variables. E.g.
-                // `Vertex::Line` only refers to existing points, meaning it does not contribute its
-                // own free variables. `Vertex::Circle` refers to a point, but contributes its radius
-                // as free variable.
-                Vertex::Circle { radius_idx, .. } => {
-                    free_variables.extend(&[*radius_idx]);
+            }
+
+            let subsystem = Subsystem::new(
+                &self.constraint_edges,
+                free_variables,
+                constraints.into_iter().collect(),
+            );
+
+            match opts.optimizer {
+                solve::Optimizer::LevenbergMarquardt => {
+                    crate::solve::levenberg_marquardt(&mut self.variables, &subsystem);
                 }
-                _ => {}
-            }
-        }
-
-        let subsystem = Subsystem::new(
-            &self.constraint_edges,
-            free_variables,
-            constraints.into_iter().collect(),
-        );
-
-        match opts.optimizer {
-            solve::Optimizer::LevenbergMarquardt => {
-                crate::solve::levenberg_marquardt(&mut self.variables, &subsystem);
-            }
-            solve::Optimizer::LBfgs => {
-                crate::solve::lbfgs(&mut self.variables, &subsystem);
+                solve::Optimizer::LBfgs => {
+                    crate::solve::lbfgs(&mut self.variables, &subsystem);
+                }
             }
         }
     }

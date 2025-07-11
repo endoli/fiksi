@@ -6,7 +6,10 @@
 #[cfg(not(feature = "std"))]
 use crate::floatfuncs::FloatFuncs;
 
-use crate::{ConstraintHandle, Edge, ElementHandle, Subsystem, System, Vertex, elements};
+use crate::{
+    ConstraintHandle, Edge, ElementHandle, Subsystem, System, Vertex, elements,
+    graph::IncidentElements,
+};
 
 trait FloatExt {
     /// Returns the square of `self`.
@@ -292,6 +295,10 @@ impl PointPointDistance {
             distance,
         };
 
+        system.graph.add_constraint(
+            1,
+            IncidentElements::from_array([point1.drop_system_id(), point2.drop_system_id()]),
+        );
         system.add_constraint(Edge::PointPointDistance(constraint))
     }
 
@@ -384,6 +391,14 @@ impl PointPointPointAngle {
             angle,
         };
 
+        system.graph.add_constraint(
+            1,
+            IncidentElements::from_array([
+                point1.drop_system_id(),
+                point2.drop_system_id(),
+                point3.drop_system_id(),
+            ]),
+        );
         system.add_constraint(Edge::PointPointPointAngle(constraint))
     }
 
@@ -504,6 +519,14 @@ impl PointLineIncidence {
             line_point2_idx,
         };
 
+        system.graph.add_constraint(
+            1,
+            IncidentElements::from_array([
+                point.drop_system_id(),
+                system.variable_to_primitive[line_point1_idx as usize],
+                system.variable_to_primitive[line_point2_idx as usize],
+            ]),
+        );
         system.add_constraint(Edge::PointLineIncidence(constraint))
     }
 
@@ -610,6 +633,15 @@ impl LineLineAngle {
             angle,
         };
 
+        system.graph.add_constraint(
+            1,
+            IncidentElements::from_array([
+                system.variable_to_primitive[line1_point1_idx as usize],
+                system.variable_to_primitive[line1_point2_idx as usize],
+                system.variable_to_primitive[line2_point1_idx as usize],
+                system.variable_to_primitive[line2_point2_idx as usize],
+            ]),
+        );
         system.add_constraint(Edge::LineLineAngle(constraint))
     }
 
@@ -732,6 +764,16 @@ impl LineLineParallelism {
         else {
             unreachable!()
         };
+
+        system.graph.add_constraint(
+            1,
+            IncidentElements::from_array([
+                system.variable_to_primitive[line1_point1_idx as usize],
+                system.variable_to_primitive[line1_point2_idx as usize],
+                system.variable_to_primitive[line2_point1_idx as usize],
+                system.variable_to_primitive[line2_point2_idx as usize],
+            ]),
+        );
         system.add_constraint(Edge::LineLineParallelism(Self {
             line1_point1_idx,
             line1_point2_idx,
@@ -851,6 +893,15 @@ impl LineCircleTangency {
             circle_radius_idx,
         };
 
+        system.graph.add_constraint(
+            1,
+            IncidentElements::from_array([
+                system.variable_to_primitive[line_point1_idx as usize],
+                system.variable_to_primitive[line_point2_idx as usize],
+                system.variable_to_primitive[circle_center_idx as usize],
+                circle.drop_system_id(),
+            ]),
+        );
         system.add_constraint(Edge::LineCircleTangency(constraint))
     }
 
