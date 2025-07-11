@@ -88,6 +88,7 @@ pub use elements::{
 pub(crate) use subsystem::Subsystem;
 
 use crate::{
+    analyze::graph::RecombinationPlan,
     constraints::{
         LineCircleTangency, LineLineAngle, LineLineParallelism, PointLineIncidence,
         PointPointDistance, PointPointPointAngle,
@@ -139,6 +140,9 @@ pub enum ElementValue {
 pub struct SolvingOptions {
     /// The numerical optimization algorithm to use for solving constraint systems.
     pub optimizer: solve::Optimizer,
+
+    /// Whether to perform decomposition.
+    pub decompose: bool,
 }
 
 impl SolvingOptions {
@@ -149,10 +153,12 @@ impl SolvingOptions {
     /// ```rust
     /// assert_eq!(fiksi::SolvingOptions::DEFAULT, fiksi::SolvingOptions {
     ///     optimizer: fiksi::solve::Optimizer::LevenbergMarquardt,
+    ///     decompose: false,
     /// });
     /// ```
     pub const DEFAULT: Self = Self {
         optimizer: solve::Optimizer::LevenbergMarquardt,
+        decompose: false,
     };
 }
 
@@ -428,36 +434,50 @@ impl System {
                 )
             };
 
-            let mut free_variables: Vec<u32> = vec![];
-            for element_id in elements {
-                let element = &self.element_vertices[element_id.id as usize];
-                match element {
-                    Vertex::Point { idx } => {
-                        free_variables.extend(&[*idx, *idx + 1]);
-                    }
-                    // In the current setup, not all vertices in the set contribute free variables. E.g.
-                    // `Vertex::Line` only refers to existing points, meaning it does not contribute its
-                    // own free variables. `Vertex::Circle` refers to a point, but contributes its radius
-                    // as free variable.
-                    Vertex::Circle { radius_idx, .. } => {
-                        free_variables.extend(&[*radius_idx]);
-                    }
-                    _ => {}
-                }
-            }
+            let recombination_plan = if opts.decompose {
+                analyze::graph::decompose::<3>(
+                    self.graph.clone(),
+                    elements.iter().copied(),
+                    constraints.iter().copied(),
+                )
+            } else {
+                RecombinationPlan::singular(elements, constraints)
+            };
 
-            let subsystem = Subsystem::new(
-                &self.constraint_edges,
-                free_variables,
-                constraints.into_iter().collect(),
-            );
+            for step in recombination_plan.steps() {
+                step.constraints();
 
-            match opts.optimizer {
-                solve::Optimizer::LevenbergMarquardt => {
-                    crate::solve::levenberg_marquardt(&mut self.variables, &subsystem);
+                let mut free_variables: Vec<u32> = vec![];
+                for element_id in step.fixes_elements() {
+                    let element = &self.element_vertices[element_id.id as usize];
+                    match element {
+                        Vertex::Point { idx } => {
+                            free_variables.extend(&[*idx, *idx + 1]);
+                        }
+                        // In the current setup, not all vertices in the set contribute free variables. E.g.
+                        // `Vertex::Line` only refers to existing points, meaning it does not contribute its
+                        // own free variables. `Vertex::Circle` refers to a point, but contributes its radius
+                        // as free variable.
+                        Vertex::Circle { radius_idx, .. } => {
+                            free_variables.extend(&[*radius_idx]);
+                        }
+                        _ => {}
+                    }
                 }
-                solve::Optimizer::LBfgs => {
-                    crate::solve::lbfgs(&mut self.variables, &subsystem);
+
+                let subsystem = Subsystem::new(
+                    &self.constraint_edges,
+                    free_variables,
+                    step.constraints().to_vec(),
+                );
+
+                match opts.optimizer {
+                    solve::Optimizer::LevenbergMarquardt => {
+                        crate::solve::levenberg_marquardt(&mut self.variables, &subsystem);
+                    }
+                    solve::Optimizer::LBfgs => {
+                        crate::solve::lbfgs(&mut self.variables, &subsystem);
+                    }
                 }
             }
         }
