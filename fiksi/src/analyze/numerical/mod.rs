@@ -1,3 +1,6 @@
+// Copyright 2025 the Fiksi Authors
+// SPDX-License-Identifier: Apache-2.0 OR MIT
+
 use alloc::{vec, vec::Vec};
 
 use nalgebra::DMatrix;
