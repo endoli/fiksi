@@ -29,6 +29,29 @@ pub(crate) mod constraint {
 
     use crate::{System, utils};
 
+    use super::{Constraint, ConstraintTag};
+
+    /// Dynamically tagged, typed handles to constraints.
+    pub enum TaggedConstraintHandle {
+        /// A handle to a [`PointPointDistance`](super::PointPointDistance) constraint.
+        PointPointDistance(ConstraintHandle<super::PointPointDistance>),
+
+        /// A handle to a [`PointPointPointAngle`](super::PointPointPointAngle) constraint.
+        PointPointPointAngle(ConstraintHandle<super::PointPointPointAngle>),
+
+        /// A handle to a [`PointLineIncidence`](super::PointLineIncidence) constraint.
+        PointLineIncidence(ConstraintHandle<super::PointLineIncidence>),
+
+        /// A handle to a [`LineLineAngle`](super::LineLineAngle) constraint.
+        LineLineAngle(ConstraintHandle<super::LineLineAngle>),
+
+        /// A handle to a [`LineLineParallelism`](super::LineLineParallelism) constraint.
+        LineLineParallelism(ConstraintHandle<super::LineLineParallelism>),
+
+        /// A handle to a [`LineCircleTangency`](super::LineCircleTangency) constraint.
+        LineCircleTangency(ConstraintHandle<super::LineCircleTangency>),
+    }
+
     /// A handle to a constraint within a [`System`].
     pub struct ConstraintHandle<T> {
         /// The ID of the system the constraint belongs to.
@@ -38,7 +61,7 @@ pub(crate) mod constraint {
         _t: PhantomData<T>,
     }
 
-    impl<T> ConstraintHandle<T> {
+    impl<T: Constraint> ConstraintHandle<T> {
         pub(crate) fn from_ids(system_id: u32, id: u32) -> Self {
             Self {
                 system_id,
@@ -63,6 +86,89 @@ pub(crate) mod constraint {
                 &mut [],
             );
             residual[0]
+        }
+
+        /// Get a type-erased handle to the constraint.
+        ///
+        /// To turn the returned handle back into a typed handle, use
+        /// [`AnyConstraintHandle::as_tagged_constraint`].
+        pub fn as_any_constraint(self) -> AnyConstraintHandle {
+            AnyConstraintHandle {
+                system_id: self.system_id,
+                id: self.id,
+                tag: T::tag(),
+            }
+        }
+    }
+
+    /// A type-erased handle to a constraint within a [`System`].
+    #[derive(Copy, Clone, Debug)]
+    pub struct AnyConstraintHandle {
+        /// The ID of the system the constraint belongs to.
+        pub(crate) system_id: u32,
+        /// The ID of the constraint within the system.
+        pub(crate) id: u32,
+        tag: ConstraintTag,
+    }
+
+    impl AnyConstraintHandle {
+        pub(crate) fn from_ids_and_tag(system_id: u32, id: u32, tag: ConstraintTag) -> Self {
+            Self { system_id, id, tag }
+        }
+
+        /// Get the value of the constraint.
+        pub fn calculate_residual(&self, system: &System) -> f64 {
+            // TODO: return `Result` instead of panicking?
+            assert_eq!(
+                self.system_id, system.id,
+                "Tried to get a constraint that is not part of this `System`"
+            );
+
+            match self.as_tagged_constraint() {
+                TaggedConstraintHandle::PointPointDistance(handle) => {
+                    handle.calculate_residual(system)
+                }
+                TaggedConstraintHandle::PointPointPointAngle(handle) => {
+                    handle.calculate_residual(system)
+                }
+                TaggedConstraintHandle::PointLineIncidence(handle) => {
+                    handle.calculate_residual(system)
+                }
+                TaggedConstraintHandle::LineLineAngle(handle) => handle.calculate_residual(system),
+                TaggedConstraintHandle::LineLineParallelism(handle) => {
+                    handle.calculate_residual(system)
+                }
+                TaggedConstraintHandle::LineCircleTangency(handle) => {
+                    handle.calculate_residual(system)
+                }
+            }
+        }
+
+        /// Get a typed handle to the constraint.
+        pub fn as_tagged_constraint(self) -> TaggedConstraintHandle {
+            match self.tag {
+                ConstraintTag::PointPointDistance => TaggedConstraintHandle::PointPointDistance(
+                    ConstraintHandle::from_ids(self.system_id, self.id),
+                ),
+                ConstraintTag::PointPointPointAngle => {
+                    TaggedConstraintHandle::PointPointPointAngle(ConstraintHandle::from_ids(
+                        self.system_id,
+                        self.id,
+                    ))
+                }
+                ConstraintTag::PointLineIncidence => TaggedConstraintHandle::PointLineIncidence(
+                    ConstraintHandle::from_ids(self.system_id, self.id),
+                ),
+                ConstraintTag::LineLineAngle => TaggedConstraintHandle::LineLineAngle(
+                    ConstraintHandle::from_ids(self.system_id, self.id),
+                ),
+                ConstraintTag::LineLineParallelism => TaggedConstraintHandle::LineLineParallelism(
+                    ConstraintHandle::from_ids(self.system_id, self.id),
+                ),
+                ConstraintTag::LineCircleTangency => TaggedConstraintHandle::LineCircleTangency(
+                    ConstraintHandle::from_ids(self.system_id, self.id),
+                ),
+            }
         }
     }
 
@@ -114,6 +220,12 @@ pub struct PointPointDistance {
 
     /// Euclidean distance.
     distance: f64,
+}
+
+impl sealed::ConstraintInner for PointPointDistance {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::PointPointDistance
+    }
 }
 
 impl PointPointDistance {
@@ -194,6 +306,12 @@ pub struct PointPointPointAngle {
 
     /// Angle in radians.
     angle: f64,
+}
+
+impl sealed::ConstraintInner for PointPointPointAngle {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::PointPointPointAngle
+    }
 }
 
 impl PointPointPointAngle {
@@ -316,6 +434,12 @@ pub struct PointLineIncidence {
     line_point2_idx: u32,
 }
 
+impl sealed::ConstraintInner for PointLineIncidence {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::PointLineIncidence
+    }
+}
+
 impl PointLineIncidence {
     /// Construct a constraint between a point and a line such that the point lies on the
     /// (infinite) line.
@@ -408,6 +532,12 @@ pub struct LineLineAngle {
 
     /// Angle in radians.
     angle: f64,
+}
+
+impl sealed::ConstraintInner for LineLineAngle {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::LineLineAngle
+    }
 }
 
 impl LineLineAngle {
@@ -536,6 +666,12 @@ pub struct LineLineParallelism {
     line2_point2_idx: u32,
 }
 
+impl sealed::ConstraintInner for LineLineParallelism {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::LineLineParallelism
+    }
+}
+
 impl LineLineParallelism {
     /// Construct a constraint between two lines to be parallel to each other.
     pub fn create(
@@ -638,6 +774,12 @@ pub struct LineCircleTangency {
     line_point2_idx: u32,
     circle_center_idx: u32,
     circle_radius_idx: u32,
+}
+
+impl sealed::ConstraintInner for LineCircleTangency {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::LineCircleTangency
+    }
 }
 
 impl LineCircleTangency {
@@ -755,10 +897,42 @@ impl LineCircleTangency {
     }
 }
 
+/// The actual type of the constraint.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum ConstraintTag {
+    PointPointDistance,
+    PointPointPointAngle,
+    PointLineIncidence,
+    LineLineAngle,
+    LineLineParallelism,
+    LineCircleTangency,
+}
+
+impl<'a> From<&'a Edge> for ConstraintTag {
+    fn from(edge: &'a Edge) -> Self {
+        match edge {
+            Edge::PointPointDistance { .. } => Self::PointPointDistance,
+            Edge::PointPointPointAngle { .. } => Self::PointPointPointAngle,
+            Edge::PointLineIncidence { .. } => Self::PointLineIncidence,
+            Edge::LineLineAngle { .. } => Self::LineLineAngle,
+            Edge::LineLineParallelism { .. } => Self::LineLineParallelism,
+            Edge::LineCircleTangency { .. } => Self::LineCircleTangency,
+        }
+    }
+}
+
+pub(crate) mod sealed {
+    pub(crate) trait ConstraintInner {
+        fn tag() -> super::ConstraintTag;
+    }
+}
+
 /// A constraint between geometric [elements](crate::Element).
 ///
 /// These can be added to a [`System`].
-pub trait Constraint {}
+#[expect(private_bounds, reason = "Sealed inner trait")]
+pub trait Constraint: sealed::ConstraintInner {}
+
 impl Constraint for PointPointDistance {}
 impl Constraint for PointPointPointAngle {}
 impl Constraint for PointLineIncidence {}
