@@ -206,6 +206,26 @@ pub(crate) mod constraint {
         }
     }
 
+    impl PartialEq for AnyConstraintHandle {
+        fn eq(&self, other: &Self) -> bool {
+            // Constraint handle IDs are unique, so we don't need to compare the tags.
+            self.system_id == other.system_id && self.id == other.id
+        }
+    }
+    impl Eq for AnyConstraintHandle {}
+
+    impl Ord for AnyConstraintHandle {
+        fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+            // Constraint handle IDs are unique, so we don't need to compare the tags.
+            (self.system_id, self.id).cmp(&(other.system_id, other.id))
+        }
+    }
+    impl PartialOrd for AnyConstraintHandle {
+        fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+
     #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
     pub(crate) struct ConstraintId {
         /// The ID of the constraint within the system.
