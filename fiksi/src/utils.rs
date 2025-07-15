@@ -3,6 +3,8 @@
 
 //! Utility functions.
 
+use core::borrow::Borrow;
+
 use crate::Edge;
 
 /// Compute residuals and Jacobian for all constraints.
@@ -82,6 +84,12 @@ pub(crate) fn calculate_residuals_and_jacobian(
 }
 
 #[inline]
-pub(crate) fn sum_squares(values: &[f64]) -> f64 {
-    values.iter().map(|v| v * v).sum()
+pub(crate) fn sum_squares(values: impl IntoIterator<Item = impl Borrow<f64>>) -> f64 {
+    values
+        .into_iter()
+        .map(|v| {
+            let v = *v.borrow();
+            v * v
+        })
+        .sum()
 }

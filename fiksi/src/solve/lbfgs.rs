@@ -331,7 +331,7 @@ mod hager_zhang {
                 self.jacobian,
             );
             compute_gradient(self.jacobian, self.residuals, self.gradient);
-            let phi = sum_squares(self.residuals);
+            let phi = sum_squares(&*self.residuals);
             let dphi = dot_product(self.gradient, self.direction);
 
             Param { p, phi, dphi }
