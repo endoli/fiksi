@@ -15,11 +15,11 @@ const EPSILON: f64 = 1e-8;
 /// Rows which are linearly independent from preceding rows are returned. The number of linearly
 /// independent rows is the rank of the matrix.
 ///
-/// This can change the order of the matrix columns (see the paragraph below). For bookkeeping, the
-/// column indices must be given in `column_indices`, mapping from the index in the matrix to the
-/// original column index. Changes made to the matrix column order are kept track of by setting the
-/// same order in `column_indices`. This function does not assume any particular starting order,
-/// i.e., `column_indices` does not have to be `0..num_columns`.
+/// This can change the order of the matrix columns (see the paragraph below). Rather than swapping
+/// around the matrix columns, the order is kept track of in `column_indices`, mapping from the
+/// index in the resulting matrix to the original column index. This function does not assume any
+/// particular starting order, i.e., `column_indices` does not have to be `0..num_columns` (it does
+/// need to be some permutation of that).
 ///
 /// This differs from "classical" Gauss-Jordan elimination in that it proceeds row-by-row. This
 /// allows efficiently computing which rows are dependent (i.e., which rows are a linear
