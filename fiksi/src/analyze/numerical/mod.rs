@@ -54,6 +54,8 @@ pub(crate) fn incremental_gauss_jordan_elimination(
     for row in 0..usize::min(constraints, variables) {
         let mut rank = 0;
         for row_idx in 0..row {
+            // Only independent rows (i.e., nonzero rows, which increase the rank), take up a pivot
+            // column. Hence we can index by rank.
             let column_idx = column_indices[rank];
             let factor = matrix[(row, column_idx)];
             for col in 0..variables {
