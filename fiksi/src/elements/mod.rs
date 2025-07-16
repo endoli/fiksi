@@ -71,6 +71,7 @@ pub(crate) mod element {
     }
 
     /// A type-erased handle to an element within a [`System`].
+    #[derive(Copy, Clone, Debug)]
     pub struct AnyElementHandle {
         /// The ID of the system the element belongs to.
         pub(crate) system_id: u32,
@@ -151,6 +152,26 @@ pub(crate) mod element {
         }
     }
     impl<T: Element> PartialOrd for ElementHandle<T> {
+        fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
+            Some(self.cmp(other))
+        }
+    }
+
+    impl PartialEq for AnyElementHandle {
+        fn eq(&self, other: &Self) -> bool {
+            // Element handle IDs are unique, so we don't need to compare the tags.
+            self.system_id == other.system_id && self.id == other.id
+        }
+    }
+    impl Eq for AnyElementHandle {}
+
+    impl Ord for AnyElementHandle {
+        fn cmp(&self, other: &Self) -> core::cmp::Ordering {
+            // Element handle IDs are unique, so we don't need to compare the tags.
+            (self.system_id, self.id).cmp(&(other.system_id, other.id))
+        }
+    }
+    impl PartialOrd for AnyElementHandle {
         fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
             Some(self.cmp(other))
         }
