@@ -238,6 +238,19 @@ impl System {
             })
     }
 
+    /// Iterate over the handles of all constraints in the system.
+    ///
+    /// You can use [`AnyConstraintHandle::as_tagged_constraint`] to get a typed handle.
+    pub fn get_constraint_handles(&self) -> impl Iterator<Item = AnyConstraintHandle> {
+        self.constraint_edges.iter().enumerate().map(|(id, edge)| {
+            AnyConstraintHandle::from_ids_and_tag(
+                self.id,
+                id.try_into().expect("less than 2^32 constraints"),
+                edge.into(),
+            )
+        })
+    }
+
     /// Add the given values to the variables vec, returning the index to the first variable added.
     pub(crate) fn add_variables<const N: usize>(&mut self, variables: [f64; N]) -> u32 {
         let idx = self.variables.len();
