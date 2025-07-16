@@ -62,3 +62,29 @@ fn overconstrained_triangle_line_incidence() {
         "The point-line incidence was not solved (sum of squared residuals: {sum_squared_residuals})"
     );
 }
+
+#[test]
+fn overconstrained() {
+    use crate::{System, constraints, elements};
+    let mut s = System::new();
+
+    // A system of four points with some pairwise distance constraints. The system is
+    // overconstrained. Dropping the distance constraint on e.g. p1p4 makes the system rigid.
+    let p1 = elements::Point::create(&mut s, 0.123, 0.1);
+    let p2 = elements::Point::create(&mut s, 1.2, 0.);
+    let p3 = elements::Point::create(&mut s, -0.5, 1.1);
+    let p4 = elements::Point::create(&mut s, 1.599, 1.2);
+
+    let _p1p2 = constraints::PointPointDistance::create(&mut s, p1, p2, 1.);
+    let _p1p3 = constraints::PointPointDistance::create(&mut s, p1, p3, 1.5);
+    let _p2p4 = constraints::PointPointDistance::create(&mut s, p2, p4, 1.7);
+    let _p3p4 = constraints::PointPointDistance::create(&mut s, p3, p4, 1.2);
+    let _p2p3 = constraints::PointPointDistance::create(&mut s, p2, p3, 2.);
+    let _p1p4 = constraints::PointPointDistance::create(&mut s, p1, p4, 5.);
+
+    let analysis = s.analyze(None);
+    // Note we don't guarantee a specific ordering in which a constraint is designated as
+    // causing overconstrainedness. Currently it's always the constraint that was added later,
+    // though.
+    assert_eq!(&analysis.overconstrained, &[_p1p4.as_any_constraint()]);
+}
