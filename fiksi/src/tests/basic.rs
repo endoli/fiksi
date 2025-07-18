@@ -88,3 +88,38 @@ fn overconstrained() {
     // though.
     assert_eq!(&analysis.overconstrained, &[_p1p4.as_any_constraint()]);
 }
+
+/// A rigid triangle system with a rigid inscribed circle.
+#[test]
+fn triangle_inscribed_circle() {
+    let mut s = System::new();
+
+    let p0 = elements::Point::create(&mut s, 0., 0.);
+    let p1 = elements::Point::create(&mut s, 1., 0.5);
+    let p2 = elements::Point::create(&mut s, 1.5, 1.);
+    let p3 = elements::Point::create(&mut s, 2.8, 1.5);
+
+    constraints::PointPointDistance::create(&mut s, p0, p1, 1.);
+    constraints::PointPointDistance::create(&mut s, p0, p2, 1.);
+    constraints::PointPointDistance::create(&mut s, p1, p2, 1.);
+
+    let line0 = elements::Line::create(&mut s, p0, p1);
+    let line1 = elements::Line::create(&mut s, p0, p2);
+    let line2 = elements::Line::create(&mut s, p1, p2);
+    let circle = elements::Circle::create(&mut s, p3, 1.);
+
+    constraints::LineCircleTangency::create(&mut s, line0, circle);
+    constraints::LineCircleTangency::create(&mut s, line1, circle);
+    constraints::LineCircleTangency::create(&mut s, line2, circle);
+
+    s.solve(None, crate::SolvingOptions::default());
+
+    let sum_squared_residuals = sum_squares(
+        s.get_constraint_handles()
+            .map(|constraint| constraint.calculate_residual(&s)),
+    );
+    assert!(
+        sum_squared_residuals < RESIDUAL_THRESHOLD,
+        "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
+    );
+}
