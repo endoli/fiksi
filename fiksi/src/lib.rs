@@ -64,6 +64,7 @@ use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
 
 pub use kurbo;
 
+mod analyze;
 pub mod constraints;
 pub mod elements;
 pub mod solve;
@@ -153,6 +154,13 @@ impl Default for SolvingOptions {
     fn default() -> Self {
         Self::DEFAULT
     }
+}
+
+/// Returned by [`System::analyze`].
+#[derive(Debug)]
+pub struct Analysis {
+    /// Constraints causing parts of the system to be overconstrained.
+    pub overconstrained: Vec<AnyConstraintHandle>,
 }
 
 /// Contains constraints that should be solved and elements whose variables are free.
@@ -326,6 +334,16 @@ impl System {
         );
         let solve_set = &mut self.solve_sets[solve_set.id as usize];
         solve_set.constraints.insert(constraint.drop_system_id());
+    }
+
+    /// Analyze the system, without performing a full solve.
+    ///
+    /// This may change elements' positions in order to satisfy numeric requirements.
+    pub fn analyze(&mut self, solve_set: Option<&SolveSetHandle>) -> Analysis {
+        let solve_set = solve_set.map(|solve_set| &self.solve_sets[solve_set.id as usize]);
+        let overconstrained = analyze::numerical::find_overconstraints(self, solve_set);
+
+        Analysis { overconstrained }
     }
 
     /// Solve the system.
