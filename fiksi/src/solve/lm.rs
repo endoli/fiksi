@@ -12,10 +12,7 @@ use crate::{Subsystem, utils::calculate_residuals_and_jacobian};
 /// Solve for the free variables in `variables` minimizing the residuals of the constraints in
 /// `constraint_set`. The variables given by the elements in `element_set` are seen as free, other
 /// variables are seen as fixed parameters.
-pub(crate) fn levenberg_marquardt(
-    variables: &mut [f64],
-    subsystem: &Subsystem<'_>,
-) {
+pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'_>) {
     // TODO: this is allocation-happy.
     // TODO: we don't use enough of nalgebra here to justify including that dependency.
 
