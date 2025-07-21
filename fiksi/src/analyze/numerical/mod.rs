@@ -12,7 +12,7 @@ const EPSILON: f64 = 1e-8;
 
 /// Transform the matrix to reduced row echelon form through Gauss-Jordan elimination.
 ///
-/// Rows which are linearly independent from preceding rows are returned. The number of linearly
+/// Rows that are linearly independent from preceding rows are returned. The number of linearly
 /// independent rows is the rank of the matrix.
 ///
 /// This can change the order of the matrix columns (see the paragraph below). Rather than swapping
@@ -24,8 +24,11 @@ const EPSILON: f64 = 1e-8;
 /// This differs from "classical" Gauss-Jordan elimination in that it proceeds row-by-row. This
 /// allows efficiently computing which rows are dependent (i.e., which rows are a linear
 /// combination of other rows). To this end, rather than swapping rows, columns are swapped.
+///
 /// Further, by allowing for changed column ordering, it allows finding dependent columns by
-/// (re)starting the elimination with different right-most columns.
+/// (re)starting the elimination with different right-most columns. See Section 4 of "Using the
+/// witness method to detect rigid subsystems of geometric constraints in CAD" (2010) by Michelucci
+/// et al.
 ///
 /// In the above, within the context of Fiksi, "rows" are constraints and "columns" are elements.
 pub(crate) fn incremental_gauss_jordan_elimination(
