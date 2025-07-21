@@ -123,3 +123,25 @@ fn triangle_inscribed_circle() {
         "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
     );
 }
+
+#[test]
+fn two_connected_components() {
+    use crate::{System, constraints, elements};
+    let mut s = System::new();
+
+    let p0 = elements::Point::create(&mut s, 0.123, 0.1);
+    let p1 = elements::Point::create(&mut s, 1.2, 0.);
+    let p2 = elements::Point::create(&mut s, -0.5, 1.1);
+    let p3 = elements::Point::create(&mut s, 1.599, 1.2);
+
+    let p1p2 = constraints::PointPointDistance::create(&mut s, p0, p1, 1.);
+    let p3p4 = constraints::PointPointDistance::create(&mut s, p2, p3, 1.2);
+
+    s.solve(None, crate::SolvingOptions::default());
+    let sum_squared_residuals =
+        sum_squares([p1p2.calculate_residual(&s), p3p4.calculate_residual(&s)]);
+    assert!(
+        sum_squared_residuals < RESIDUAL_THRESHOLD,
+        "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
+    );
+}
