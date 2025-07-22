@@ -24,6 +24,10 @@ pub(crate) struct IncidentElements {
 
 impl IncidentElements {
     #[inline(always)]
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "the const panic ensures this never truncates"
+    )]
     pub(crate) const fn from_array<const LEN: usize>(elements: [ElementId; LEN]) -> Self {
         const {
             if LEN < 2 || LEN > 6 {
@@ -80,6 +84,10 @@ impl IncidentElements {
             }
         }
 
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "`len` is always equal to or less than the `self.len`, so this never truncates"
+        )]
         Self {
             len: len as u8,
             elements,
