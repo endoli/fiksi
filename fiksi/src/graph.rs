@@ -10,8 +10,6 @@ use alloc::{
 
 use crate::{ConstraintId, elements::element::ElementId};
 
-type IncidentConstraints = Vec<ConstraintId>;
-
 /// The elements incident to a constraint.
 ///
 /// Currently there are never more than six elements in a constraint, though that may change in the
@@ -102,7 +100,7 @@ pub(crate) struct Element {
     pub(crate) dof: i16,
 
     /// The constraints acting on this element.
-    pub(crate) incident_constraints: IncidentConstraints,
+    pub(crate) incident_constraints: Vec<ConstraintId>,
 }
 
 /// A constraint between elements.
@@ -156,7 +154,7 @@ impl Graph {
         };
         self.elements.push(Element {
             dof,
-            incident_constraints: IncidentConstraints::new(),
+            incident_constraints: vec![],
         });
         self.element_connected_component.push(None);
 
