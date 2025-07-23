@@ -68,6 +68,7 @@ mod analyze;
 pub mod constraints;
 pub mod elements;
 pub(crate) mod graph;
+mod rand;
 pub mod solve;
 mod subsystem;
 pub(crate) mod utils;
@@ -85,6 +86,7 @@ pub use elements::{
     Element,
     element::{AnyElementHandle, ElementHandle, TaggedElementHandle},
 };
+pub(crate) use rand::Rng;
 pub(crate) use subsystem::Subsystem;
 
 use crate::{
@@ -143,6 +145,13 @@ pub struct SolvingOptions {
 
     /// Whether to perform decomposition.
     pub decompose: bool,
+
+    /// Whether to slightly perturb the values of elements before solving.
+    ///
+    /// This helps finding solutions when the initial state of elements is likely to be singular.
+    /// For example, three collinear points with pairwise distance constraints is a singular
+    /// system, and numerical methods may not find a solution.
+    pub perturb: bool,
 }
 
 impl SolvingOptions {
@@ -154,11 +163,13 @@ impl SolvingOptions {
     /// assert_eq!(fiksi::SolvingOptions::DEFAULT, fiksi::SolvingOptions {
     ///     optimizer: fiksi::solve::Optimizer::LevenbergMarquardt,
     ///     decompose: false,
+    ///     perturb: true,
     /// });
     /// ```
     pub const DEFAULT: Self = Self {
         optimizer: solve::Optimizer::LevenbergMarquardt,
         decompose: false,
+        perturb: true,
     };
 }
 
@@ -438,6 +449,8 @@ impl System {
     /// element the handle corresponds to is considered free, regardless of whether the circle
     /// itself is in `solve_set`.
     pub fn solve(&mut self, solve_set: Option<&SolveSetHandle>, opts: SolvingOptions) {
+        let mut rng = Rng::from_seed(42);
+
         for connected_component in self.graph.connected_components() {
             let (elements, constraints) = if let Some(solve_set) = solve_set {
                 let solve_set = &self.solve_sets[solve_set.id as usize];
@@ -484,6 +497,14 @@ impl System {
                             free_variables.extend(&[*radius_idx]);
                         }
                         _ => {}
+                    }
+                }
+
+                if opts.perturb {
+                    for free_variable in free_variables.iter().copied() {
+                        let variable = &mut self.variables[free_variable as usize];
+                        *variable += *variable * (1. / 8196.) * rng.next_f64()
+                            + (1. / 65568.) * rng.next_f64();
                     }
                 }
 
