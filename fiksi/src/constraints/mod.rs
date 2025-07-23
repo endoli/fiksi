@@ -210,6 +210,13 @@ pub(crate) mod constraint {
         }
     }
 
+    impl<T> core::hash::Hash for ConstraintHandle<T> {
+        fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+            self.system_id.hash(state);
+            self.id.hash(state);
+        }
+    }
+
     impl PartialEq for AnyConstraintHandle {
         fn eq(&self, other: &Self) -> bool {
             // Constraint handle IDs are unique, so we don't need to compare the tags.
@@ -227,6 +234,14 @@ pub(crate) mod constraint {
     impl PartialOrd for AnyConstraintHandle {
         fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
             Some(self.cmp(other))
+        }
+    }
+
+    impl core::hash::Hash for AnyConstraintHandle {
+        fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+            // Constraint handle IDs are unique, so we don't need to hash the tags.
+            self.system_id.hash(state);
+            self.id.hash(state);
         }
     }
 

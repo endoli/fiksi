@@ -157,6 +157,13 @@ pub(crate) mod element {
         }
     }
 
+    impl<T: Element> core::hash::Hash for ElementHandle<T> {
+        fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+            self.system_id.hash(state);
+            self.id.hash(state);
+        }
+    }
+
     impl PartialEq for AnyElementHandle {
         fn eq(&self, other: &Self) -> bool {
             // Element handle IDs are unique, so we don't need to compare the tags.
@@ -174,6 +181,14 @@ pub(crate) mod element {
     impl PartialOrd for AnyElementHandle {
         fn partial_cmp(&self, other: &Self) -> Option<core::cmp::Ordering> {
             Some(self.cmp(other))
+        }
+    }
+
+    impl core::hash::Hash for AnyElementHandle {
+        fn hash<H: core::hash::Hasher>(&self, state: &mut H) {
+            // Element handle IDs are unique, so we don't need to hash the tags.
+            self.system_id.hash(state);
+            self.id.hash(state);
         }
     }
 
