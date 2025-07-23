@@ -222,7 +222,9 @@ impl Point {
     /// Construct a new `Point` at the given coordinate.
     pub fn create(system: &mut System, x: f64, y: f64) -> ElementHandle<Self> {
         let idx = system.add_variables([x, y]);
-        system.add_element(Vertex::Point { idx })
+        let handle = system.add_element(Vertex::Point { idx }, 2);
+        system.assign_variable_primitive::<2>(handle.drop_system_id());
+        handle
     }
 }
 
@@ -269,10 +271,13 @@ impl Line {
         else {
             unreachable!()
         };
-        system.add_element(Vertex::Line {
-            point1_idx,
-            point2_idx,
-        })
+        system.add_element(
+            Vertex::Line {
+                point1_idx,
+                point2_idx,
+            },
+            0,
+        )
     }
 }
 
@@ -327,10 +332,15 @@ impl Circle {
             unreachable!()
         };
         let radius_idx = system.add_variables([radius]);
-        system.add_element(Vertex::Circle {
-            center_idx,
-            radius_idx,
-        })
+        let handle = system.add_element(
+            Vertex::Circle {
+                center_idx,
+                radius_idx,
+            },
+            1,
+        );
+        system.assign_variable_primitive::<1>(handle.drop_system_id());
+        handle
     }
 }
 
