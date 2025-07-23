@@ -441,7 +441,7 @@ impl System {
                     constraints.iter().copied(),
                 )
             } else {
-                RecombinationPlan::singular(elements, constraints)
+                RecombinationPlan::single(elements, constraints)
             };
 
             for step in recombination_plan.steps() {

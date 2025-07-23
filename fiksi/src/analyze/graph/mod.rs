@@ -19,7 +19,7 @@ pub(crate) struct RecombinationPlan {
 }
 
 impl RecombinationPlan {
-    pub(crate) fn singular(
+    pub(crate) fn single(
         elements: impl IntoIterator<Item = ElementId>,
         constraints: impl IntoIterator<Item = ConstraintId>,
     ) -> Self {
