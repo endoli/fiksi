@@ -5,15 +5,13 @@
 
 use core::borrow::Borrow;
 
-use crate::Edge;
+use crate::{Edge, Subsystem};
 
 /// Compute residuals and Jacobian for all constraints.
 ///
 /// The Jacobian is relative to the free variables.
 pub(crate) fn calculate_residuals_and_jacobian(
-    constraints: &[&Edge],
-    // Map from variable indices (in `variables`) to free variable indices.
-    free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
+    subsystem: &Subsystem<'_>,
     variables: &[f64],
     residuals: &mut [f64],
     jacobian: &mut [f64],
@@ -21,13 +19,13 @@ pub(crate) fn calculate_residuals_and_jacobian(
     jacobian.fill(0.);
     residuals.fill(0.);
 
-    let num_free_variables = free_variable_map.len();
+    let num_free_variables = subsystem.free_variables().len();
 
-    for (constraint_idx, &constraint) in constraints.iter().enumerate() {
+    for (constraint_idx, constraint) in subsystem.constraints().enumerate() {
         match constraint {
             Edge::PointPointDistance(constraint) => {
                 constraint.compute_residual_and_partial_derivatives(
-                    free_variable_map,
+                    subsystem,
                     variables,
                     &mut residuals[constraint_idx],
                     &mut jacobian[constraint_idx * num_free_variables
@@ -36,7 +34,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
             }
             Edge::PointPointPointAngle(constraint) => {
                 constraint.compute_residual_and_partial_derivatives(
-                    free_variable_map,
+                    subsystem,
                     variables,
                     &mut residuals[constraint_idx],
                     &mut jacobian[constraint_idx * num_free_variables
@@ -45,7 +43,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
             }
             Edge::PointLineIncidence(constraint) => {
                 constraint.compute_residual_and_partial_derivatives(
-                    free_variable_map,
+                    subsystem,
                     variables,
                     &mut residuals[constraint_idx],
                     &mut jacobian[constraint_idx * num_free_variables
@@ -54,7 +52,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
             }
             Edge::LineCircleTangency(constraint) => {
                 constraint.compute_residual_and_partial_derivatives(
-                    free_variable_map,
+                    subsystem,
                     variables,
                     &mut residuals[constraint_idx],
                     &mut jacobian[constraint_idx * num_free_variables
@@ -63,7 +61,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
             }
             Edge::LineLineAngle(constraint) => {
                 constraint.compute_residual_and_partial_derivatives(
-                    free_variable_map,
+                    subsystem,
                     variables,
                     &mut residuals[constraint_idx],
                     &mut jacobian[constraint_idx * num_free_variables
@@ -72,7 +70,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
             }
             Edge::LineLineParallelism(constraint) => {
                 constraint.compute_residual_and_partial_derivatives(
-                    free_variable_map,
+                    subsystem,
                     variables,
                     &mut residuals[constraint_idx],
                     &mut jacobian[constraint_idx * num_free_variables

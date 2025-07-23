@@ -6,7 +6,7 @@
 #[cfg(not(feature = "std"))]
 use crate::floatfuncs::FloatFuncs;
 
-use crate::{ConstraintHandle, Edge, ElementHandle, System, Vertex, elements};
+use crate::{ConstraintHandle, Edge, ElementHandle, Subsystem, System, Vertex, elements};
 
 trait FloatExt {
     /// Returns the square of `self`.
@@ -25,9 +25,10 @@ impl FloatExt for f64 {
 }
 
 pub(crate) mod constraint {
+    use alloc::vec;
     use core::marker::PhantomData;
 
-    use crate::{System, utils};
+    use crate::{Subsystem, System, utils};
 
     use super::{Constraint, ConstraintTag};
 
@@ -76,11 +77,14 @@ pub(crate) mod constraint {
 
         /// Calculate the residual of this constraint.
         pub fn calculate_residual(self, system: &System) -> f64 {
-            let edge = &system.constraint_edges[self.id as usize];
+            let subsystem = Subsystem::new(
+                &system.constraint_edges,
+                vec![],
+                vec![self.drop_system_id()],
+            );
             let residual = &mut [0.];
             utils::calculate_residuals_and_jacobian(
-                &[edge],
-                &alloc::collections::BTreeMap::new(),
+                &subsystem,
                 &system.variables,
                 residual,
                 &mut [],
@@ -278,7 +282,7 @@ impl PointPointDistance {
 
     pub(crate) fn compute_residual_and_partial_derivatives(
         &self,
-        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
+        subsystem: &Subsystem<'_>,
         variables: &[f64],
         residual: &mut f64,
         first_derivative: &mut [f64],
@@ -303,17 +307,17 @@ impl PointPointDistance {
             -(point1.y - point2.y) * distance_recip,
         ];
 
-        if let Some(idx) = free_variable_map.get(&self.point1_idx) {
-            first_derivative[*idx as usize] += derivative[0];
+        if let Some(idx) = subsystem.free_variable_index(self.point1_idx) {
+            first_derivative[idx as usize] += derivative[0];
         }
-        if let Some(idx) = free_variable_map.get(&(self.point1_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[1];
+        if let Some(idx) = subsystem.free_variable_index(self.point1_idx + 1) {
+            first_derivative[idx as usize] += derivative[1];
         }
-        if let Some(idx) = free_variable_map.get(&self.point2_idx) {
-            first_derivative[*idx as usize] += derivative[2];
+        if let Some(idx) = subsystem.free_variable_index(self.point2_idx) {
+            first_derivative[idx as usize] += derivative[2];
         }
-        if let Some(idx) = free_variable_map.get(&(self.point2_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[3];
+        if let Some(idx) = subsystem.free_variable_index(self.point2_idx + 1) {
+            first_derivative[idx as usize] += derivative[3];
         }
     }
 }
@@ -370,7 +374,7 @@ impl PointPointPointAngle {
 
     pub(crate) fn compute_residual_and_partial_derivatives(
         &self,
-        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
+        subsystem: &Subsystem<'_>,
         variables: &[f64],
         residual: &mut f64,
         first_derivative: &mut [f64],
@@ -422,23 +426,23 @@ impl PointPointPointAngle {
             dangle_dpoint3y,
         ];
 
-        if let Some(idx) = free_variable_map.get(&self.point1_idx) {
-            first_derivative[*idx as usize] += derivative[0];
+        if let Some(idx) = subsystem.free_variable_index(self.point1_idx) {
+            first_derivative[idx as usize] += derivative[0];
         }
-        if let Some(idx) = free_variable_map.get(&(self.point1_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[1];
+        if let Some(idx) = subsystem.free_variable_index(self.point1_idx + 1) {
+            first_derivative[idx as usize] += derivative[1];
         }
-        if let Some(idx) = free_variable_map.get(&self.point2_idx) {
-            first_derivative[*idx as usize] += derivative[2];
+        if let Some(idx) = subsystem.free_variable_index(self.point2_idx) {
+            first_derivative[idx as usize] += derivative[2];
         }
-        if let Some(idx) = free_variable_map.get(&(self.point2_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[3];
+        if let Some(idx) = subsystem.free_variable_index(self.point2_idx + 1) {
+            first_derivative[idx as usize] += derivative[3];
         }
-        if let Some(idx) = free_variable_map.get(&(self.point3_idx)) {
-            first_derivative[*idx as usize] += derivative[4];
+        if let Some(idx) = subsystem.free_variable_index(self.point3_idx) {
+            first_derivative[idx as usize] += derivative[4];
         }
-        if let Some(idx) = free_variable_map.get(&(self.point3_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[5];
+        if let Some(idx) = subsystem.free_variable_index(self.point3_idx + 1) {
+            first_derivative[idx as usize] += derivative[5];
         }
     }
 }
@@ -490,7 +494,7 @@ impl PointLineIncidence {
 
     pub(crate) fn compute_residual_and_partial_derivatives(
         &self,
-        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
+        subsystem: &Subsystem<'_>,
         variables: &[f64],
         residual: &mut f64,
         first_derivative: &mut [f64],
@@ -522,23 +526,23 @@ impl PointLineIncidence {
             -point1.x + point2.x,
         ];
 
-        if let Some(idx) = free_variable_map.get(&self.point_idx) {
-            first_derivative[*idx as usize] += derivative[0];
+        if let Some(idx) = subsystem.free_variable_index(self.point_idx) {
+            first_derivative[idx as usize] += derivative[0];
         }
-        if let Some(idx) = free_variable_map.get(&(self.point_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[1];
+        if let Some(idx) = subsystem.free_variable_index(self.point_idx + 1) {
+            first_derivative[idx as usize] += derivative[1];
         }
-        if let Some(idx) = free_variable_map.get(&self.line_point1_idx) {
-            first_derivative[*idx as usize] += derivative[2];
+        if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx) {
+            first_derivative[idx as usize] += derivative[2];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line_point1_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[3];
+        if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx + 1) {
+            first_derivative[idx as usize] += derivative[3];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line_point2_idx)) {
-            first_derivative[*idx as usize] += derivative[4];
+        if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx) {
+            first_derivative[idx as usize] += derivative[4];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line_point2_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[5];
+        if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx + 1) {
+            first_derivative[idx as usize] += derivative[5];
         }
     }
 }
@@ -596,7 +600,7 @@ impl LineLineAngle {
 
     pub(crate) fn compute_residual_and_partial_derivatives(
         &self,
-        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
+        subsystem: &Subsystem<'_>,
         variables: &[f64],
         residual: &mut f64,
         first_derivative: &mut [f64],
@@ -651,29 +655,29 @@ impl LineLineAngle {
             -dangle_dline2_point1y,
         ];
 
-        if let Some(idx) = free_variable_map.get(&self.line1_point1_idx) {
-            first_derivative[*idx as usize] += derivative[0];
+        if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx) {
+            first_derivative[idx as usize] += derivative[0];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line1_point1_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[1];
+        if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx + 1) {
+            first_derivative[idx as usize] += derivative[1];
         }
-        if let Some(idx) = free_variable_map.get(&self.line1_point2_idx) {
-            first_derivative[*idx as usize] += derivative[2];
+        if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx) {
+            first_derivative[idx as usize] += derivative[2];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line1_point2_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[3];
+        if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx + 1) {
+            first_derivative[idx as usize] += derivative[3];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line2_point1_idx)) {
-            first_derivative[*idx as usize] += derivative[4];
+        if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx) {
+            first_derivative[idx as usize] += derivative[4];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line2_point1_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[5];
+        if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx + 1) {
+            first_derivative[idx as usize] += derivative[5];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line2_point2_idx)) {
-            first_derivative[*idx as usize] += derivative[6];
+        if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx) {
+            first_derivative[idx as usize] += derivative[6];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line2_point2_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[7];
+        if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx + 1) {
+            first_derivative[idx as usize] += derivative[7];
         }
     }
 }
@@ -723,7 +727,7 @@ impl LineLineParallelism {
 
     pub(crate) fn compute_residual_and_partial_derivatives(
         &self,
-        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
+        subsystem: &Subsystem<'_>,
         variables: &[f64],
         residual: &mut f64,
         first_derivative: &mut [f64],
@@ -761,29 +765,29 @@ impl LineLineParallelism {
             -u.x, // l2p2y
         ];
 
-        if let Some(idx) = free_variable_map.get(&self.line1_point1_idx) {
-            first_derivative[*idx as usize] += derivative[0];
+        if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx) {
+            first_derivative[idx as usize] += derivative[0];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line1_point1_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[1];
+        if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx + 1) {
+            first_derivative[idx as usize] += derivative[1];
         }
-        if let Some(idx) = free_variable_map.get(&self.line1_point2_idx) {
-            first_derivative[*idx as usize] += derivative[2];
+        if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx) {
+            first_derivative[idx as usize] += derivative[2];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line1_point2_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[3];
+        if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx + 1) {
+            first_derivative[idx as usize] += derivative[3];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line2_point1_idx)) {
-            first_derivative[*idx as usize] += derivative[4];
+        if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx) {
+            first_derivative[idx as usize] += derivative[4];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line2_point1_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[5];
+        if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx + 1) {
+            first_derivative[idx as usize] += derivative[5];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line2_point2_idx)) {
-            first_derivative[*idx as usize] += derivative[6];
+        if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx) {
+            first_derivative[idx as usize] += derivative[6];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line2_point2_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[7];
+        if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx + 1) {
+            first_derivative[idx as usize] += derivative[7];
         }
     }
 }
@@ -837,7 +841,7 @@ impl LineCircleTangency {
 
     pub(crate) fn compute_residual_and_partial_derivatives(
         &self,
-        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
+        subsystem: &Subsystem<'_>,
         variables: &[f64],
         residual: &mut f64,
         first_derivative: &mut [f64],
@@ -893,26 +897,26 @@ impl LineCircleTangency {
             sign * length_recip * (-line_point1.x + line_point2.x),
         ];
 
-        if let Some(idx) = free_variable_map.get(&self.line_point1_idx) {
-            first_derivative[*idx as usize] += derivative[0];
+        if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx) {
+            first_derivative[idx as usize] += derivative[0];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line_point1_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[1];
+        if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx + 1) {
+            first_derivative[idx as usize] += derivative[1];
         }
-        if let Some(idx) = free_variable_map.get(&self.line_point2_idx) {
-            first_derivative[*idx as usize] += derivative[2];
+        if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx) {
+            first_derivative[idx as usize] += derivative[2];
         }
-        if let Some(idx) = free_variable_map.get(&(self.line_point2_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[3];
+        if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx + 1) {
+            first_derivative[idx as usize] += derivative[3];
         }
-        if let Some(idx) = free_variable_map.get(&self.circle_center_idx) {
-            first_derivative[*idx as usize] += derivative[4];
+        if let Some(idx) = subsystem.free_variable_index(self.circle_center_idx) {
+            first_derivative[idx as usize] += derivative[4];
         }
-        if let Some(idx) = free_variable_map.get(&(self.circle_center_idx + 1)) {
-            first_derivative[*idx as usize] += derivative[5];
+        if let Some(idx) = subsystem.free_variable_index(self.circle_center_idx + 1) {
+            first_derivative[idx as usize] += derivative[5];
         }
-        if let Some(idx) = free_variable_map.get(&self.circle_radius_idx) {
-            first_derivative[*idx as usize] += -1.;
+        if let Some(idx) = subsystem.free_variable_index(self.circle_radius_idx) {
+            first_derivative[idx as usize] += -1.;
         }
     }
 }

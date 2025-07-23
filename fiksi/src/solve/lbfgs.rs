@@ -3,10 +3,10 @@
 
 use core::f64;
 
-use alloc::{vec, vec::Vec};
+use alloc::vec;
 
 use crate::{
-    Edge, SolveSet, Vertex,
+    Subsystem,
     utils::{calculate_residuals_and_jacobian, sum_squares},
 };
 
@@ -20,13 +20,7 @@ use crate::{
 /// See:
 /// Liu, Dong C., and Jorge Nocedal. "On the limited memory BFGS method for large scale
 /// optimization." Mathematical programming 45.1 (1989): 503-528.
-pub(crate) fn lbfgs(
-    variables: &mut [f64],
-    // TODO: actually use variables given by `solve_set`
-    solve_set: Option<&SolveSet>,
-    element_vertices: &[Vertex],
-    constraint_edges: &[Edge],
-) {
+pub(crate) fn lbfgs(variables: &mut [f64], subsystem: &Subsystem<'_>) {
     /// The max length of the limited history.
     const MAX_HISTORY: u8 = 5;
 
@@ -42,63 +36,21 @@ pub(crate) fn lbfgs(
     /// have converged.
     const RESIDUAL_THRESHOLD: f64 = 1e-6;
 
-    // Identify free variables. This is a map from the free variable index to the `variables`
-    // index.
-    let mut free_variables: Vec<u32> = vec![];
-    for vertex in element_vertices {
-        match vertex {
-            Vertex::Point { idx } => {
-                free_variables.extend(&[*idx, idx + 1]);
-            }
-            Vertex::Circle { radius_idx, .. } => {
-                free_variables.extend(&[*radius_idx]);
-            }
-            // In the current setup, not all vertices in the set contribute free variables.
-            _ => {}
-        }
-    }
-    let num_variables = free_variables.len();
-    free_variables.sort_unstable();
-
-    // Map from variable index into free variable index within the Jacobian matrix, gradient
-    // vector, etc.
-    let mut free_variable_map = alloc::collections::BTreeMap::new();
-    for (idx, &free_variable) in free_variables.iter().enumerate() {
-        free_variable_map.insert(
-            free_variable,
-            idx.try_into().expect("less than 2^32 elements"),
-        );
-    }
-
-    let constraints: Vec<&Edge> = match solve_set {
-        Some(solve_set) => solve_set
-            .constraints
-            .iter()
-            .map(|id| &constraint_edges[id.id as usize])
-            .collect(),
-        None => constraint_edges.iter().collect(),
-    };
-
     // The (non-squared) residuals of the constraints.
-    let mut residuals = vec![0.; constraints.len()];
+    let mut residuals = vec![0.; subsystem.constraints().len()];
     // All first-order partial derivatives of the constraints, as constraints x free variables.
     // This is in row-major order.
-    let mut jacobian = vec![0.; constraints.len() * num_variables];
+    let mut jacobian = vec![0.; subsystem.constraints().len() * subsystem.free_variables().len()];
 
     // Calculate initial residuals and gradients
-    calculate_residuals_and_jacobian(
-        &constraints,
-        &free_variable_map,
-        variables,
-        &mut residuals,
-        &mut jacobian,
-    );
+    calculate_residuals_and_jacobian(subsystem, &*variables, &mut residuals, &mut jacobian);
 
     let mut prev_sum_squared_residuals = sum_squares(&residuals);
     if prev_sum_squared_residuals < 1e-4 {
         return;
     }
 
+    let num_variables = subsystem.free_variables().len();
     // Gradient (`g_k`) scratch buffer.
     let mut gradient = vec![0.; num_variables];
     // Calculate initial gradient
@@ -201,9 +153,7 @@ pub(crate) fn lbfgs(
             phi: sum_squared_residuals,
             ..
         } = hager_zhang::line_search(
-            &constraints,
-            &free_variables,
-            &free_variable_map,
+            subsystem,
             variables,
             &mut variables_scratch,
             &mut jacobian,
@@ -263,7 +213,7 @@ fn dot_product(a: &[f64], b: &[f64]) -> f64 {
 
 mod hager_zhang {
     use crate::{
-        Edge,
+        Subsystem,
         utils::{calculate_residuals_and_jacobian, sum_squares},
     };
 
@@ -306,9 +256,7 @@ mod hager_zhang {
 
     /// Helper struct for evaluating the system's residual and gradient.
     struct Eval<'a> {
-        constraints: &'a [&'a Edge],
-        free_variables: &'a [u32],
-        free_variable_map: &'a alloc::collections::BTreeMap<u32, u32>,
+        subsystem: &'a Subsystem<'a>,
         variables: &'a [f64],
         variables_scratch: &'a mut [f64],
         jacobian: &'a mut [f64],
@@ -319,13 +267,12 @@ mod hager_zhang {
 
     impl Eval<'_> {
         fn calculate_phi(&mut self, p: f64) -> Param {
-            for (idx, d) in self.free_variables.iter().zip(self.direction) {
-                self.variables_scratch[*idx as usize] = self.variables[*idx as usize] + p * d;
+            for (idx, d) in self.subsystem.free_variables().zip(self.direction) {
+                self.variables_scratch[idx as usize] = self.variables[idx as usize] + p * d;
             }
 
             calculate_residuals_and_jacobian(
-                self.constraints,
-                self.free_variable_map,
+                self.subsystem,
                 self.variables_scratch,
                 self.residuals,
                 self.jacobian,
@@ -521,9 +468,7 @@ mod hager_zhang {
     ///
     /// [Wolfe]: https://en.wikipedia.org/wiki/Wolfe_conditions
     pub(super) fn line_search(
-        constraints: &[&Edge],
-        free_variables: &[u32],
-        free_variable_map: &alloc::collections::BTreeMap<u32, u32>,
+        subsystem: &Subsystem<'_>,
         variables: &[f64],
         variables_scratch: &mut [f64],
         jacobian: &mut [f64],
@@ -537,9 +482,7 @@ mod hager_zhang {
         let hz = HagerZhangLineSearch { phi0, dphi0 };
 
         let eval = &mut Eval {
-            constraints,
-            free_variables,
-            free_variable_map,
+            subsystem,
             variables,
             variables_scratch,
             jacobian,

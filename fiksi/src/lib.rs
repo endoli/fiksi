@@ -68,6 +68,7 @@ mod analyze;
 pub mod constraints;
 pub mod elements;
 pub mod solve;
+mod subsystem;
 pub(crate) mod utils;
 
 #[cfg(test)]
@@ -83,6 +84,7 @@ pub use elements::{
     Element,
     element::{AnyElementHandle, ElementHandle, TaggedElementHandle},
 };
+pub(crate) use subsystem::Subsystem;
 
 use crate::constraints::{
     LineCircleTangency, LineLineAngle, LineLineParallelism, PointLineIncidence, PointPointDistance,
@@ -340,8 +342,47 @@ impl System {
     ///
     /// This may change elements' positions in order to satisfy numeric requirements.
     pub fn analyze(&mut self, solve_set: Option<&SolveSetHandle>) -> Analysis {
-        let solve_set = solve_set.map(|solve_set| &self.solve_sets[solve_set.id as usize]);
-        let overconstrained = analyze::numerical::find_overconstraints(self, solve_set);
+        let (elements, constraints) = if let Some(solve_set) = solve_set {
+            let solve_set = &self.solve_sets[solve_set.id as usize];
+            let elements = solve_set.elements.clone();
+            let constraints = solve_set.constraints.clone();
+            (elements, constraints)
+        } else {
+            (
+                (0..self.element_vertices.len().try_into().unwrap())
+                    .map(|id| ElementId { id })
+                    .collect(),
+                (0..self.constraint_edges.len().try_into().unwrap())
+                    .map(|id| ConstraintId { id })
+                    .collect(),
+            )
+        };
+
+        let mut free_variables: Vec<u32> = vec![];
+        for element_id in &elements {
+            let element = &self.element_vertices[element_id.id as usize];
+            match element {
+                Vertex::Point { idx } => {
+                    free_variables.extend(&[*idx, *idx + 1]);
+                }
+                // In the current setup, not all vertices in the set contribute free variables. E.g.
+                // `Vertex::Line` only refers to existing points, meaning it does not contribute its
+                // own free variables. `Vertex::Circle` refers to a point, but contributes its radius
+                // as free variable.
+                Vertex::Circle { radius_idx, .. } => {
+                    free_variables.extend(&[*radius_idx]);
+                }
+                _ => {}
+            }
+        }
+
+        let subsystem = Subsystem::new(
+            &self.constraint_edges,
+            free_variables,
+            constraints.into_iter().collect(),
+        );
+
+        let overconstrained = analyze::numerical::find_overconstraints(self, &subsystem);
 
         Analysis { overconstrained }
     }
@@ -356,19 +397,53 @@ impl System {
     /// element the handle corresponds to is considered free, regardless of whether the circle
     /// itself is in `solve_set`.
     pub fn solve(&mut self, solve_set: Option<&SolveSetHandle>, opts: SolvingOptions) {
+        let (elements, constraints) = if let Some(solve_set) = solve_set {
+            let solve_set = &self.solve_sets[solve_set.id as usize];
+            let elements = solve_set.elements.clone();
+            let constraints = solve_set.constraints.clone();
+            (elements, constraints)
+        } else {
+            (
+                (0..self.element_vertices.len().try_into().unwrap())
+                    .map(|id| ElementId { id })
+                    .collect(),
+                (0..self.constraint_edges.len().try_into().unwrap())
+                    .map(|id| ConstraintId { id })
+                    .collect(),
+            )
+        };
+
+        let mut free_variables: Vec<u32> = vec![];
+        for element_id in &elements {
+            let element = &self.element_vertices[element_id.id as usize];
+            match element {
+                Vertex::Point { idx } => {
+                    free_variables.extend(&[*idx, *idx + 1]);
+                }
+                // In the current setup, not all vertices in the set contribute free variables. E.g.
+                // `Vertex::Line` only refers to existing points, meaning it does not contribute its
+                // own free variables. `Vertex::Circle` refers to a point, but contributes its radius
+                // as free variable.
+                Vertex::Circle { radius_idx, .. } => {
+                    free_variables.extend(&[*radius_idx]);
+                }
+                _ => {}
+            }
+        }
+
+        let subsystem = Subsystem::new(
+            &self.constraint_edges,
+            free_variables,
+            constraints.into_iter().collect(),
+        );
+
         match opts.optimizer {
-            solve::Optimizer::LevenbergMarquardt => crate::solve::levenberg_marquardt(
-                &mut self.variables,
-                solve_set.map(|solve_set| &self.solve_sets[solve_set.id as usize]),
-                &self.element_vertices,
-                &self.constraint_edges,
-            ),
-            solve::Optimizer::LBfgs => crate::solve::lbfgs(
-                &mut self.variables,
-                solve_set.map(|solve_set| &self.solve_sets[solve_set.id as usize]),
-                &self.element_vertices,
-                &self.constraint_edges,
-            ),
+            solve::Optimizer::LevenbergMarquardt => {
+                crate::solve::levenberg_marquardt(&mut self.variables, &subsystem);
+            }
+            solve::Optimizer::LBfgs => {
+                crate::solve::lbfgs(&mut self.variables, &subsystem);
+            }
         }
     }
 }
