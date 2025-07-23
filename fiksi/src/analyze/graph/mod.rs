@@ -12,6 +12,14 @@ use crate::{
     graph::{Graph, IncidentElements},
 };
 
+/// A recombination plan.
+///
+/// This consists of [steps](RecombinationStep) to be solved to get to a full solution. Each step
+/// contains the constraints that are to be solved, and the elements that become fixed after
+/// solving that step. Once an element is fixed, its value should not be changed by future steps,
+/// though it may still be part of future constraints.
+///
+/// See [`decompose`] for more information.
 #[derive(Debug)]
 pub(crate) struct RecombinationPlan {
     /// The partially ordered steps to take to solve the system.
@@ -37,6 +45,9 @@ impl RecombinationPlan {
     }
 }
 
+/// A single step within a [`RecombinationPlan`].
+///
+/// This consists of constraints to solve this step, and the elements that become fixed after it.
 #[derive(Debug)]
 pub(crate) struct RecombinationStep {
     /// The constraints to solve together in this step.
