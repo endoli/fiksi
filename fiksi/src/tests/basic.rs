@@ -13,15 +13,15 @@ const RESIDUAL_THRESHOLD: f64 = 1e-5;
 fn underconstrained_triangle() {
     let mut s = System::new();
 
-    let p1 = elements::Point::create(&mut s, 0., 0.);
-    let p2 = elements::Point::create(&mut s, 1., 0.5);
-    let p3 = elements::Point::create(&mut s, 2., 1.);
-    let angle1 = constraints::PointPointPointAngle::create(&mut s, p1, p2, p3, 40_f64.to_radians());
-    let angle2 = constraints::PointPointPointAngle::create(&mut s, p2, p3, p1, 80_f64.to_radians());
+    let p0 = elements::Point::create(&mut s, 0., 0.);
+    let p1 = elements::Point::create(&mut s, 1., 0.5);
+    let p2 = elements::Point::create(&mut s, 2., 1.);
+    let angle0 = constraints::PointPointPointAngle::create(&mut s, p0, p1, p2, 40_f64.to_radians());
+    let angle1 = constraints::PointPointPointAngle::create(&mut s, p1, p2, p0, 80_f64.to_radians());
     s.solve(None, crate::SolvingOptions::default());
 
     let sum_squared_residuals =
-        sum_squares([angle1.calculate_residual(&s), angle2.calculate_residual(&s)]);
+        sum_squares([angle0.calculate_residual(&s), angle1.calculate_residual(&s)]);
     assert!(
         sum_squared_residuals < RESIDUAL_THRESHOLD,
         "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
@@ -33,23 +33,23 @@ fn underconstrained_triangle() {
 fn overconstrained_triangle_line_incidence() {
     let mut s = System::new();
 
-    let p1 = elements::Point::create(&mut s, 0., 0.);
-    let p2 = elements::Point::create(&mut s, 1., 0.5);
-    let p3 = elements::Point::create(&mut s, 2., 1.);
-    let p4 = elements::Point::create(&mut s, 3., 1.5);
-    let line1 = elements::Line::create(&mut s, p3, p4);
+    let p0 = elements::Point::create(&mut s, 0., 0.);
+    let p1 = elements::Point::create(&mut s, 1., 0.5);
+    let p2 = elements::Point::create(&mut s, 2., 1.);
+    let p3 = elements::Point::create(&mut s, 3., 1.5);
+    let line0 = elements::Line::create(&mut s, p2, p3);
     // Overconstrain the triangle angles to something that's geometrically impossible.
-    let angle1 = constraints::PointPointPointAngle::create(&mut s, p1, p2, p3, 40_f64.to_radians());
-    let angle2 = constraints::PointPointPointAngle::create(&mut s, p2, p3, p1, 80_f64.to_radians());
-    let angle3 =
-        constraints::PointPointPointAngle::create(&mut s, p3, p1, p2, 100_f64.to_radians());
-    let incidence = constraints::PointLineIncidence::create(&mut s, p2, line1);
+    let angle0 = constraints::PointPointPointAngle::create(&mut s, p0, p1, p2, 40_f64.to_radians());
+    let angle1 = constraints::PointPointPointAngle::create(&mut s, p1, p2, p0, 80_f64.to_radians());
+    let angle2 =
+        constraints::PointPointPointAngle::create(&mut s, p2, p0, p1, 100_f64.to_radians());
+    let incidence = constraints::PointLineIncidence::create(&mut s, p1, line0);
     s.solve(None, crate::SolvingOptions::default());
 
     let sum_squared_residuals = sum_squares([
+        angle0.calculate_residual(&s),
         angle1.calculate_residual(&s),
         angle2.calculate_residual(&s),
-        angle3.calculate_residual(&s),
     ]);
     assert!(
         sum_squared_residuals >= RESIDUAL_THRESHOLD,
@@ -70,23 +70,23 @@ fn overconstrained() {
 
     // A system of four points with some pairwise distance constraints. The system is
     // overconstrained. Dropping the distance constraint on e.g. p1p4 makes the system rigid.
-    let p1 = elements::Point::create(&mut s, 0.123, 0.1);
-    let p2 = elements::Point::create(&mut s, 1.2, 0.);
-    let p3 = elements::Point::create(&mut s, -0.5, 1.1);
-    let p4 = elements::Point::create(&mut s, 1.599, 1.2);
+    let p0 = elements::Point::create(&mut s, 0.123, 0.1);
+    let p1 = elements::Point::create(&mut s, 1.2, 0.);
+    let p2 = elements::Point::create(&mut s, -0.5, 1.1);
+    let p3 = elements::Point::create(&mut s, 1.599, 1.2);
 
-    let _p1p2 = constraints::PointPointDistance::create(&mut s, p1, p2, 1.);
-    let _p1p3 = constraints::PointPointDistance::create(&mut s, p1, p3, 1.5);
-    let _p2p4 = constraints::PointPointDistance::create(&mut s, p2, p4, 1.7);
-    let _p3p4 = constraints::PointPointDistance::create(&mut s, p3, p4, 1.2);
-    let _p2p3 = constraints::PointPointDistance::create(&mut s, p2, p3, 2.);
-    let _p1p4 = constraints::PointPointDistance::create(&mut s, p1, p4, 5.);
+    constraints::PointPointDistance::create(&mut s, p0, p1, 1.);
+    constraints::PointPointDistance::create(&mut s, p0, p2, 1.5);
+    constraints::PointPointDistance::create(&mut s, p1, p3, 1.7);
+    constraints::PointPointDistance::create(&mut s, p2, p3, 1.2);
+    constraints::PointPointDistance::create(&mut s, p1, p2, 2.);
+    let p0p3 = constraints::PointPointDistance::create(&mut s, p0, p3, 5.);
 
     let analysis = s.analyze(None);
     // Note we don't guarantee a specific ordering in which a constraint is designated as
     // causing overconstrainedness. Currently it's always the constraint that was added later,
     // though.
-    assert_eq!(&analysis.overconstrained, &[_p1p4.as_any_constraint()]);
+    assert_eq!(&analysis.overconstrained, &[p0p3.as_any_constraint()]);
 }
 
 /// A rigid triangle system with a rigid inscribed circle.
