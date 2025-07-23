@@ -67,14 +67,14 @@ impl IncidentElements {
     ) -> Self {
         let mut elements = [ElementId { id: 0 }; 6];
         let mut len = 0;
-        let mut folded = false;
+        let mut merged = false;
 
         for &element in self.as_slice() {
             if merge_predicate(element) {
-                if !folded {
+                if !merged {
                     elements[len] = into;
                     len += 1;
-                    folded = true;
+                    merged = true;
                 }
             } else {
                 elements[len] = element;
