@@ -269,30 +269,52 @@ impl System {
         })
     }
 
-    /// Add the given values to the variables vec, returning the index to the first variable added.
-    pub(crate) fn add_variables<const N: usize>(&mut self, variables: [f64; N]) -> u32 {
-        let idx = self.variables.len();
-        self.variables.extend_from_slice(&variables);
-        idx.try_into().expect("less than 2^32 variables")
-    }
-
-    pub(crate) fn assign_variable_primitive<const N: usize>(&mut self, element: ElementId) {
-        self.variable_to_primitive.extend((0..N).map(|_| element));
-    }
-
     /// Add an element.
     ///
     /// Give the element sets the element belongs to in `sets`.
-    pub(crate) fn add_element<T: Element>(&mut self, vertex: Vertex, dof: i16) -> ElementHandle<T> {
-        self.graph.add_element(dof);
-        let id = self
-            .element_vertices
+    pub(crate) fn add_element<T: Element, const N: usize>(
+        &mut self,
+        variables: [f64; N],
+        vertex: impl FnOnce(u32) -> Vertex,
+    ) -> ElementHandle<T> {
+        #[expect(
+            clippy::cast_possible_truncation,
+            reason = "the const panic ensures this never truncates"
+        )]
+        let dof = const {
+            // the `16` here is arbitrary, but practically should be more than large enough
+            if N > 16 {
+                panic!("Element adds too many variables.")
+            }
+            N as i16
+        };
+
+        let element_handle = {
+            let id = self
+                .element_vertices
+                .len()
+                .try_into()
+                .expect("less than 2^32 elements");
+            ElementHandle::from_ids(self.id, id)
+        };
+        let variables_idx = self
+            .variables
             .len()
             .try_into()
-            .expect("less than 2^32 elements");
-        self.element_vertices.push(vertex);
+            .expect("less than 2^32 variables");
+        if N > 0 {
+            self.variables.extend_from_slice(&variables);
+            self.variable_to_primitive
+                .extend((0..N).map(|_| element_handle.drop_system_id()));
+        }
 
-        ElementHandle::from_ids(self.id, id)
+        // Currently 0 degree-of-freedom elements are also added to the graph (even though they
+        // don't represent a primitive), as the `ElementId`s are shared between the system and the
+        // graph.
+        self.graph.add_element(dof);
+
+        self.element_vertices.push(vertex(variables_idx));
+        element_handle
     }
 
     /// Add a constraint.
