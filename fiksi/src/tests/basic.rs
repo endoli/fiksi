@@ -3,10 +3,7 @@
 
 use crate::{System, constraints, elements, utils::sum_squares};
 
-/// A "good enough" sum of squared residuals that is considered to have solved the system.
-///
-/// This would normally depend on the domain, especially for things like distance constraints.
-const RESIDUAL_THRESHOLD: f64 = 1e-5;
+use super::RESIDUAL_THRESHOLD;
 
 /// Tests whether an under-constrained triangle configuration gets solved.
 #[test]
