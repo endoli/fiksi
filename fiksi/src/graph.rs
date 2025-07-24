@@ -114,6 +114,15 @@ pub(crate) struct Constraint {
     pub(crate) incident_elements: IncidentElements,
 }
 
+/// A set of elements and the constraints connecting them.
+///
+/// This represents a connected component, meaning there is a path between each pairs of elements.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct ConnectedComponent {
+    pub(crate) elements: BTreeSet<ElementId>,
+    pub(crate) constraints: BTreeSet<ConstraintId>,
+}
+
 /// A graph tracking the structure of a geometric constraint system.
 ///
 /// This tracks (primitive) geometric elements and constraints between them, as well as degrees of
@@ -130,7 +139,7 @@ pub(crate) struct Graph {
     /// The value for an element is `None` iff it is not part of any connected components (i.e., no
     /// constraints connect the element with another element).
     pub(crate) element_connected_component: Vec<Option<NonZeroU32>>,
-    pub(crate) connected_components: Vec<BTreeSet<ElementId>>,
+    pub(crate) connected_components: Vec<ConnectedComponent>,
 }
 
 impl Graph {
@@ -161,7 +170,12 @@ impl Graph {
         element
     }
 
-    fn merge_connected_components(&mut self, elements: &[ElementId]) {
+    /// Merge all the connected components of the `elements` that are incident to `constraint` into
+    /// a single connected component.
+    ///
+    /// `constraint` and `elements` must be given such that `elements` are the incident elements to
+    /// `constraint`.
+    fn merge_connected_components(&mut self, constraint: ConstraintId, elements: &[ElementId]) {
         // Find the largest connected component to merge the others in to.
         let target_component_idx = {
             let mut target_component = None;
@@ -169,15 +183,16 @@ impl Graph {
             for element in elements {
                 if let Some(component_idx) = self.element_connected_component[element.id as usize] {
                     let component = &self.connected_components[component_idx.get() as usize - 1];
-                    if component.len() > size_largest {
+                    if component.elements.len() > size_largest {
                         target_component = Some(component_idx);
-                        size_largest = component.len();
+                        size_largest = component.elements.len();
                     }
                 }
             }
 
             if target_component.is_none() {
-                self.connected_components.push(BTreeSet::new());
+                self.connected_components
+                    .push(ConnectedComponent::default());
                 target_component = Some(
                     u32::try_from(self.connected_components.len())
                         .unwrap()
@@ -198,12 +213,14 @@ impl Graph {
                 let component = core::mem::take(
                     &mut self.connected_components[component_idx.get() as usize - 1],
                 );
-                target_component.extend(&component);
+                target_component.elements.extend(&component.elements);
+                target_component.constraints.extend(&component.constraints);
             } else {
-                target_component.insert(*element);
+                target_component.elements.insert(*element);
             }
             self.element_connected_component[element.id as usize] = Some(target_component_idx);
         }
+        target_component.constraints.insert(constraint);
         self.connected_components[target_component_idx.get() as usize - 1] = target_component;
     }
 
@@ -226,7 +243,7 @@ impl Graph {
             id: self.constraints.len().try_into().unwrap(),
         };
 
-        self.merge_connected_components(incident_elements.as_slice());
+        self.merge_connected_components(constraint, incident_elements.as_slice());
         self.push_incident_constraint(incident_elements.as_slice(), constraint);
         self.constraints.push(Constraint {
             valency,
@@ -236,7 +253,7 @@ impl Graph {
         constraint
     }
 
-    pub(crate) fn connected_components(&self) -> &[BTreeSet<ElementId>] {
+    pub(crate) fn connected_components(&self) -> &[ConnectedComponent] {
         &self.connected_components
     }
 }
