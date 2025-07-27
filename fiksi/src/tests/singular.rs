@@ -28,9 +28,6 @@ fn collinear_points() {
         },
     );
 
-    extern crate std;
-    std::dbg!(p0.get_value(&s), p1.get_value(&s), p2.get_value(&s));
-
     let sum_squared_residuals = sum_squares(
         s.get_constraint_handles()
             .map(|constraint| constraint.calculate_residual(&s)),
