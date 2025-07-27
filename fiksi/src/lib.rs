@@ -503,6 +503,8 @@ impl System {
                 if opts.perturb {
                     for free_variable in free_variables.iter().copied() {
                         let variable = &mut self.variables[free_variable as usize];
+                        // TODO: the scale-independent perturbation here should be revisited. See
+                        // also https://github.com/endoli/fiksi/pull/41#discussion_r2234008761.
                         *variable += *variable * (1. / 8196.) * rng.next_f64()
                             + (1. / 65568.) * rng.next_f64();
                     }
