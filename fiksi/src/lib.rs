@@ -483,8 +483,6 @@ impl System {
             };
 
             for step in recombination_plan.steps() {
-                step.constraints();
-
                 let mut free_variables: Vec<u32> = vec![];
                 for element_id in step.fixes_elements() {
                     let element = &self.element_vertices[element_id.id as usize];
