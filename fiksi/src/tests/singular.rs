@@ -5,9 +5,16 @@ use crate::{System, constraints, elements, utils::sum_squares};
 
 use super::RESIDUAL_THRESHOLD;
 
-/// This configuration is rigidly solvable, but its starting configuration is singular.
+/// This configuration is rigidly solvable, but its starting configuration is numerically singular.
 ///
-/// Simply following the gradient won't reach the optimum solution.
+/// Following the gradients, the system converges to a saddle ridge: one or more of the points
+/// needs to get a y-offset, but the y-gradients are precisely zero. Simply following the gradient
+/// won't reach the optimum solution.
+///
+/// With decomposition and recognizing some common patterns, these can be solved analytically. The
+/// more general solution is to introduce randomness to jitter systems out of local optima.
+/// Randomness is also needed for numerical analysis (e.g., to numerically detect
+/// overconstrainedness), for the same reason.
 #[test]
 fn collinear_points() {
     let mut s = System::new();
