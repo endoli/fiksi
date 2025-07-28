@@ -116,7 +116,7 @@ pub(crate) struct Constraint {
 
 /// A set of elements and the constraints connecting them.
 ///
-/// This represents a connected component, meaning there is a path between each pairs of elements.
+/// This represents a connected component, meaning there is a path between all pairs of elements.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ConnectedComponent {
     pub(crate) elements: BTreeSet<ElementId>,
