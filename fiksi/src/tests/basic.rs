@@ -62,7 +62,6 @@ fn overconstrained_triangle_line_incidence() {
 
 #[test]
 fn overconstrained() {
-    use crate::{System, constraints, elements};
     let mut s = System::new();
 
     // A system of four points with some pairwise distance constraints. The system is
@@ -123,7 +122,6 @@ fn triangle_inscribed_circle() {
 
 #[test]
 fn two_connected_components() {
-    use crate::{System, constraints, elements};
     let mut s = System::new();
 
     let p0 = elements::Point::create(&mut s, 0.123, 0.1);
