@@ -91,9 +91,13 @@ pub(crate) fn decompose<const D: i16>(
     vertices: impl Iterator<Item = ElementId>,
     edges: impl Iterator<Item = ConstraintId>,
 ) -> RecombinationPlan {
-    // This is the number of real constraints in the system. More "merged" constraints will be
-    // added as part of rigidity bookkeeping in this algorithm, but these don't need to be
-    // solved again.
+    // These are the number of real constraints and elements in the system. More "merged"
+    // constraints and elements will be added as part of rigidity bookkeeping in this algorithm,
+    // but the entities they're made of don't need to be solved again.
+    //
+    // Currently, the constraint and elements IDs are just indices into the vectors, meaning that
+    // the IDs can be compared against these lengths to determine whether the constraint or element
+    // is "real," or is a merged entity used for bookkeeping.
     let num_real_constraints = u32::try_from(graph.constraints.len()).unwrap();
     let num_real_elements = u32::try_from(graph.elements.len()).unwrap();
 
@@ -119,12 +123,24 @@ pub(crate) fn decompose<const D: i16>(
             // TODO: For now just push the entire subgraph (though that's not very efficient).
             // Perhaps this should figure out which constraints to solve in which order, and which
             // elements get fixed by that.
+            let constraints = available_edges
+                .iter()
+                .copied()
+                .filter(|edge| {
+                    edge.id < num_real_constraints && !constraints_handled.contains(edge)
+                })
+                .collect();
+            let fixes_elements = vertices
+                .iter()
+                .copied()
+                .filter(|vertex| {
+                    vertex.id < num_real_elements && !vertices_handled.contains(vertex)
+                })
+                .collect();
+
             recombination_plan.steps.push(RecombinationStep {
-                constraints: available_edges
-                    .difference(&constraints_handled)
-                    .copied()
-                    .collect(),
-                fixes_elements: vertices.difference(&vertices_handled).copied().collect(),
+                constraints,
+                fixes_elements,
             });
 
             break;
