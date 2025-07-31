@@ -68,7 +68,7 @@ pub(crate) fn lbfgs(variables: &mut [f64], subsystem: &Subsystem<'_>) {
 
     // Reusable scratch buffers for update step direction and variables.
     let mut direction = vec![0.; num_variables];
-    let mut variables_scratch = vec![0.; num_variables];
+    let mut variables_scratch = vec![0.; variables.len()];
 
     for k in 0..MAX_ITERATIONS {
         let history_len = u8::min(k, MAX_HISTORY);
