@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 mod basic;
+mod magnitude;
 mod singular;
 mod triangles;
 
