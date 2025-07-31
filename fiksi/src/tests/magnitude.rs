@@ -34,3 +34,41 @@ fn large_order_of_magnitude() {
         "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
     );
 }
+
+/// A rigid system with a large magnitude of metric point-point distance constraint values and a
+/// singular line-line parallelism constraint.
+///
+/// It can be hard to solve as the line-line parallelism residual value (a cross product) will
+/// roughly be on the order of the square of the point-point distance constraints (a vector norm),
+/// meaning it is at double the order of magnitude. This quickly introduces numerical issues.
+#[test]
+fn metric_and_singular() {
+    let mut s = System::new();
+
+    const FACTOR: f64 = 1e8;
+
+    let p0 = elements::Point::create(&mut s, 1.5 * FACTOR, 6.5 * FACTOR);
+    let p1 = elements::Point::create(&mut s, 3.2 * FACTOR, 0.8 * FACTOR);
+    let p2 = elements::Point::create(&mut s, 2.2 * FACTOR, -1.5 * FACTOR);
+    let p3 = elements::Point::create(&mut s, 1.2 * FACTOR, 0.5 * FACTOR);
+
+    constraints::PointPointDistance::create(&mut s, p0, p1, 5. * FACTOR);
+    constraints::PointPointDistance::create(&mut s, p1, p2, 4. * FACTOR);
+    constraints::PointPointDistance::create(&mut s, p2, p3, 3. * FACTOR);
+    constraints::PointPointDistance::create(&mut s, p3, p1, 1. * FACTOR);
+
+    let line0 = elements::Line::create(&mut s, p0, p1);
+    let line1 = elements::Line::create(&mut s, p2, p3);
+    constraints::LineLineParallelism::create(&mut s, line0, line1);
+
+    s.solve(None, crate::SolvingOptions::default());
+
+    let sum_squared_residuals = sum_squares(
+        s.get_constraint_handles()
+            .map(|constraint| constraint.calculate_residual(&s)),
+    );
+    assert!(
+        sum_squared_residuals < RESIDUAL_THRESHOLD,
+        "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
+    );
+}
