@@ -302,24 +302,22 @@ impl PointPointDistance {
         system.add_constraint(Edge::PointPointDistance(constraint))
     }
 
-    pub(crate) fn compute_residual_and_partial_derivatives(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        first_derivative: &mut [f64],
-    ) {
+    #[inline(always)]
+    fn compute_residual_and_partial_derivatives_(
+        variables: &[f64; 4],
+        param_distance: f64,
+    ) -> (f64, [f64; 4]) {
         let point1 = kurbo::Point {
-            x: variables[self.point1_idx as usize],
-            y: variables[self.point1_idx as usize + 1],
+            x: variables[0],
+            y: variables[1],
         };
         let point2 = kurbo::Point {
-            x: variables[self.point2_idx as usize],
-            y: variables[self.point2_idx as usize + 1],
+            x: variables[2],
+            y: variables[3],
         };
 
         let distance = ((point1.x - point2.x).square() + (point1.y - point2.y).square()).sqrt();
-        *residual += distance - self.distance;
+        let residual = distance - param_distance;
 
         let distance_recip = 1. / distance;
         let derivative = [
@@ -328,6 +326,28 @@ impl PointPointDistance {
             -(point1.x - point2.x) * distance_recip,
             -(point1.y - point2.y) * distance_recip,
         ];
+
+        (residual, derivative)
+    }
+
+    pub(crate) fn compute_residual_and_partial_derivatives(
+        &self,
+        subsystem: &Subsystem<'_>,
+        variables: &[f64],
+        residual: &mut f64,
+        first_derivative: &mut [f64],
+    ) {
+        let (r, derivative) = Self::compute_residual_and_partial_derivatives_(
+            &[
+                variables[self.point1_idx as usize],
+                variables[self.point1_idx as usize + 1],
+                variables[self.point2_idx as usize],
+                variables[self.point2_idx as usize + 1],
+            ],
+            self.distance,
+        );
+
+        *residual += r;
 
         if let Some(idx) = subsystem.free_variable_index(self.point1_idx) {
             first_derivative[idx as usize] += derivative[0];
@@ -402,24 +422,22 @@ impl PointPointPointAngle {
         system.add_constraint(Edge::PointPointPointAngle(constraint))
     }
 
-    pub(crate) fn compute_residual_and_partial_derivatives(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        first_derivative: &mut [f64],
-    ) {
+    #[inline(always)]
+    fn compute_residual_and_partial_derivatives_(
+        variables: &[f64; 6],
+        param_angle: f64,
+    ) -> (f64, [f64; 6]) {
         let point1 = kurbo::Point {
-            x: variables[self.point1_idx as usize],
-            y: variables[self.point1_idx as usize + 1],
+            x: variables[0],
+            y: variables[1],
         };
         let point2 = kurbo::Point {
-            x: variables[self.point2_idx as usize],
-            y: variables[self.point2_idx as usize + 1],
+            x: variables[2],
+            y: variables[3],
         };
         let point3 = kurbo::Point {
-            x: variables[self.point3_idx as usize],
-            y: variables[self.point3_idx as usize + 1],
+            x: variables[4],
+            y: variables[5],
         };
 
         let u = point1 - point2;
@@ -434,7 +452,7 @@ impl PointPointPointAngle {
             angle
         };
 
-        *residual += angle - self.angle;
+        let residual = angle - param_angle;
 
         let u_squared_recip = u.length_squared().recip();
         let v_squared_recip = v.length_squared().recip();
@@ -455,6 +473,30 @@ impl PointPointPointAngle {
             dangle_dpoint3x,
             dangle_dpoint3y,
         ];
+
+        (residual, derivative)
+    }
+
+    pub(crate) fn compute_residual_and_partial_derivatives(
+        &self,
+        subsystem: &Subsystem<'_>,
+        variables: &[f64],
+        residual: &mut f64,
+        first_derivative: &mut [f64],
+    ) {
+        let (r, derivative) = Self::compute_residual_and_partial_derivatives_(
+            &[
+                variables[self.point1_idx as usize],
+                variables[self.point1_idx as usize + 1],
+                variables[self.point2_idx as usize],
+                variables[self.point2_idx as usize + 1],
+                variables[self.point3_idx as usize],
+                variables[self.point3_idx as usize + 1],
+            ],
+            self.angle,
+        );
+
+        *residual += r;
 
         if let Some(idx) = subsystem.free_variable_index(self.point1_idx) {
             first_derivative[idx as usize] += derivative[0];
@@ -530,28 +572,22 @@ impl PointLineIncidence {
         system.add_constraint(Edge::PointLineIncidence(constraint))
     }
 
-    pub(crate) fn compute_residual_and_partial_derivatives(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        first_derivative: &mut [f64],
-    ) {
+    fn compute_residual_and_partial_derivatives_(variables: &[f64; 6]) -> (f64, [f64; 6]) {
         let point1 = kurbo::Point {
-            x: variables[self.point_idx as usize],
-            y: variables[self.point_idx as usize + 1],
+            x: variables[0],
+            y: variables[1],
         };
         let point2 = kurbo::Point {
-            x: variables[self.line_point1_idx as usize],
-            y: variables[self.line_point1_idx as usize + 1],
+            x: variables[2],
+            y: variables[3],
         };
         let point3 = kurbo::Point {
-            x: variables[self.line_point2_idx as usize],
-            y: variables[self.line_point2_idx as usize + 1],
+            x: variables[4],
+            y: variables[5],
         };
 
         // For collinear points, the triangle defined by those points has area 0.
-        *residual += point1.x * (point2.y - point3.y)
+        let residual = point1.x * (point2.y - point3.y)
             + point2.x * (point3.y - point1.y)
             + point3.x * (point1.y - point2.y);
 
@@ -563,6 +599,27 @@ impl PointLineIncidence {
             point1.y - point2.y,
             -point1.x + point2.x,
         ];
+
+        (residual, derivative)
+    }
+
+    pub(crate) fn compute_residual_and_partial_derivatives(
+        &self,
+        subsystem: &Subsystem<'_>,
+        variables: &[f64],
+        residual: &mut f64,
+        first_derivative: &mut [f64],
+    ) {
+        let (r, derivative) = Self::compute_residual_and_partial_derivatives_(&[
+            variables[self.point_idx as usize],
+            variables[self.point_idx as usize + 1],
+            variables[self.line_point1_idx as usize],
+            variables[self.line_point1_idx as usize + 1],
+            variables[self.line_point2_idx as usize],
+            variables[self.line_point2_idx as usize + 1],
+        ]);
+
+        *residual += r;
 
         if let Some(idx) = subsystem.free_variable_index(self.point_idx) {
             first_derivative[idx as usize] += derivative[0];
@@ -645,28 +702,25 @@ impl LineLineAngle {
         system.add_constraint(Edge::LineLineAngle(constraint))
     }
 
-    pub(crate) fn compute_residual_and_partial_derivatives(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        first_derivative: &mut [f64],
-    ) {
+    fn compute_residual_and_partial_derivatives_(
+        variables: &[f64; 8],
+        param_angle: f64,
+    ) -> (f64, [f64; 8]) {
         let line1_point1 = kurbo::Point {
-            x: variables[self.line1_point1_idx as usize],
-            y: variables[self.line1_point1_idx as usize + 1],
+            x: variables[0],
+            y: variables[1],
         };
         let line1_point2 = kurbo::Point {
-            x: variables[self.line1_point2_idx as usize],
-            y: variables[self.line1_point2_idx as usize + 1],
+            x: variables[2],
+            y: variables[3],
         };
         let line2_point1 = kurbo::Point {
-            x: variables[self.line2_point1_idx as usize],
-            y: variables[self.line2_point1_idx as usize + 1],
+            x: variables[4],
+            y: variables[5],
         };
         let line2_point2 = kurbo::Point {
-            x: variables[self.line2_point2_idx as usize],
-            y: variables[self.line2_point2_idx as usize + 1],
+            x: variables[6],
+            y: variables[7],
         };
 
         let u = line1_point2 - line1_point1;
@@ -681,7 +735,7 @@ impl LineLineAngle {
             angle
         };
 
-        *residual += angle - self.angle;
+        let residual = angle - param_angle;
 
         let u_squared_recip = u.length_squared().recip();
         let v_squared_recip = v.length_squared().recip();
@@ -701,6 +755,32 @@ impl LineLineAngle {
             -dangle_dline2_point1x,
             -dangle_dline2_point1y,
         ];
+
+        (residual, derivative)
+    }
+
+    pub(crate) fn compute_residual_and_partial_derivatives(
+        &self,
+        subsystem: &Subsystem<'_>,
+        variables: &[f64],
+        residual: &mut f64,
+        first_derivative: &mut [f64],
+    ) {
+        let (r, derivative) = Self::compute_residual_and_partial_derivatives_(
+            &[
+                variables[self.line1_point1_idx as usize],
+                variables[self.line1_point1_idx as usize + 1],
+                variables[self.line1_point2_idx as usize],
+                variables[self.line1_point2_idx as usize + 1],
+                variables[self.line2_point1_idx as usize],
+                variables[self.line2_point1_idx as usize + 1],
+                variables[self.line2_point2_idx as usize],
+                variables[self.line2_point2_idx as usize + 1],
+            ],
+            self.angle,
+        );
+
+        *residual += r;
 
         if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx) {
             first_derivative[idx as usize] += derivative[0];
@@ -782,34 +862,28 @@ impl LineLineParallelism {
         }))
     }
 
-    pub(crate) fn compute_residual_and_partial_derivatives(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        first_derivative: &mut [f64],
-    ) {
+    fn compute_residual_and_partial_derivatives_(variables: &[f64; 8]) -> (f64, [f64; 8]) {
         let line1_point1 = kurbo::Point {
-            x: variables[self.line1_point1_idx as usize],
-            y: variables[self.line1_point1_idx as usize + 1],
+            x: variables[0],
+            y: variables[1],
         };
         let line1_point2 = kurbo::Point {
-            x: variables[self.line1_point2_idx as usize],
-            y: variables[self.line1_point2_idx as usize + 1],
+            x: variables[2],
+            y: variables[3],
         };
         let line2_point1 = kurbo::Point {
-            x: variables[self.line2_point1_idx as usize],
-            y: variables[self.line2_point1_idx as usize + 1],
+            x: variables[4],
+            y: variables[5],
         };
         let line2_point2 = kurbo::Point {
-            x: variables[self.line2_point2_idx as usize],
-            y: variables[self.line2_point2_idx as usize + 1],
+            x: variables[6],
+            y: variables[7],
         };
 
         let u = line1_point2 - line1_point1;
         let v = line2_point2 - line2_point1;
 
-        *residual += v.cross(u);
+        let residual = v.cross(u);
 
         let derivative = [
             v.y,  // l1p1x
@@ -821,6 +895,29 @@ impl LineLineParallelism {
             u.y,  // l2p2x
             -u.x, // l2p2y
         ];
+
+        (residual, derivative)
+    }
+
+    pub(crate) fn compute_residual_and_partial_derivatives(
+        &self,
+        subsystem: &Subsystem<'_>,
+        variables: &[f64],
+        residual: &mut f64,
+        first_derivative: &mut [f64],
+    ) {
+        let (r, derivative) = Self::compute_residual_and_partial_derivatives_(&[
+            variables[self.line1_point1_idx as usize],
+            variables[self.line1_point1_idx as usize + 1],
+            variables[self.line1_point2_idx as usize],
+            variables[self.line1_point2_idx as usize + 1],
+            variables[self.line2_point1_idx as usize],
+            variables[self.line2_point1_idx as usize + 1],
+            variables[self.line2_point2_idx as usize],
+            variables[self.line2_point2_idx as usize + 1],
+        ]);
+
+        *residual += r;
 
         if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx) {
             first_derivative[idx as usize] += derivative[0];
@@ -905,33 +1002,27 @@ impl LineCircleTangency {
         system.add_constraint(Edge::LineCircleTangency(constraint))
     }
 
-    pub(crate) fn compute_residual_and_partial_derivatives(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        first_derivative: &mut [f64],
-    ) {
+    fn compute_residual_and_partial_derivatives_(variables: &[f64; 7]) -> (f64, [f64; 7]) {
         let line_point1 = kurbo::Point {
-            x: variables[self.line_point1_idx as usize],
-            y: variables[self.line_point1_idx as usize + 1],
+            x: variables[0],
+            y: variables[1],
         };
         let line_point2 = kurbo::Point {
-            x: variables[self.line_point2_idx as usize],
-            y: variables[self.line_point2_idx as usize + 1],
+            x: variables[2],
+            y: variables[3],
         };
         let circle_center = kurbo::Point {
-            x: variables[self.circle_center_idx as usize],
-            y: variables[self.circle_center_idx as usize + 1],
+            x: variables[4],
+            y: variables[5],
         };
-        let circle_radius = variables[self.circle_radius_idx as usize];
+        let circle_radius = variables[6];
 
         let length2 = line_point1.distance_squared(line_point2);
         let length = length2.sqrt();
 
         // TODO: better handle degenerate lines of length 0.
         if length == 0. {
-            return;
+            return (0., [0.; 7]);
         }
 
         let length_recip = 1. / length;
@@ -942,7 +1033,7 @@ impl LineCircleTangency {
         // We are interested in the _unsigned_ area here, as it does not matter on which side of
         // the line the circle center lies. That does mean there is a cusp when the circle
         // center is exactly on the line.
-        *residual += length_recip * signed_area.abs() - circle_radius;
+        let residual = length_recip * signed_area.abs() - circle_radius;
 
         let sign = signed_area.signum();
         let length3_recip = 1. / (length2 * length);
@@ -961,7 +1052,30 @@ impl LineCircleTangency {
                     - signed_area * (line_point2.y - line_point1.y)),
             sign * length_recip * (line_point1.y - line_point2.y),
             sign * length_recip * (-line_point1.x + line_point2.x),
+            -1.,
         ];
+
+        (residual, derivative)
+    }
+
+    pub(crate) fn compute_residual_and_partial_derivatives(
+        &self,
+        subsystem: &Subsystem<'_>,
+        variables: &[f64],
+        residual: &mut f64,
+        first_derivative: &mut [f64],
+    ) {
+        let (r, derivative) = Self::compute_residual_and_partial_derivatives_(&[
+            variables[self.line_point1_idx as usize],
+            variables[self.line_point1_idx as usize + 1],
+            variables[self.line_point2_idx as usize],
+            variables[self.line_point2_idx as usize + 1],
+            variables[self.circle_center_idx as usize],
+            variables[self.circle_center_idx as usize + 1],
+            variables[self.circle_radius_idx as usize],
+        ]);
+
+        *residual += r;
 
         if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx) {
             first_derivative[idx as usize] += derivative[0];
