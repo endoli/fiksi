@@ -1143,3 +1143,246 @@ impl Constraint for PointLineIncidence {}
 impl Constraint for LineLineAngle {}
 impl Constraint for LineLineParallelism {}
 impl Constraint for LineCircleTangency {}
+
+#[cfg(test)]
+mod tests {
+    use core::array;
+
+    use crate::Rng;
+
+    use super::*;
+
+    /// Generate an array of random floats between 0. and 1. inclusive.
+    fn next_f64s<const N: usize>(rng: &mut Rng) -> [f64; N] {
+        array::from_fn(|_| rng.next_f64())
+    }
+
+    /// Calculate component-wise `a + b`.
+    fn add<const N: usize>(mut a: [f64; N], b: [f64; N]) -> [f64; N] {
+        for n in 0..N {
+            a[n] += b[n];
+        }
+        a
+    }
+
+    /// Calculate the dot product of a and b, `sum_n(a[n] * b[n])`.
+    fn dot<const N: usize>(a: [f64; N], b: [f64; N]) -> f64 {
+        let mut dot = 0.;
+        for n in 0..N {
+            dot += a[n] * b[n];
+        }
+        dot
+    }
+
+    /// For a given residual r(variables) and small step `delta` we assume
+    /// `r(variables + delta) ~= r(variables) + dot(gradient, delta)`
+    /// where `gradient` is the vector of partial derivatives `r'(variables)`.
+    ///
+    /// This tests whether that approximation actually holds.
+    fn test_first_finite_difference<const N: usize>(
+        residual_and_first_derivatives: impl Fn(&[f64; N]) -> (f64, [f64; N]),
+        variable_and_delta_map: impl Fn([f64; N], [f64; N]) -> ([f64; N], [f64; N]),
+    ) {
+        const RELATIVE_EPSILON: f64 = 1e-3;
+        let mut rng = Rng::from_seed(42);
+
+        for _ in 0..5 {
+            let (variables, delta) =
+                variable_and_delta_map(next_f64s(&mut rng), next_f64s(&mut rng));
+            let (r, derivative) = residual_and_first_derivatives(&variables);
+            let (r_plus, _) = residual_and_first_derivatives(&add(variables, delta));
+
+            let linearized_diff = dot(derivative, delta);
+            let first_finite_diff = r_plus - r;
+
+            assert!(
+                (linearized_diff - first_finite_diff).abs()
+                    / f64::max(linearized_diff.abs(), first_finite_diff.abs())
+                    < RELATIVE_EPSILON,
+                "Difference predicted based on linearized first derivatives and actual first finite difference do not match.\n\
+                Variables: {variables:?}\n\
+                Delta: {delta:?}\n\
+                Predicted: {linearized_diff:?}\n\
+                Actual: {first_finite_diff:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn point_point_distance_first_finite_difference() {
+        test_first_finite_difference(
+            |variables| {
+                PointPointDistance::compute_residual_and_partial_derivatives_(variables, 0.5e0)
+            },
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e0),
+                    delta.map(|d| (d - 0.5) * 1e-4),
+                )
+            },
+        );
+        test_first_finite_difference(
+            |variables| {
+                PointPointDistance::compute_residual_and_partial_derivatives_(variables, 0.5e-9)
+            },
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e-10),
+                    delta.map(|d| (d - 0.5) * 1e-14),
+                )
+            },
+        );
+        test_first_finite_difference(
+            |variables| {
+                PointPointDistance::compute_residual_and_partial_derivatives_(variables, 0.5e10)
+            },
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e10),
+                    delta.map(|d| (d - 0.5) * 1e6),
+                )
+            },
+        );
+    }
+
+    #[test]
+    fn point_point_point_angle_first_finite_difference() {
+        test_first_finite_difference(
+            |variables| {
+                PointPointPointAngle::compute_residual_and_partial_derivatives_(
+                    variables,
+                    10f64.to_radians(),
+                )
+            },
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e0),
+                    delta.map(|d| (d - 0.5) * 1e-5),
+                )
+            },
+        );
+        test_first_finite_difference(
+            |variables| {
+                PointPointPointAngle::compute_residual_and_partial_derivatives_(
+                    variables,
+                    -40f64.to_radians(),
+                )
+            },
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e-10),
+                    delta.map(|d| (d - 0.5) * 1e-15),
+                )
+            },
+        );
+        test_first_finite_difference(
+            |variables| {
+                PointPointDistance::compute_residual_and_partial_derivatives_(variables, 0.5e10)
+            },
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e10),
+                    delta.map(|d| (d - 0.5) * 1e6),
+                )
+            },
+        );
+    }
+
+    #[test]
+    fn point_line_incidence_first_finite_difference() {
+        test_first_finite_difference(
+            |variables| PointLineIncidence::compute_residual_and_partial_derivatives_(variables),
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e0),
+                    delta.map(|d| (d - 0.5) * 1e-4),
+                )
+            },
+        );
+        test_first_finite_difference(
+            |variables| PointLineIncidence::compute_residual_and_partial_derivatives_(variables),
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e-10),
+                    delta.map(|d| (d - 0.5) * 1e-14),
+                )
+            },
+        );
+    }
+
+    #[test]
+    fn line_line_angle_first_finite_difference() {
+        test_first_finite_difference(
+            |variables| {
+                LineLineAngle::compute_residual_and_partial_derivatives_(
+                    variables,
+                    10f64.to_radians(),
+                )
+            },
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e0),
+                    delta.map(|d| (d - 0.5) * 1e-4),
+                )
+            },
+        );
+        test_first_finite_difference(
+            |variables| {
+                LineLineAngle::compute_residual_and_partial_derivatives_(
+                    variables,
+                    -40f64.to_radians(),
+                )
+            },
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e-10),
+                    delta.map(|d| (d - 0.5) * 1e-14),
+                )
+            },
+        );
+    }
+
+    #[test]
+    fn line_line_parallelism_first_finite_difference() {
+        test_first_finite_difference(
+            |variables| LineLineParallelism::compute_residual_and_partial_derivatives_(variables),
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e0),
+                    delta.map(|d| (d - 0.5) * 1e-4),
+                )
+            },
+        );
+        test_first_finite_difference(
+            |variables| LineLineParallelism::compute_residual_and_partial_derivatives_(variables),
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e-10),
+                    delta.map(|d| (d - 0.5) * 1e-14),
+                )
+            },
+        );
+    }
+
+    #[test]
+    fn line_circle_tangency_first_finite_difference() {
+        test_first_finite_difference(
+            |variables| LineCircleTangency::compute_residual_and_partial_derivatives_(variables),
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e0),
+                    delta.map(|d| (d - 0.5) * 1e-4),
+                )
+            },
+        );
+        test_first_finite_difference(
+            |variables| LineCircleTangency::compute_residual_and_partial_derivatives_(variables),
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e-10),
+                    delta.map(|d| (d - 0.5) * 1e-14),
+                )
+            },
+        );
+    }
+}
