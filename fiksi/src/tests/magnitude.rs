@@ -72,3 +72,33 @@ fn metric_and_singular() {
         "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
     );
 }
+
+// A near-degenerate isosceles triangle where the two equal sides have length of a relatively large
+// magnitude, and the third side is relatively small.
+//
+// It can be hard to solve as the point-point distances span a large order of magnitude.
+#[test]
+fn near_degenerate_isosceles_triangle() {
+    let mut s = System::new();
+
+    const FACTOR: f64 = 1e13;
+
+    let p0 = elements::Point::create(&mut s, 1.5 * FACTOR, 6.5 * FACTOR);
+    let p1 = elements::Point::create(&mut s, 3.2 * FACTOR, 0.8 * FACTOR);
+    let p2 = elements::Point::create(&mut s, 2.2, -1.5);
+
+    constraints::PointPointDistance::create(&mut s, p0, p1, 4. * FACTOR + 1.);
+    constraints::PointPointDistance::create(&mut s, p1, p2, 4. * FACTOR + 1.);
+    constraints::PointPointDistance::create(&mut s, p0, p2, 1.);
+
+    s.solve(None, crate::SolvingOptions::default());
+
+    let sum_squared_residuals = sum_squares(
+        s.get_constraint_handles()
+            .map(|constraint| constraint.calculate_residual(&s)),
+    );
+    assert!(
+        sum_squared_residuals < RESIDUAL_THRESHOLD,
+        "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
+    );
+}
