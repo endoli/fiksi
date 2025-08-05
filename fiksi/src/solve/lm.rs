@@ -5,6 +5,9 @@ use core::f64;
 
 use alloc::vec;
 
+#[cfg(not(feature = "std"))]
+use crate::floatfuncs::FloatFuncs;
+
 use crate::{Subsystem, utils::calculate_residuals_and_jacobian};
 
 /// The Levenberg-Marquardt solver.
@@ -27,9 +30,6 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
     // may be more efficient in certain cases.
     let mut jacobian = vec![0.; subsystem.constraints().len() * subsystem.free_variables().len()];
 
-    // J^T * J square matrix.
-    // let mut jtj = vec![0.; free_variables.len() * free_variables.len()];
-
     for _ in 0..100 {
         calculate_residuals_and_jacobian(subsystem, variables, &mut residuals, &mut jacobian);
 
@@ -43,8 +43,8 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
 
         if residual < prev_residual {
             lambda *= 0.5;
-            if lambda < 1e-10 {
-                lambda = 1e-10;
+            if lambda < 1e-50 {
+                lambda = 1e-50;
             }
         } else {
             lambda *= 2.;
@@ -63,23 +63,46 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
             }
         }
 
-        // calculate_jtj(&jacobian, &mut jtj, constraints.len(), free_variables.len());
-        // Augment JTJ by the damping factor `lambda`
-        // for i in 0..free_variables.len() {
-        //     jtj[i * free_variables.len() + i] += lambda;
-        // }
+        // Levenberg-Marquardt requires solving (J^T J + λ I) δ = J^T r(x) for δ, where r is the
+        // vector-valued residual function, J is the Jacobian of r, λ is the damping factor, I is
+        // the identity matrix, and δ is the update step of the variables.
+        //
+        // Here, these calculations are performed with finite precision using floating points. The
+        // numerical imprecision expected in δ (the "condition number" of (J^T J)) is the square of
+        // the condition number of J. In other words, the effect of order of magnitude differences
+        // is doubled.
+        //
+        // Instead of solving for the above expression, we can equivalently solve for the
+        // augmented matrices:
+        // [  J        ]     [ r ]
+        // [ sqrt(λ) I ] δ = [ 0 ]
+        // using QR-decomposition, see e.g, Equation 3.2 of "The Levenberg-Marquardt algorithm:
+        // implementations and theory" by J. J. Moré (1997).
+        //
+        // This is slower per computation and therefore slower in the well-conditioned case, but it
+        // is numerically more stable as we don't form the square of the Jacobian. In numerically
+        // ill-conditioned cases, the lack of stability due to forming the square can lead to
+        // having to perform many more iterations to converge, as well as failure to convergence at
+        // all.
+        let mut j_aug =
+            nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), jacobian_.ncols());
+        j_aug.rows_mut(0, jacobian_.nrows()).copy_from(&jacobian_);
+        // Augment by the damping factor `lambda`.
+        for idx in 0..jacobian_.ncols() {
+            j_aug[(jacobian_.nrows() + idx, idx)] += f64::sqrt(lambda);
+        }
+        // The augmented residual matrix:
+        // [ r ]
+        // [ 0 ]
+        let mut r_aug = nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), 1);
+        r_aug.rows_mut(0, jacobian_.nrows()).copy_from(&residuals_);
 
-        // Calculate J^T J and augment by the damping factor `lambda`.
-        let jtj_: nalgebra::DMatrix<f64> = jacobian_.transpose() * (&jacobian_)
-            + lambda
-                * nalgebra::DMatrix::identity(
-                    subsystem.free_variables().len(),
-                    subsystem.free_variables().len(),
-                );
-
-        let gradient = -jacobian_.transpose() * residuals_;
-
-        if let Some(delta) = jtj_.clone().lu().solve(&gradient) {
+        let qr = j_aug.col_piv_qr();
+        if let Some(mut delta) = qr
+            .r()
+            .solve_upper_triangular(&(-qr.q().transpose() * r_aug))
+        {
+            qr.p().inv_permute_rows(&mut delta);
             if delta.norm() < 1e-6 {
                 break;
             }
@@ -91,17 +114,3 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
         }
     }
 }
-
-// /// Calculate the J^T * J square matrix.
-// fn calculate_jtj(jacobian: &[f64], jtj: &mut [f64], constraints: usize, variables: usize) {
-//     for i in 0..variables {
-//         for j in 0..variables {
-//             let idx = i * variables + j;
-//             jtj[idx] = 0.;
-//
-//             for c in 0..constraints {
-//                 jtj[idx] += jacobian[c * variables + i] * jacobian[c * variables + j];
-//             }
-//         }
-//     }
-// }
