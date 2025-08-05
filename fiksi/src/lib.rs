@@ -104,6 +104,7 @@ use crate::{
 /// referencing two `Point`s) now just point directly to the start of the underlying variables in
 /// [`System::variables`].
 pub(crate) enum EncodedElement {
+    Length { idx: u32 },
     Point { idx: u32 },
     Line { point1_idx: u32, point2_idx: u32 },
     Circle { center_idx: u32, radius_idx: u32 },
@@ -134,6 +135,8 @@ pub struct SolveSetHandle {
 
 /// An element value.
 pub enum ElementValue {
+    /// An [`elements::Length`] value.
+    Length(f64),
     /// An [`elements::Point`] value.
     Point(kurbo::Point),
     /// An [`elements::Line`] value.
