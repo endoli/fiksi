@@ -458,12 +458,15 @@ pub trait Element: sealed::ElementInner {
 impl Element for Length {
     type Output = f64;
 }
+
 impl Element for Point {
     type Output = kurbo::Point;
 }
+
 impl Element for Line {
     type Output = kurbo::Line;
 }
+
 impl Element for Circle {
     type Output = kurbo::Circle;
 }
