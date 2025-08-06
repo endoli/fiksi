@@ -7,6 +7,26 @@ use core::borrow::Borrow;
 
 use crate::{Edge, Subsystem};
 
+/// Compute residuals for all constraints.
+pub(crate) fn calculate_residuals(
+    subsystem: &Subsystem<'_>,
+    variables: &[f64],
+    residuals: &mut [f64],
+) {
+    residuals.fill(0.);
+
+    for (constraint_idx, constraint) in subsystem.constraints().enumerate() {
+        residuals[constraint_idx] = match constraint {
+            Edge::PointPointDistance(constraint) => constraint.compute_residual(variables),
+            Edge::PointPointPointAngle(constraint) => constraint.compute_residual(variables),
+            Edge::PointLineIncidence(constraint) => constraint.compute_residual(variables),
+            Edge::LineCircleTangency(constraint) => constraint.compute_residual(variables),
+            Edge::LineLineAngle(constraint) => constraint.compute_residual(variables),
+            Edge::LineLineParallelism(constraint) => constraint.compute_residual(variables),
+        };
+    }
+}
+
 /// Compute residuals and Jacobian for all constraints.
 ///
 /// The Jacobian is relative to the free variables.

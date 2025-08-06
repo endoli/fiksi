@@ -8,7 +8,10 @@ use alloc::vec;
 #[cfg(not(feature = "std"))]
 use crate::floatfuncs::FloatFuncs;
 
-use crate::{Subsystem, utils::calculate_residuals_and_jacobian};
+use crate::{
+    Subsystem,
+    utils::{calculate_residuals, calculate_residuals_and_jacobian},
+};
 
 /// The Levenberg-Marquardt solver.
 ///
@@ -31,8 +34,6 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
     // variables that do not contribute to the constraint). It's possible a sparse representation
     // may be more efficient in certain cases.
     let mut jacobian = vec![0.; subsystem.constraints().len() * subsystem.free_variables().len()];
-    let mut jacobian_scratch =
-        vec![0.; subsystem.constraints().len() * subsystem.free_variables().len()];
 
     calculate_residuals_and_jacobian(
         subsystem,
@@ -115,11 +116,10 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
                 variables_scratch[variable as usize] = variables[variable as usize] + delta[idx];
             }
 
-            calculate_residuals_and_jacobian(
+            calculate_residuals(
                 subsystem,
                 variables_scratch,
                 residuals_scratch.as_mut_slice(),
-                &mut jacobian_scratch,
             );
             let residual_scratch = residuals_scratch.norm();
 
@@ -131,8 +131,15 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
                 }
                 residual = residual_scratch;
                 variables.copy_from_slice(variables_scratch);
-                core::mem::swap(&mut jacobian, &mut jacobian_scratch);
-                core::mem::swap(&mut residuals, &mut residuals_scratch);
+
+                // It might be nice to have a calculate_jacobian function here, but the additional
+                // residual calculation shouldn't be too bad.
+                calculate_residuals_and_jacobian(
+                    subsystem,
+                    variables_scratch,
+                    residuals.as_mut_slice(),
+                    &mut jacobian,
+                );
                 break;
             } else {
                 // Reject step.
