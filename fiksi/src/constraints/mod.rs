@@ -303,7 +303,7 @@ impl PointPointDistance {
     }
 
     #[inline(always)]
-    fn compute_residual_and_partial_derivatives_(
+    fn compute_residual_and_gradient_(
         variables: &[f64; 4],
         param_distance: f64,
     ) -> (f64, [f64; 4]) {
@@ -320,24 +320,24 @@ impl PointPointDistance {
         let residual = distance - param_distance;
 
         let distance_recip = 1. / distance;
-        let derivative = [
+        let gradient = [
             (point1.x - point2.x) * distance_recip,
             (point1.y - point2.y) * distance_recip,
             -(point1.x - point2.x) * distance_recip,
             -(point1.y - point2.y) * distance_recip,
         ];
 
-        (residual, derivative)
+        (residual, gradient)
     }
 
-    pub(crate) fn compute_residual_and_partial_derivatives(
+    pub(crate) fn compute_residual_and_gradient(
         &self,
         subsystem: &Subsystem<'_>,
         variables: &[f64],
         residual: &mut f64,
-        first_derivative: &mut [f64],
+        gradient: &mut [f64],
     ) {
-        let (r, derivative) = Self::compute_residual_and_partial_derivatives_(
+        let (r, g) = Self::compute_residual_and_gradient_(
             &[
                 variables[self.point1_idx as usize],
                 variables[self.point1_idx as usize + 1],
@@ -350,16 +350,16 @@ impl PointPointDistance {
         *residual += r;
 
         if let Some(idx) = subsystem.free_variable_index(self.point1_idx) {
-            first_derivative[idx as usize] += derivative[0];
+            gradient[idx as usize] += g[0];
         }
         if let Some(idx) = subsystem.free_variable_index(self.point1_idx + 1) {
-            first_derivative[idx as usize] += derivative[1];
+            gradient[idx as usize] += g[1];
         }
         if let Some(idx) = subsystem.free_variable_index(self.point2_idx) {
-            first_derivative[idx as usize] += derivative[2];
+            gradient[idx as usize] += g[2];
         }
         if let Some(idx) = subsystem.free_variable_index(self.point2_idx + 1) {
-            first_derivative[idx as usize] += derivative[3];
+            gradient[idx as usize] += g[3];
         }
     }
 }
@@ -423,10 +423,7 @@ impl PointPointPointAngle {
     }
 
     #[inline(always)]
-    fn compute_residual_and_partial_derivatives_(
-        variables: &[f64; 6],
-        param_angle: f64,
-    ) -> (f64, [f64; 6]) {
+    fn compute_residual_and_gradient_(variables: &[f64; 6], param_angle: f64) -> (f64, [f64; 6]) {
         let point1 = kurbo::Point {
             x: variables[0],
             y: variables[1],
@@ -465,7 +462,7 @@ impl PointPointPointAngle {
         let dangle_dpoint2x = -dangle_dpoint1x - dangle_dpoint3x;
         let dangle_dpoint2y = -dangle_dpoint1y - dangle_dpoint3y;
 
-        let derivative = [
+        let gradient = [
             dangle_dpoint1x,
             dangle_dpoint1y,
             dangle_dpoint2x,
@@ -474,17 +471,17 @@ impl PointPointPointAngle {
             dangle_dpoint3y,
         ];
 
-        (residual, derivative)
+        (residual, gradient)
     }
 
-    pub(crate) fn compute_residual_and_partial_derivatives(
+    pub(crate) fn compute_residual_and_gradient(
         &self,
         subsystem: &Subsystem<'_>,
         variables: &[f64],
         residual: &mut f64,
-        first_derivative: &mut [f64],
+        gradient: &mut [f64],
     ) {
-        let (r, derivative) = Self::compute_residual_and_partial_derivatives_(
+        let (r, g) = Self::compute_residual_and_gradient_(
             &[
                 variables[self.point1_idx as usize],
                 variables[self.point1_idx as usize + 1],
@@ -499,22 +496,22 @@ impl PointPointPointAngle {
         *residual += r;
 
         if let Some(idx) = subsystem.free_variable_index(self.point1_idx) {
-            first_derivative[idx as usize] += derivative[0];
+            gradient[idx as usize] += g[0];
         }
         if let Some(idx) = subsystem.free_variable_index(self.point1_idx + 1) {
-            first_derivative[idx as usize] += derivative[1];
+            gradient[idx as usize] += g[1];
         }
         if let Some(idx) = subsystem.free_variable_index(self.point2_idx) {
-            first_derivative[idx as usize] += derivative[2];
+            gradient[idx as usize] += g[2];
         }
         if let Some(idx) = subsystem.free_variable_index(self.point2_idx + 1) {
-            first_derivative[idx as usize] += derivative[3];
+            gradient[idx as usize] += g[3];
         }
         if let Some(idx) = subsystem.free_variable_index(self.point3_idx) {
-            first_derivative[idx as usize] += derivative[4];
+            gradient[idx as usize] += g[4];
         }
         if let Some(idx) = subsystem.free_variable_index(self.point3_idx + 1) {
-            first_derivative[idx as usize] += derivative[5];
+            gradient[idx as usize] += g[5];
         }
     }
 }
@@ -572,7 +569,7 @@ impl PointLineIncidence {
         system.add_constraint(Edge::PointLineIncidence(constraint))
     }
 
-    fn compute_residual_and_partial_derivatives_(variables: &[f64; 6]) -> (f64, [f64; 6]) {
+    fn compute_residual_and_gradient_(variables: &[f64; 6]) -> (f64, [f64; 6]) {
         let point1 = kurbo::Point {
             x: variables[0],
             y: variables[1],
@@ -591,7 +588,7 @@ impl PointLineIncidence {
             + point2.x * (point3.y - point1.y)
             + point3.x * (point1.y - point2.y);
 
-        let derivative = [
+        let gradient = [
             point2.y - point3.y,
             -point2.x + point3.x,
             point3.y - point1.y,
@@ -600,17 +597,17 @@ impl PointLineIncidence {
             -point1.x + point2.x,
         ];
 
-        (residual, derivative)
+        (residual, gradient)
     }
 
-    pub(crate) fn compute_residual_and_partial_derivatives(
+    pub(crate) fn compute_residual_and_gradient(
         &self,
         subsystem: &Subsystem<'_>,
         variables: &[f64],
         residual: &mut f64,
-        first_derivative: &mut [f64],
+        gradient: &mut [f64],
     ) {
-        let (r, derivative) = Self::compute_residual_and_partial_derivatives_(&[
+        let (r, g) = Self::compute_residual_and_gradient_(&[
             variables[self.point_idx as usize],
             variables[self.point_idx as usize + 1],
             variables[self.line_point1_idx as usize],
@@ -622,22 +619,22 @@ impl PointLineIncidence {
         *residual += r;
 
         if let Some(idx) = subsystem.free_variable_index(self.point_idx) {
-            first_derivative[idx as usize] += derivative[0];
+            gradient[idx as usize] += g[0];
         }
         if let Some(idx) = subsystem.free_variable_index(self.point_idx + 1) {
-            first_derivative[idx as usize] += derivative[1];
+            gradient[idx as usize] += g[1];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx) {
-            first_derivative[idx as usize] += derivative[2];
+            gradient[idx as usize] += g[2];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx + 1) {
-            first_derivative[idx as usize] += derivative[3];
+            gradient[idx as usize] += g[3];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx) {
-            first_derivative[idx as usize] += derivative[4];
+            gradient[idx as usize] += g[4];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx + 1) {
-            first_derivative[idx as usize] += derivative[5];
+            gradient[idx as usize] += g[5];
         }
     }
 }
@@ -702,10 +699,7 @@ impl LineLineAngle {
         system.add_constraint(Edge::LineLineAngle(constraint))
     }
 
-    fn compute_residual_and_partial_derivatives_(
-        variables: &[f64; 8],
-        param_angle: f64,
-    ) -> (f64, [f64; 8]) {
+    fn compute_residual_and_gradient_(variables: &[f64; 8], param_angle: f64) -> (f64, [f64; 8]) {
         let line1_point1 = kurbo::Point {
             x: variables[0],
             y: variables[1],
@@ -745,7 +739,7 @@ impl LineLineAngle {
         let dangle_dline2_point1x = v.y * v_squared_recip;
         let dangle_dline2_point1y = -v.x * v_squared_recip;
 
-        let derivative = [
+        let gradient = [
             dangle_dline1_point1x,
             dangle_dline1_point1y,
             -dangle_dline1_point1x,
@@ -756,17 +750,17 @@ impl LineLineAngle {
             -dangle_dline2_point1y,
         ];
 
-        (residual, derivative)
+        (residual, gradient)
     }
 
-    pub(crate) fn compute_residual_and_partial_derivatives(
+    pub(crate) fn compute_residual_and_gradient(
         &self,
         subsystem: &Subsystem<'_>,
         variables: &[f64],
         residual: &mut f64,
-        first_derivative: &mut [f64],
+        gradient: &mut [f64],
     ) {
-        let (r, derivative) = Self::compute_residual_and_partial_derivatives_(
+        let (r, g) = Self::compute_residual_and_gradient_(
             &[
                 variables[self.line1_point1_idx as usize],
                 variables[self.line1_point1_idx as usize + 1],
@@ -783,28 +777,28 @@ impl LineLineAngle {
         *residual += r;
 
         if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx) {
-            first_derivative[idx as usize] += derivative[0];
+            gradient[idx as usize] += g[0];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx + 1) {
-            first_derivative[idx as usize] += derivative[1];
+            gradient[idx as usize] += g[1];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx) {
-            first_derivative[idx as usize] += derivative[2];
+            gradient[idx as usize] += g[2];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx + 1) {
-            first_derivative[idx as usize] += derivative[3];
+            gradient[idx as usize] += g[3];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx) {
-            first_derivative[idx as usize] += derivative[4];
+            gradient[idx as usize] += g[4];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx + 1) {
-            first_derivative[idx as usize] += derivative[5];
+            gradient[idx as usize] += g[5];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx) {
-            first_derivative[idx as usize] += derivative[6];
+            gradient[idx as usize] += g[6];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx + 1) {
-            first_derivative[idx as usize] += derivative[7];
+            gradient[idx as usize] += g[7];
         }
     }
 }
@@ -862,7 +856,7 @@ impl LineLineParallelism {
         }))
     }
 
-    fn compute_residual_and_partial_derivatives_(variables: &[f64; 8]) -> (f64, [f64; 8]) {
+    fn compute_residual_and_gradient_(variables: &[f64; 8]) -> (f64, [f64; 8]) {
         let line1_point1 = kurbo::Point {
             x: variables[0],
             y: variables[1],
@@ -885,7 +879,7 @@ impl LineLineParallelism {
 
         let residual = v.cross(u);
 
-        let derivative = [
+        let gradient = [
             v.y,  // l1p1x
             -v.x, // l1p1y
             -v.y, // l1p2x
@@ -896,17 +890,17 @@ impl LineLineParallelism {
             -u.x, // l2p2y
         ];
 
-        (residual, derivative)
+        (residual, gradient)
     }
 
-    pub(crate) fn compute_residual_and_partial_derivatives(
+    pub(crate) fn compute_residual_and_gradient(
         &self,
         subsystem: &Subsystem<'_>,
         variables: &[f64],
         residual: &mut f64,
-        first_derivative: &mut [f64],
+        gradient: &mut [f64],
     ) {
-        let (r, derivative) = Self::compute_residual_and_partial_derivatives_(&[
+        let (r, g) = Self::compute_residual_and_gradient_(&[
             variables[self.line1_point1_idx as usize],
             variables[self.line1_point1_idx as usize + 1],
             variables[self.line1_point2_idx as usize],
@@ -920,28 +914,28 @@ impl LineLineParallelism {
         *residual += r;
 
         if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx) {
-            first_derivative[idx as usize] += derivative[0];
+            gradient[idx as usize] += g[0];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx + 1) {
-            first_derivative[idx as usize] += derivative[1];
+            gradient[idx as usize] += g[1];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx) {
-            first_derivative[idx as usize] += derivative[2];
+            gradient[idx as usize] += g[2];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx + 1) {
-            first_derivative[idx as usize] += derivative[3];
+            gradient[idx as usize] += g[3];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx) {
-            first_derivative[idx as usize] += derivative[4];
+            gradient[idx as usize] += g[4];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx + 1) {
-            first_derivative[idx as usize] += derivative[5];
+            gradient[idx as usize] += g[5];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx) {
-            first_derivative[idx as usize] += derivative[6];
+            gradient[idx as usize] += g[6];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx + 1) {
-            first_derivative[idx as usize] += derivative[7];
+            gradient[idx as usize] += g[7];
         }
     }
 }
@@ -1002,7 +996,7 @@ impl LineCircleTangency {
         system.add_constraint(Edge::LineCircleTangency(constraint))
     }
 
-    fn compute_residual_and_partial_derivatives_(variables: &[f64; 7]) -> (f64, [f64; 7]) {
+    fn compute_residual_and_gradient_(variables: &[f64; 7]) -> (f64, [f64; 7]) {
         let line_point1 = kurbo::Point {
             x: variables[0],
             y: variables[1],
@@ -1037,7 +1031,7 @@ impl LineCircleTangency {
 
         let sign = signed_area.signum();
         let length3_recip = 1. / (length2 * length);
-        let derivative = [
+        let gradient = [
             sign * length3_recip
                 * (length2 * (line_point2.y - circle_center.y)
                     + signed_area * (line_point2.x - line_point1.x)),
@@ -1055,17 +1049,17 @@ impl LineCircleTangency {
             -1.,
         ];
 
-        (residual, derivative)
+        (residual, gradient)
     }
 
-    pub(crate) fn compute_residual_and_partial_derivatives(
+    pub(crate) fn compute_residual_and_gradient(
         &self,
         subsystem: &Subsystem<'_>,
         variables: &[f64],
         residual: &mut f64,
-        first_derivative: &mut [f64],
+        gradient: &mut [f64],
     ) {
-        let (r, derivative) = Self::compute_residual_and_partial_derivatives_(&[
+        let (r, g) = Self::compute_residual_and_gradient_(&[
             variables[self.line_point1_idx as usize],
             variables[self.line_point1_idx as usize + 1],
             variables[self.line_point2_idx as usize],
@@ -1078,25 +1072,25 @@ impl LineCircleTangency {
         *residual += r;
 
         if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx) {
-            first_derivative[idx as usize] += derivative[0];
+            gradient[idx as usize] += g[0];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx + 1) {
-            first_derivative[idx as usize] += derivative[1];
+            gradient[idx as usize] += g[1];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx) {
-            first_derivative[idx as usize] += derivative[2];
+            gradient[idx as usize] += g[2];
         }
         if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx + 1) {
-            first_derivative[idx as usize] += derivative[3];
+            gradient[idx as usize] += g[3];
         }
         if let Some(idx) = subsystem.free_variable_index(self.circle_center_idx) {
-            first_derivative[idx as usize] += derivative[4];
+            gradient[idx as usize] += g[4];
         }
         if let Some(idx) = subsystem.free_variable_index(self.circle_center_idx + 1) {
-            first_derivative[idx as usize] += derivative[5];
+            gradient[idx as usize] += g[5];
         }
         if let Some(idx) = subsystem.free_variable_index(self.circle_radius_idx) {
-            first_derivative[idx as usize] += derivative[6];
+            gradient[idx as usize] += g[6];
         }
     }
 }
@@ -1180,7 +1174,7 @@ mod tests {
     ///
     /// This tests whether that approximation actually holds.
     fn test_first_finite_difference<const N: usize>(
-        residual_and_first_derivatives: impl Fn(&[f64; N]) -> (f64, [f64; N]),
+        residual_and_gradient: impl Fn(&[f64; N]) -> (f64, [f64; N]),
         variable_and_delta_map: impl Fn([f64; N], [f64; N]) -> ([f64; N], [f64; N]),
     ) {
         const RELATIVE_EPSILON: f64 = 1e-3;
@@ -1189,10 +1183,10 @@ mod tests {
         for _ in 0..5 {
             let (variables, delta) =
                 variable_and_delta_map(next_f64s(&mut rng), next_f64s(&mut rng));
-            let (r, derivative) = residual_and_first_derivatives(&variables);
-            let (r_plus, _) = residual_and_first_derivatives(&add(variables, delta));
+            let (r, gradient) = residual_and_gradient(&variables);
+            let (r_plus, _) = residual_and_gradient(&add(variables, delta));
 
-            let linearized_diff = dot(derivative, delta);
+            let linearized_diff = dot(gradient, delta);
             let first_finite_diff = r_plus - r;
 
             assert!(
@@ -1211,9 +1205,7 @@ mod tests {
     #[test]
     fn point_point_distance_first_finite_difference() {
         test_first_finite_difference(
-            |variables| {
-                PointPointDistance::compute_residual_and_partial_derivatives_(variables, 0.5e0)
-            },
+            |variables| PointPointDistance::compute_residual_and_gradient_(variables, 0.5e0),
             |variables, delta| {
                 (
                     variables.map(|d| (d - 0.5) * 1e0),
@@ -1222,9 +1214,7 @@ mod tests {
             },
         );
         test_first_finite_difference(
-            |variables| {
-                PointPointDistance::compute_residual_and_partial_derivatives_(variables, 0.5e-9)
-            },
+            |variables| PointPointDistance::compute_residual_and_gradient_(variables, 0.5e-9),
             |variables, delta| {
                 (
                     variables.map(|d| (d - 0.5) * 1e-10),
@@ -1233,9 +1223,7 @@ mod tests {
             },
         );
         test_first_finite_difference(
-            |variables| {
-                PointPointDistance::compute_residual_and_partial_derivatives_(variables, 0.5e10)
-            },
+            |variables| PointPointDistance::compute_residual_and_gradient_(variables, 0.5e10),
             |variables, delta| {
                 (
                     variables.map(|d| (d - 0.5) * 1e10),
@@ -1249,10 +1237,7 @@ mod tests {
     fn point_point_point_angle_first_finite_difference() {
         test_first_finite_difference(
             |variables| {
-                PointPointPointAngle::compute_residual_and_partial_derivatives_(
-                    variables,
-                    10_f64.to_radians(),
-                )
+                PointPointPointAngle::compute_residual_and_gradient_(variables, 10_f64.to_radians())
             },
             |variables, delta| {
                 (
@@ -1263,7 +1248,7 @@ mod tests {
         );
         test_first_finite_difference(
             |variables| {
-                PointPointPointAngle::compute_residual_and_partial_derivatives_(
+                PointPointPointAngle::compute_residual_and_gradient_(
                     variables,
                     -40_f64.to_radians(),
                 )
@@ -1276,9 +1261,7 @@ mod tests {
             },
         );
         test_first_finite_difference(
-            |variables| {
-                PointPointDistance::compute_residual_and_partial_derivatives_(variables, 0.5e10)
-            },
+            |variables| PointPointDistance::compute_residual_and_gradient_(variables, 0.5e10),
             |variables, delta| {
                 (
                     variables.map(|d| (d - 0.5) * 1e10),
@@ -1291,7 +1274,7 @@ mod tests {
     #[test]
     fn point_line_incidence_first_finite_difference() {
         test_first_finite_difference(
-            PointLineIncidence::compute_residual_and_partial_derivatives_,
+            PointLineIncidence::compute_residual_and_gradient_,
             |variables, delta| {
                 (
                     variables.map(|d| (d - 0.5) * 1e0),
@@ -1300,7 +1283,7 @@ mod tests {
             },
         );
         test_first_finite_difference(
-            PointLineIncidence::compute_residual_and_partial_derivatives_,
+            PointLineIncidence::compute_residual_and_gradient_,
             |variables, delta| {
                 (
                     variables.map(|d| (d - 0.5) * 1e-10),
@@ -1314,10 +1297,7 @@ mod tests {
     fn line_line_angle_first_finite_difference() {
         test_first_finite_difference(
             |variables| {
-                LineLineAngle::compute_residual_and_partial_derivatives_(
-                    variables,
-                    10_f64.to_radians(),
-                )
+                LineLineAngle::compute_residual_and_gradient_(variables, 10_f64.to_radians())
             },
             |variables, delta| {
                 (
@@ -1328,10 +1308,7 @@ mod tests {
         );
         test_first_finite_difference(
             |variables| {
-                LineLineAngle::compute_residual_and_partial_derivatives_(
-                    variables,
-                    -40_f64.to_radians(),
-                )
+                LineLineAngle::compute_residual_and_gradient_(variables, -40_f64.to_radians())
             },
             |variables, delta| {
                 (
@@ -1345,7 +1322,7 @@ mod tests {
     #[test]
     fn line_line_parallelism_first_finite_difference() {
         test_first_finite_difference(
-            LineLineParallelism::compute_residual_and_partial_derivatives_,
+            LineLineParallelism::compute_residual_and_gradient_,
             |variables, delta| {
                 (
                     variables.map(|d| (d - 0.5) * 1e0),
@@ -1354,7 +1331,7 @@ mod tests {
             },
         );
         test_first_finite_difference(
-            LineLineParallelism::compute_residual_and_partial_derivatives_,
+            LineLineParallelism::compute_residual_and_gradient_,
             |variables, delta| {
                 (
                     variables.map(|d| (d - 0.5) * 1e-10),
@@ -1367,7 +1344,7 @@ mod tests {
     #[test]
     fn line_circle_tangency_first_finite_difference() {
         test_first_finite_difference(
-            LineCircleTangency::compute_residual_and_partial_derivatives_,
+            LineCircleTangency::compute_residual_and_gradient_,
             |variables, delta| {
                 (
                     variables.map(|d| (d - 0.5) * 1e0),
@@ -1376,7 +1353,7 @@ mod tests {
             },
         );
         test_first_finite_difference(
-            LineCircleTangency::compute_residual_and_partial_derivatives_,
+            LineCircleTangency::compute_residual_and_gradient_,
             |variables, delta| {
                 (
                     variables.map(|d| (d - 0.5) * 1e-10),

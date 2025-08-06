@@ -24,7 +24,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
     for (constraint_idx, constraint) in subsystem.constraints().enumerate() {
         match constraint {
             Edge::PointPointDistance(constraint) => {
-                constraint.compute_residual_and_partial_derivatives(
+                constraint.compute_residual_and_gradient(
                     subsystem,
                     variables,
                     &mut residuals[constraint_idx],
@@ -33,7 +33,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
                 );
             }
             Edge::PointPointPointAngle(constraint) => {
-                constraint.compute_residual_and_partial_derivatives(
+                constraint.compute_residual_and_gradient(
                     subsystem,
                     variables,
                     &mut residuals[constraint_idx],
@@ -42,7 +42,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
                 );
             }
             Edge::PointLineIncidence(constraint) => {
-                constraint.compute_residual_and_partial_derivatives(
+                constraint.compute_residual_and_gradient(
                     subsystem,
                     variables,
                     &mut residuals[constraint_idx],
@@ -51,7 +51,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
                 );
             }
             Edge::LineCircleTangency(constraint) => {
-                constraint.compute_residual_and_partial_derivatives(
+                constraint.compute_residual_and_gradient(
                     subsystem,
                     variables,
                     &mut residuals[constraint_idx],
@@ -60,7 +60,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
                 );
             }
             Edge::LineLineAngle(constraint) => {
-                constraint.compute_residual_and_partial_derivatives(
+                constraint.compute_residual_and_gradient(
                     subsystem,
                     variables,
                     &mut residuals[constraint_idx],
@@ -69,7 +69,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
                 );
             }
             Edge::LineLineParallelism(constraint) => {
-                constraint.compute_residual_and_partial_derivatives(
+                constraint.compute_residual_and_gradient(
                     subsystem,
                     variables,
                     &mut residuals[constraint_idx],
