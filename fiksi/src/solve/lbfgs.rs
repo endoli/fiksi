@@ -66,7 +66,10 @@ pub(crate) fn lbfgs(variables: &mut [f64], subsystem: &Subsystem<'_>) {
     // `MAX_HISTORY`-sized scratch buffer for `α` (not a ringbuffer, this is updated every iteration).
     let mut alpha = vec![0.; MAX_HISTORY as usize];
 
-    // Reusable scratch buffers for update step direction and variables.
+    // Reusable scratch buffers for update step direction and variables. The `variables_scratch`
+    // buffer contains space for all variables of the system (both fixed and free), whereas
+    // `direction` only contains space for the free variables. In principle we don't need
+    // `variables_scratch` to contain the fixed variables, but this is easier for now.
     let mut direction = vec![0.; num_variables];
     let mut variables_scratch = vec![0.; variables.len()];
 
