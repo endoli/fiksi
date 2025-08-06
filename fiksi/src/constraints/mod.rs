@@ -330,6 +330,19 @@ impl PointPointDistance {
         (residual, gradient)
     }
 
+    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        Self::compute_residual_and_gradient_(
+            &[
+                variables[self.point1_idx as usize],
+                variables[self.point1_idx as usize + 1],
+                variables[self.point2_idx as usize],
+                variables[self.point2_idx as usize + 1],
+            ],
+            self.distance,
+        )
+        .0
+    }
+
     pub(crate) fn compute_residual_and_gradient(
         &self,
         subsystem: &Subsystem<'_>,
@@ -474,6 +487,21 @@ impl PointPointPointAngle {
         (residual, gradient)
     }
 
+    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        Self::compute_residual_and_gradient_(
+            &[
+                variables[self.point1_idx as usize],
+                variables[self.point1_idx as usize + 1],
+                variables[self.point2_idx as usize],
+                variables[self.point2_idx as usize + 1],
+                variables[self.point3_idx as usize],
+                variables[self.point3_idx as usize + 1],
+            ],
+            self.angle,
+        )
+        .0
+    }
+
     pub(crate) fn compute_residual_and_gradient(
         &self,
         subsystem: &Subsystem<'_>,
@@ -569,6 +597,7 @@ impl PointLineIncidence {
         system.add_constraint(Edge::PointLineIncidence(constraint))
     }
 
+    #[inline(always)]
     fn compute_residual_and_gradient_(variables: &[f64; 6]) -> (f64, [f64; 6]) {
         let point1 = kurbo::Point {
             x: variables[0],
@@ -598,6 +627,18 @@ impl PointLineIncidence {
         ];
 
         (residual, gradient)
+    }
+
+    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        Self::compute_residual_and_gradient_(&[
+            variables[self.point_idx as usize],
+            variables[self.point_idx as usize + 1],
+            variables[self.line_point1_idx as usize],
+            variables[self.line_point1_idx as usize + 1],
+            variables[self.line_point2_idx as usize],
+            variables[self.line_point2_idx as usize + 1],
+        ])
+        .0
     }
 
     pub(crate) fn compute_residual_and_gradient(
@@ -699,6 +740,7 @@ impl LineLineAngle {
         system.add_constraint(Edge::LineLineAngle(constraint))
     }
 
+    #[inline(always)]
     fn compute_residual_and_gradient_(variables: &[f64; 8], param_angle: f64) -> (f64, [f64; 8]) {
         let line1_point1 = kurbo::Point {
             x: variables[0],
@@ -751,6 +793,23 @@ impl LineLineAngle {
         ];
 
         (residual, gradient)
+    }
+
+    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        Self::compute_residual_and_gradient_(
+            &[
+                variables[self.line1_point1_idx as usize],
+                variables[self.line1_point1_idx as usize + 1],
+                variables[self.line1_point2_idx as usize],
+                variables[self.line1_point2_idx as usize + 1],
+                variables[self.line2_point1_idx as usize],
+                variables[self.line2_point1_idx as usize + 1],
+                variables[self.line2_point2_idx as usize],
+                variables[self.line2_point2_idx as usize + 1],
+            ],
+            self.angle,
+        )
+        .0
     }
 
     pub(crate) fn compute_residual_and_gradient(
@@ -856,6 +915,7 @@ impl LineLineParallelism {
         }))
     }
 
+    #[inline(always)]
     fn compute_residual_and_gradient_(variables: &[f64; 8]) -> (f64, [f64; 8]) {
         let line1_point1 = kurbo::Point {
             x: variables[0],
@@ -891,6 +951,20 @@ impl LineLineParallelism {
         ];
 
         (residual, gradient)
+    }
+
+    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        Self::compute_residual_and_gradient_(&[
+            variables[self.line1_point1_idx as usize],
+            variables[self.line1_point1_idx as usize + 1],
+            variables[self.line1_point2_idx as usize],
+            variables[self.line1_point2_idx as usize + 1],
+            variables[self.line2_point1_idx as usize],
+            variables[self.line2_point1_idx as usize + 1],
+            variables[self.line2_point2_idx as usize],
+            variables[self.line2_point2_idx as usize + 1],
+        ])
+        .0
     }
 
     pub(crate) fn compute_residual_and_gradient(
@@ -996,6 +1070,7 @@ impl LineCircleTangency {
         system.add_constraint(Edge::LineCircleTangency(constraint))
     }
 
+    #[inline(always)]
     fn compute_residual_and_gradient_(variables: &[f64; 7]) -> (f64, [f64; 7]) {
         let line_point1 = kurbo::Point {
             x: variables[0],
@@ -1050,6 +1125,19 @@ impl LineCircleTangency {
         ];
 
         (residual, gradient)
+    }
+
+    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        Self::compute_residual_and_gradient_(&[
+            variables[self.line_point1_idx as usize],
+            variables[self.line_point1_idx as usize + 1],
+            variables[self.line_point2_idx as usize],
+            variables[self.line_point2_idx as usize + 1],
+            variables[self.circle_center_idx as usize],
+            variables[self.circle_center_idx as usize + 1],
+            variables[self.circle_radius_idx as usize],
+        ])
+        .0
     }
 
     pub(crate) fn compute_residual_and_gradient(
