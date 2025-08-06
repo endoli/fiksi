@@ -28,10 +28,9 @@ impl FloatExt for f64 {
 }
 
 pub(crate) mod constraint {
-    use alloc::vec;
     use core::marker::PhantomData;
 
-    use crate::{Subsystem, System, utils};
+    use crate::{System, utils};
 
     use super::{Constraint, ConstraintTag};
 
@@ -80,19 +79,14 @@ pub(crate) mod constraint {
 
         /// Calculate the residual of this constraint.
         pub fn calculate_residual(self, system: &System) -> f64 {
-            let subsystem = Subsystem::new(
-                &system.constraint_edges,
-                vec![],
-                vec![self.drop_system_id()],
+            // TODO: return `Result` instead of panicking?
+            assert_eq!(
+                self.system_id, system.id,
+                "Tried to evaluate a constraint that is not part of this `System`"
             );
-            let residual = &mut [0.];
-            utils::calculate_residuals_and_jacobian(
-                &subsystem,
-                &system.variables,
-                residual,
-                &mut [],
-            );
-            residual[0]
+
+            let constraint = &system.constraint_edges[self.id as usize];
+            utils::calculate_residual(constraint, &system.variables)
         }
 
         /// Get a type-erased handle to the constraint.
@@ -131,24 +125,8 @@ pub(crate) mod constraint {
                 "Tried to get a constraint that is not part of this `System`"
             );
 
-            match self.as_tagged_constraint() {
-                TaggedConstraintHandle::PointPointDistance(handle) => {
-                    handle.calculate_residual(system)
-                }
-                TaggedConstraintHandle::PointPointPointAngle(handle) => {
-                    handle.calculate_residual(system)
-                }
-                TaggedConstraintHandle::PointLineIncidence(handle) => {
-                    handle.calculate_residual(system)
-                }
-                TaggedConstraintHandle::LineLineAngle(handle) => handle.calculate_residual(system),
-                TaggedConstraintHandle::LineLineParallelism(handle) => {
-                    handle.calculate_residual(system)
-                }
-                TaggedConstraintHandle::LineCircleTangency(handle) => {
-                    handle.calculate_residual(system)
-                }
-            }
+            let constraint = &system.constraint_edges[self.id as usize];
+            utils::calculate_residual(constraint, &system.variables)
         }
 
         /// Get a typed handle to the constraint.
