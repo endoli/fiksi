@@ -1096,7 +1096,7 @@ impl LineCircleTangency {
             first_derivative[idx as usize] += derivative[5];
         }
         if let Some(idx) = subsystem.free_variable_index(self.circle_radius_idx) {
-            first_derivative[idx as usize] += -1.;
+            first_derivative[idx as usize] += derivative[6];
         }
     }
 }
