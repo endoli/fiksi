@@ -302,6 +302,12 @@ impl PointPointDistance {
         system.add_constraint(Edge::PointPointDistance(constraint))
     }
 
+    /// If only, say, the residual or some subset of the gradient entries are actually used, and
+    /// that is clear from the code at the call site, the compiler should be able to correctly
+    /// remove the dead calculations as this is marked as `#[inline(always)]`. That allows us not to
+    /// to duplicate code unnecessarily for the calculations. Plus, calculating the residuals and
+    /// the Jacobian at the same time is a common case, and for some constraints it's more efficient
+    /// when they're calculated together.
     #[inline(always)]
     fn compute_residual_and_gradient_(
         variables: &[f64; 4],
@@ -331,6 +337,8 @@ impl PointPointDistance {
     }
 
     pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        // The compiler should be able to optimize this such that only the residual is calculated.
+        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
         Self::compute_residual_and_gradient_(
             &[
                 variables[self.point1_idx as usize],
@@ -435,6 +443,7 @@ impl PointPointPointAngle {
         system.add_constraint(Edge::PointPointPointAngle(constraint))
     }
 
+    // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
     #[inline(always)]
     fn compute_residual_and_gradient_(variables: &[f64; 6], param_angle: f64) -> (f64, [f64; 6]) {
         let point1 = kurbo::Point {
@@ -488,6 +497,8 @@ impl PointPointPointAngle {
     }
 
     pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        // The compiler should be able to optimize this such that only the residual is calculated.
+        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
         Self::compute_residual_and_gradient_(
             &[
                 variables[self.point1_idx as usize],
@@ -597,6 +608,7 @@ impl PointLineIncidence {
         system.add_constraint(Edge::PointLineIncidence(constraint))
     }
 
+    // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
     #[inline(always)]
     fn compute_residual_and_gradient_(variables: &[f64; 6]) -> (f64, [f64; 6]) {
         let point1 = kurbo::Point {
@@ -630,6 +642,8 @@ impl PointLineIncidence {
     }
 
     pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        // The compiler should be able to optimize this such that only the residual is calculated.
+        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
         Self::compute_residual_and_gradient_(&[
             variables[self.point_idx as usize],
             variables[self.point_idx as usize + 1],
@@ -740,6 +754,7 @@ impl LineLineAngle {
         system.add_constraint(Edge::LineLineAngle(constraint))
     }
 
+    // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
     #[inline(always)]
     fn compute_residual_and_gradient_(variables: &[f64; 8], param_angle: f64) -> (f64, [f64; 8]) {
         let line1_point1 = kurbo::Point {
@@ -796,6 +811,8 @@ impl LineLineAngle {
     }
 
     pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        // The compiler should be able to optimize this such that only the residual is calculated.
+        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
         Self::compute_residual_and_gradient_(
             &[
                 variables[self.line1_point1_idx as usize],
@@ -915,6 +932,7 @@ impl LineLineParallelism {
         }))
     }
 
+    // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
     #[inline(always)]
     fn compute_residual_and_gradient_(variables: &[f64; 8]) -> (f64, [f64; 8]) {
         let line1_point1 = kurbo::Point {
@@ -954,6 +972,8 @@ impl LineLineParallelism {
     }
 
     pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        // The compiler should be able to optimize this such that only the residual is calculated.
+        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
         Self::compute_residual_and_gradient_(&[
             variables[self.line1_point1_idx as usize],
             variables[self.line1_point1_idx as usize + 1],
@@ -1070,6 +1090,7 @@ impl LineCircleTangency {
         system.add_constraint(Edge::LineCircleTangency(constraint))
     }
 
+    // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
     #[inline(always)]
     fn compute_residual_and_gradient_(variables: &[f64; 7]) -> (f64, [f64; 7]) {
         let line_point1 = kurbo::Point {
@@ -1128,6 +1149,8 @@ impl LineCircleTangency {
     }
 
     pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        // The compiler should be able to optimize this such that only the residual is calculated.
+        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
         Self::compute_residual_and_gradient_(&[
             variables[self.line_point1_idx as usize],
             variables[self.line_point1_idx as usize + 1],
