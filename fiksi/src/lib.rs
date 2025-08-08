@@ -449,6 +449,9 @@ impl System {
                 EncodedElement::Point { idx } => {
                     free_variables.extend(&[*idx, *idx + 1]);
                 }
+                EncodedElement::Length { idx } => {
+                    free_variables.extend(&[*idx]);
+                }
                 // In the current setup, not all vertices in the set contribute free variables.
                 // E.g. `EncodedElement::Line` only refers to existing points, meaning it does not
                 // contribute its own free variables. `EncodedElement::Circle` refers to a point,
@@ -529,6 +532,9 @@ impl System {
                     match element {
                         EncodedElement::Point { idx } => {
                             free_variables.extend(&[*idx, *idx + 1]);
+                        }
+                        EncodedElement::Length { idx } => {
+                            free_variables.extend(&[*idx]);
                         }
                         // In the current setup, not all vertices in the set contribute free
                         // variables. E.g. `EncodedElement::Line` only refers to existing points,
