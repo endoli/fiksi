@@ -3,6 +3,7 @@
 
 mod basic;
 mod magnitude;
+mod sets;
 mod singular;
 mod triangles;
 
