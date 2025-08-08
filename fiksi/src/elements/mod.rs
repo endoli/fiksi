@@ -207,7 +207,7 @@ pub(crate) mod element {
 
 use element::ElementHandle;
 
-use crate::{System, EncodedElement};
+use crate::{EncodedElement, System};
 
 /// A point given by a 2D coordinate.
 #[derive(Debug)]
@@ -221,7 +221,9 @@ pub struct Point {
 impl Point {
     /// Construct a new `Point` at the given coordinate.
     pub fn create(system: &mut System, x: f64, y: f64) -> ElementHandle<Self> {
-        system.add_element([x, y], |variables_idx| EncodedElement::Point { idx: variables_idx })
+        system.add_element([x, y], |variables_idx| EncodedElement::Point {
+            idx: variables_idx,
+        })
     }
 }
 

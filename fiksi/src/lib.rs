@@ -112,7 +112,7 @@ pub(crate) enum EncodedElement {
 /// These are the constraints between geometric elements.
 ///
 /// These constraints have been flattened, in that they directly point to the variables in
-/// [`System::variables`] referenced by their original element arguments. 
+/// [`System::variables`] referenced by their original element arguments.
 pub(crate) enum EncodedConstraint {
     PointPointDistance(PointPointDistance),
     PointPointPointAngle(PointPointPointAngle),
@@ -266,16 +266,13 @@ impl System {
     /// You can use [`AnyElementHandle::get_value`] to get an element-tagged value or
     /// [`AnyElementHandle::as_tagged_element`] to get a typed handle.
     pub fn get_element_handles(&self) -> impl Iterator<Item = AnyElementHandle> {
-        self.elements
-            .iter()
-            .enumerate()
-            .map(|(id, vertex)| {
-                AnyElementHandle::from_ids_and_tag(
-                    self.id,
-                    id.try_into().expect("less than 2^32 elements"),
-                    vertex.into(),
-                )
-            })
+        self.elements.iter().enumerate().map(|(id, vertex)| {
+            AnyElementHandle::from_ids_and_tag(
+                self.id,
+                id.try_into().expect("less than 2^32 elements"),
+                vertex.into(),
+            )
+        })
     }
 
     /// Iterate over the handles of all constraints in the system.
@@ -342,7 +339,10 @@ impl System {
     /// Add a constraint.
     ///
     /// Give the constraint sets the constraint belongs to in `sets`.
-    pub(crate) fn add_constraint<T: Constraint>(&mut self, edge: EncodedConstraint) -> ConstraintHandle<T> {
+    pub(crate) fn add_constraint<T: Constraint>(
+        &mut self,
+        edge: EncodedConstraint,
+    ) -> ConstraintHandle<T> {
         let id = self
             .constraints
             .len()
