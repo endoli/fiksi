@@ -3,10 +3,10 @@
 
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
-use crate::{ConstraintId, Edge};
+use crate::{ConstraintId, EncodedConstraint};
 
 pub(crate) struct Subsystem<'s> {
-    edges: &'s [Edge],
+    edges: &'s [EncodedConstraint],
 
     /// The indices of free variables.
     free_variables: Vec<u32>,
@@ -19,7 +19,7 @@ pub(crate) struct Subsystem<'s> {
 
 impl<'s> Subsystem<'s> {
     pub(crate) fn new(
-        edges: &'s [Edge],
+        edges: &'s [EncodedConstraint],
         mut free_variables: Vec<u32>,
         constraints: Vec<ConstraintId>,
     ) -> Self {
@@ -44,7 +44,7 @@ impl<'s> Subsystem<'s> {
 
 impl Subsystem<'_> {
     #[inline(always)]
-    pub(crate) fn constraints(&self) -> impl ExactSizeIterator<Item = &Edge> {
+    pub(crate) fn constraints(&self) -> impl ExactSizeIterator<Item = &EncodedConstraint> {
         self.constraints
             .iter()
             .map(|constraint| &self.edges[constraint.id as usize])

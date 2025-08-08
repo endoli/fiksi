@@ -98,17 +98,22 @@ use crate::{
     graph::Graph,
 };
 
-/// Vertices are the geometric elements of the constraint system.
+/// These are the geometric elements of the constraint system.
 ///
-/// The indices point into the start of the vertex's variables in [`System::variables`].
-pub(crate) enum Vertex {
+/// These elements have been flattened, in that elements referencing other elements (like a `Line`
+/// referencing two `Point`s) now just point directly to the start of the underlying variables in
+/// [`System::variables`].
+pub(crate) enum EncodedElement {
     Point { idx: u32 },
     Line { point1_idx: u32, point2_idx: u32 },
     Circle { center_idx: u32, radius_idx: u32 },
 }
 
-/// Edges are the constraints between geometric elements (i.e., edges between the vertices).
-pub(crate) enum Edge {
+/// These are the constraints between geometric elements.
+///
+/// These constraints have been flattened, in that they directly point to the variables in
+/// [`System::variables`] referenced by their original element arguments. 
+pub(crate) enum EncodedConstraint {
     PointPointDistance(PointPointDistance),
     PointPointPointAngle(PointPointPointAngle),
     PointLineIncidence(PointLineIncidence),
@@ -209,9 +214,9 @@ pub struct System {
     id: u32,
     graph: Graph,
     /// Geometric elements.
-    element_vertices: Vec<Vertex>,
+    elements: Vec<EncodedElement>,
     /// Constraints between geometric elements.
-    constraint_edges: Vec<Edge>,
+    constraints: Vec<EncodedConstraint>,
     /// The variables of the geometric elements, such as point coordinates.
     variables: Vec<f64>,
     variable_to_primitive: Vec<ElementId>,
@@ -230,8 +235,8 @@ impl System {
             graph: Graph::new(),
             variables: vec![],
             variable_to_primitive: vec![],
-            element_vertices: vec![],
-            constraint_edges: vec![],
+            elements: vec![],
+            constraints: vec![],
             solve_sets: vec![],
         }
     }
@@ -261,7 +266,7 @@ impl System {
     /// You can use [`AnyElementHandle::get_value`] to get an element-tagged value or
     /// [`AnyElementHandle::as_tagged_element`] to get a typed handle.
     pub fn get_element_handles(&self) -> impl Iterator<Item = AnyElementHandle> {
-        self.element_vertices
+        self.elements
             .iter()
             .enumerate()
             .map(|(id, vertex)| {
@@ -277,7 +282,7 @@ impl System {
     ///
     /// You can use [`AnyConstraintHandle::as_tagged_constraint`] to get a typed handle.
     pub fn get_constraint_handles(&self) -> impl Iterator<Item = AnyConstraintHandle> {
-        self.constraint_edges.iter().enumerate().map(|(id, edge)| {
+        self.constraints.iter().enumerate().map(|(id, edge)| {
             AnyConstraintHandle::from_ids_and_tag(
                 self.id,
                 id.try_into().expect("less than 2^32 constraints"),
@@ -292,7 +297,7 @@ impl System {
     pub(crate) fn add_element<T: Element, const N: usize>(
         &mut self,
         variables: [f64; N],
-        vertex: impl FnOnce(u32) -> Vertex,
+        vertex: impl FnOnce(u32) -> EncodedElement,
     ) -> ElementHandle<T> {
         #[expect(
             clippy::cast_possible_truncation,
@@ -308,7 +313,7 @@ impl System {
 
         let element_handle = {
             let id = self
-                .element_vertices
+                .elements
                 .len()
                 .try_into()
                 .expect("less than 2^32 elements");
@@ -330,20 +335,20 @@ impl System {
         // graph.
         self.graph.add_element(dof);
 
-        self.element_vertices.push(vertex(variables_idx));
+        self.elements.push(vertex(variables_idx));
         element_handle
     }
 
     /// Add a constraint.
     ///
     /// Give the constraint sets the constraint belongs to in `sets`.
-    pub(crate) fn add_constraint<T: Constraint>(&mut self, edge: Edge) -> ConstraintHandle<T> {
+    pub(crate) fn add_constraint<T: Constraint>(&mut self, edge: EncodedConstraint) -> ConstraintHandle<T> {
         let id = self
-            .constraint_edges
+            .constraints
             .len()
             .try_into()
             .expect("less than 2^32 constraints");
-        self.constraint_edges.push(edge);
+        self.constraints.push(edge);
 
         ConstraintHandle::from_ids(self.id, id)
     }
@@ -401,10 +406,10 @@ impl System {
             (elements, constraints)
         } else {
             (
-                (0..self.element_vertices.len().try_into().unwrap())
+                (0..self.elements.len().try_into().unwrap())
                     .map(|id| ElementId { id })
                     .collect(),
-                (0..self.constraint_edges.len().try_into().unwrap())
+                (0..self.constraints.len().try_into().unwrap())
                     .map(|id| ConstraintId { id })
                     .collect(),
             )
@@ -412,16 +417,16 @@ impl System {
 
         let mut free_variables: Vec<u32> = vec![];
         for element_id in &elements {
-            let element = &self.element_vertices[element_id.id as usize];
+            let element = &self.elements[element_id.id as usize];
             match element {
-                Vertex::Point { idx } => {
+                EncodedElement::Point { idx } => {
                     free_variables.extend(&[*idx, *idx + 1]);
                 }
                 // In the current setup, not all vertices in the set contribute free variables. E.g.
                 // `Vertex::Line` only refers to existing points, meaning it does not contribute its
                 // own free variables. `Vertex::Circle` refers to a point, but contributes its radius
                 // as free variable.
-                Vertex::Circle { radius_idx, .. } => {
+                EncodedElement::Circle { radius_idx, .. } => {
                     free_variables.extend(&[*radius_idx]);
                 }
                 _ => {}
@@ -429,7 +434,7 @@ impl System {
         }
 
         let subsystem = Subsystem::new(
-            &self.constraint_edges,
+            &self.constraints,
             free_variables,
             constraints.into_iter().collect(),
         );
@@ -485,16 +490,16 @@ impl System {
             for step in recombination_plan.steps() {
                 let mut free_variables: Vec<u32> = vec![];
                 for element_id in step.fixes_elements() {
-                    let element = &self.element_vertices[element_id.id as usize];
+                    let element = &self.elements[element_id.id as usize];
                     match element {
-                        Vertex::Point { idx } => {
+                        EncodedElement::Point { idx } => {
                             free_variables.extend(&[*idx, *idx + 1]);
                         }
                         // In the current setup, not all vertices in the set contribute free variables. E.g.
                         // `Vertex::Line` only refers to existing points, meaning it does not contribute its
                         // own free variables. `Vertex::Circle` refers to a point, but contributes its radius
                         // as free variable.
-                        Vertex::Circle { radius_idx, .. } => {
+                        EncodedElement::Circle { radius_idx, .. } => {
                             free_variables.extend(&[*radius_idx]);
                         }
                         _ => {}
@@ -512,7 +517,7 @@ impl System {
                 }
 
                 let subsystem = Subsystem::new(
-                    &self.constraint_edges,
+                    &self.constraints,
                     free_variables,
                     step.constraints().to_vec(),
                 );
