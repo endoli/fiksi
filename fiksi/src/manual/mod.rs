@@ -84,7 +84,7 @@
 //! some notion of hierarchies.
 //!
 //! ## Hierarchies
-//! 
+//!
 //! ...
 
 #![expect(unused_imports, reason = "Importing items to link to them in docs")]
