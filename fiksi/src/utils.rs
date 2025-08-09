@@ -5,25 +5,21 @@
 
 use core::borrow::Borrow;
 
-use crate::{EncodedConstraint, Subsystem};
+use crate::{Expression, Subsystem};
 
 #[inline(always)]
-pub(crate) fn calculate_residual(constraint: &EncodedConstraint, variables: &[f64]) -> f64 {
-    match constraint {
-        EncodedConstraint::PointPointDistance(constraint) => constraint.compute_residual(variables),
-        EncodedConstraint::PointPointPointAngle(constraint) => {
-            constraint.compute_residual(variables)
-        }
-        EncodedConstraint::PointLineIncidence(constraint) => constraint.compute_residual(variables),
-        EncodedConstraint::LineCircleTangency(constraint) => constraint.compute_residual(variables),
-        EncodedConstraint::LineLineAngle(constraint) => constraint.compute_residual(variables),
-        EncodedConstraint::LineLineParallelism(constraint) => {
-            constraint.compute_residual(variables)
-        }
+pub(crate) fn calculate_residual(expression: &Expression, variables: &[f64]) -> f64 {
+    match expression {
+        Expression::PointPointDistance(expression) => expression.compute_residual(variables),
+        Expression::PointPointPointAngle(expression) => expression.compute_residual(variables),
+        Expression::PointLineIncidence(expression) => expression.compute_residual(variables),
+        Expression::LineCircleTangency(expression) => expression.compute_residual(variables),
+        Expression::LineLineAngle(expression) => expression.compute_residual(variables),
+        Expression::LineLineParallelism(expression) => expression.compute_residual(variables),
     }
 }
 
-/// Compute residuals for all constraints.
+/// Compute residuals for all expressions.
 pub(crate) fn calculate_residuals(
     subsystem: &Subsystem<'_>,
     variables: &[f64],
@@ -31,8 +27,8 @@ pub(crate) fn calculate_residuals(
 ) {
     residuals.fill(0.);
 
-    for (constraint_idx, constraint) in subsystem.constraints().enumerate() {
-        residuals[constraint_idx] = calculate_residual(constraint, variables);
+    for (expression_idx, expression) in subsystem.expressions().enumerate() {
+        residuals[expression_idx] = calculate_residual(expression, variables);
     }
 }
 
@@ -50,60 +46,60 @@ pub(crate) fn calculate_residuals_and_jacobian(
 
     let num_free_variables = subsystem.free_variables().len();
 
-    for (constraint_idx, constraint) in subsystem.constraints().enumerate() {
-        match constraint {
-            EncodedConstraint::PointPointDistance(constraint) => {
-                constraint.compute_residual_and_gradient(
+    for (expression_idx, expression) in subsystem.expressions().enumerate() {
+        match expression {
+            Expression::PointPointDistance(expression) => {
+                expression.compute_residual_and_gradient(
                     subsystem,
                     variables,
-                    &mut residuals[constraint_idx],
-                    &mut jacobian[constraint_idx * num_free_variables
-                        ..(constraint_idx + 1) * num_free_variables],
+                    &mut residuals[expression_idx],
+                    &mut jacobian[expression_idx * num_free_variables
+                        ..(expression_idx + 1) * num_free_variables],
                 );
             }
-            EncodedConstraint::PointPointPointAngle(constraint) => {
-                constraint.compute_residual_and_gradient(
+            Expression::PointPointPointAngle(expression) => {
+                expression.compute_residual_and_gradient(
                     subsystem,
                     variables,
-                    &mut residuals[constraint_idx],
-                    &mut jacobian[constraint_idx * num_free_variables
-                        ..(constraint_idx + 1) * num_free_variables],
+                    &mut residuals[expression_idx],
+                    &mut jacobian[expression_idx * num_free_variables
+                        ..(expression_idx + 1) * num_free_variables],
                 );
             }
-            EncodedConstraint::PointLineIncidence(constraint) => {
-                constraint.compute_residual_and_gradient(
+            Expression::PointLineIncidence(expression) => {
+                expression.compute_residual_and_gradient(
                     subsystem,
                     variables,
-                    &mut residuals[constraint_idx],
-                    &mut jacobian[constraint_idx * num_free_variables
-                        ..(constraint_idx + 1) * num_free_variables],
+                    &mut residuals[expression_idx],
+                    &mut jacobian[expression_idx * num_free_variables
+                        ..(expression_idx + 1) * num_free_variables],
                 );
             }
-            EncodedConstraint::LineCircleTangency(constraint) => {
-                constraint.compute_residual_and_gradient(
+            Expression::LineCircleTangency(expression) => {
+                expression.compute_residual_and_gradient(
                     subsystem,
                     variables,
-                    &mut residuals[constraint_idx],
-                    &mut jacobian[constraint_idx * num_free_variables
-                        ..(constraint_idx + 1) * num_free_variables],
+                    &mut residuals[expression_idx],
+                    &mut jacobian[expression_idx * num_free_variables
+                        ..(expression_idx + 1) * num_free_variables],
                 );
             }
-            EncodedConstraint::LineLineAngle(constraint) => {
-                constraint.compute_residual_and_gradient(
+            Expression::LineLineAngle(expression) => {
+                expression.compute_residual_and_gradient(
                     subsystem,
                     variables,
-                    &mut residuals[constraint_idx],
-                    &mut jacobian[constraint_idx * num_free_variables
-                        ..(constraint_idx + 1) * num_free_variables],
+                    &mut residuals[expression_idx],
+                    &mut jacobian[expression_idx * num_free_variables
+                        ..(expression_idx + 1) * num_free_variables],
                 );
             }
-            EncodedConstraint::LineLineParallelism(constraint) => {
-                constraint.compute_residual_and_gradient(
+            Expression::LineLineParallelism(expression) => {
+                expression.compute_residual_and_gradient(
                     subsystem,
                     variables,
-                    &mut residuals[constraint_idx],
-                    &mut jacobian[constraint_idx * num_free_variables
-                        ..(constraint_idx + 1) * num_free_variables],
+                    &mut residuals[expression_idx],
+                    &mut jacobian[expression_idx * num_free_variables
+                        ..(expression_idx + 1) * num_free_variables],
                 );
             }
         }
