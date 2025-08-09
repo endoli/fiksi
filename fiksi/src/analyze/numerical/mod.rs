@@ -155,7 +155,7 @@ pub(crate) fn find_overconstraints(
             dependent.push(AnyConstraintHandle::from_ids_and_tag(
                 system.id,
                 id_in_system,
-                ConstraintTag::from(&system.constraint_edges[id_in_system as usize]),
+                ConstraintTag::from(&system.constraints[id_in_system as usize]),
             ));
         }
     }

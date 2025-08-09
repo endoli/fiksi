@@ -5,17 +5,21 @@
 
 use core::borrow::Borrow;
 
-use crate::{Edge, Subsystem};
+use crate::{EncodedConstraint, Subsystem};
 
 #[inline(always)]
-pub(crate) fn calculate_residual(constraint: &Edge, variables: &[f64]) -> f64 {
+pub(crate) fn calculate_residual(constraint: &EncodedConstraint, variables: &[f64]) -> f64 {
     match constraint {
-        Edge::PointPointDistance(constraint) => constraint.compute_residual(variables),
-        Edge::PointPointPointAngle(constraint) => constraint.compute_residual(variables),
-        Edge::PointLineIncidence(constraint) => constraint.compute_residual(variables),
-        Edge::LineCircleTangency(constraint) => constraint.compute_residual(variables),
-        Edge::LineLineAngle(constraint) => constraint.compute_residual(variables),
-        Edge::LineLineParallelism(constraint) => constraint.compute_residual(variables),
+        EncodedConstraint::PointPointDistance(constraint) => constraint.compute_residual(variables),
+        EncodedConstraint::PointPointPointAngle(constraint) => {
+            constraint.compute_residual(variables)
+        }
+        EncodedConstraint::PointLineIncidence(constraint) => constraint.compute_residual(variables),
+        EncodedConstraint::LineCircleTangency(constraint) => constraint.compute_residual(variables),
+        EncodedConstraint::LineLineAngle(constraint) => constraint.compute_residual(variables),
+        EncodedConstraint::LineLineParallelism(constraint) => {
+            constraint.compute_residual(variables)
+        }
     }
 }
 
@@ -48,7 +52,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
 
     for (constraint_idx, constraint) in subsystem.constraints().enumerate() {
         match constraint {
-            Edge::PointPointDistance(constraint) => {
+            EncodedConstraint::PointPointDistance(constraint) => {
                 constraint.compute_residual_and_gradient(
                     subsystem,
                     variables,
@@ -57,7 +61,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
                         ..(constraint_idx + 1) * num_free_variables],
                 );
             }
-            Edge::PointPointPointAngle(constraint) => {
+            EncodedConstraint::PointPointPointAngle(constraint) => {
                 constraint.compute_residual_and_gradient(
                     subsystem,
                     variables,
@@ -66,7 +70,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
                         ..(constraint_idx + 1) * num_free_variables],
                 );
             }
-            Edge::PointLineIncidence(constraint) => {
+            EncodedConstraint::PointLineIncidence(constraint) => {
                 constraint.compute_residual_and_gradient(
                     subsystem,
                     variables,
@@ -75,7 +79,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
                         ..(constraint_idx + 1) * num_free_variables],
                 );
             }
-            Edge::LineCircleTangency(constraint) => {
+            EncodedConstraint::LineCircleTangency(constraint) => {
                 constraint.compute_residual_and_gradient(
                     subsystem,
                     variables,
@@ -84,7 +88,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
                         ..(constraint_idx + 1) * num_free_variables],
                 );
             }
-            Edge::LineLineAngle(constraint) => {
+            EncodedConstraint::LineLineAngle(constraint) => {
                 constraint.compute_residual_and_gradient(
                     subsystem,
                     variables,
@@ -93,7 +97,7 @@ pub(crate) fn calculate_residuals_and_jacobian(
                         ..(constraint_idx + 1) * num_free_variables],
                 );
             }
-            Edge::LineLineParallelism(constraint) => {
+            EncodedConstraint::LineLineParallelism(constraint) => {
                 constraint.compute_residual_and_gradient(
                     subsystem,
                     variables,

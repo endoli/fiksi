@@ -7,8 +7,8 @@
 use crate::floatfuncs::FloatFuncs;
 
 use crate::{
-    ConstraintHandle, Edge, ElementHandle, Subsystem, System, Vertex, elements,
-    graph::IncidentElements,
+    ConstraintHandle, ElementHandle, EncodedConstraint, EncodedElement, Subsystem, System,
+    elements, graph::IncidentElements,
 };
 
 trait FloatExt {
@@ -85,7 +85,7 @@ pub(crate) mod constraint {
                 "Tried to evaluate a constraint that is not part of this `System`"
             );
 
-            let constraint = &system.constraint_edges[self.id as usize];
+            let constraint = &system.constraints[self.id as usize];
             utils::calculate_residual(constraint, &system.variables)
         }
 
@@ -125,7 +125,7 @@ pub(crate) mod constraint {
                 "Tried to get a constraint that is not part of this `System`"
             );
 
-            let constraint = &system.constraint_edges[self.id as usize];
+            let constraint = &system.constraints[self.id as usize];
             utils::calculate_residual(constraint, &system.variables)
         }
 
@@ -258,11 +258,11 @@ impl PointPointDistance {
         point2: ElementHandle<elements::Point>,
         distance: f64,
     ) -> ConstraintHandle<Self> {
-        let &Vertex::Point { idx: point1_idx } = &system.element_vertices[point1.id as usize]
+        let &EncodedElement::Point { idx: point1_idx } = &system.elements[point1.id as usize]
         else {
             unreachable!()
         };
-        let &Vertex::Point { idx: point2_idx } = &system.element_vertices[point2.id as usize]
+        let &EncodedElement::Point { idx: point2_idx } = &system.elements[point2.id as usize]
         else {
             unreachable!()
         };
@@ -277,7 +277,7 @@ impl PointPointDistance {
             1,
             IncidentElements::from_array([point1.drop_system_id(), point2.drop_system_id()]),
         );
-        system.add_constraint(Edge::PointPointDistance(constraint))
+        system.add_constraint(EncodedConstraint::PointPointDistance(constraint))
     }
 
     /// If only, say, the residual or some subset of the gradient entries are actually used, and
@@ -390,15 +390,15 @@ impl PointPointPointAngle {
         point3: ElementHandle<elements::Point>,
         angle: f64,
     ) -> ConstraintHandle<Self> {
-        let &Vertex::Point { idx: point1_idx } = &system.element_vertices[point1.id as usize]
+        let &EncodedElement::Point { idx: point1_idx } = &system.elements[point1.id as usize]
         else {
             unreachable!()
         };
-        let &Vertex::Point { idx: point2_idx } = &system.element_vertices[point2.id as usize]
+        let &EncodedElement::Point { idx: point2_idx } = &system.elements[point2.id as usize]
         else {
             unreachable!()
         };
-        let &Vertex::Point { idx: point3_idx } = &system.element_vertices[point3.id as usize]
+        let &EncodedElement::Point { idx: point3_idx } = &system.elements[point3.id as usize]
         else {
             unreachable!()
         };
@@ -418,7 +418,7 @@ impl PointPointPointAngle {
                 point3.drop_system_id(),
             ]),
         );
-        system.add_constraint(Edge::PointPointPointAngle(constraint))
+        system.add_constraint(EncodedConstraint::PointPointPointAngle(constraint))
     }
 
     // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
@@ -558,13 +558,13 @@ impl PointLineIncidence {
         point: ElementHandle<elements::Point>,
         line: ElementHandle<elements::Line>,
     ) -> ConstraintHandle<Self> {
-        let &Vertex::Point { idx: point_idx } = &system.element_vertices[point.id as usize] else {
+        let &EncodedElement::Point { idx: point_idx } = &system.elements[point.id as usize] else {
             unreachable!()
         };
-        let &Vertex::Line {
+        let &EncodedElement::Line {
             point1_idx: line_point1_idx,
             point2_idx: line_point2_idx,
-        } = &system.element_vertices[line.id as usize]
+        } = &system.elements[line.id as usize]
         else {
             unreachable!()
         };
@@ -583,7 +583,7 @@ impl PointLineIncidence {
                 system.variable_to_primitive[line_point2_idx as usize],
             ]),
         );
-        system.add_constraint(Edge::PointLineIncidence(constraint))
+        system.add_constraint(EncodedConstraint::PointLineIncidence(constraint))
     }
 
     // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
@@ -697,17 +697,17 @@ impl LineLineAngle {
         line2: ElementHandle<elements::Line>,
         angle: f64,
     ) -> ConstraintHandle<Self> {
-        let &Vertex::Line {
+        let &EncodedElement::Line {
             point1_idx: line1_point1_idx,
             point2_idx: line1_point2_idx,
-        } = &system.element_vertices[line1.id as usize]
+        } = &system.elements[line1.id as usize]
         else {
             unreachable!()
         };
-        let &Vertex::Line {
+        let &EncodedElement::Line {
             point1_idx: line2_point1_idx,
             point2_idx: line2_point2_idx,
-        } = &system.element_vertices[line2.id as usize]
+        } = &system.elements[line2.id as usize]
         else {
             unreachable!()
         };
@@ -729,7 +729,7 @@ impl LineLineAngle {
                 system.variable_to_primitive[line2_point2_idx as usize],
             ]),
         );
-        system.add_constraint(Edge::LineLineAngle(constraint))
+        system.add_constraint(EncodedConstraint::LineLineAngle(constraint))
     }
 
     // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
@@ -878,17 +878,17 @@ impl LineLineParallelism {
         line1: ElementHandle<elements::Line>,
         line2: ElementHandle<elements::Line>,
     ) -> ConstraintHandle<Self> {
-        let &Vertex::Line {
+        let &EncodedElement::Line {
             point1_idx: line1_point1_idx,
             point2_idx: line1_point2_idx,
-        } = &system.element_vertices[line1.id as usize]
+        } = &system.elements[line1.id as usize]
         else {
             unreachable!()
         };
-        let &Vertex::Line {
+        let &EncodedElement::Line {
             point1_idx: line2_point1_idx,
             point2_idx: line2_point2_idx,
-        } = &system.element_vertices[line2.id as usize]
+        } = &system.elements[line2.id as usize]
         else {
             unreachable!()
         };
@@ -902,7 +902,7 @@ impl LineLineParallelism {
                 system.variable_to_primitive[line2_point2_idx as usize],
             ]),
         );
-        system.add_constraint(Edge::LineLineParallelism(Self {
+        system.add_constraint(EncodedConstraint::LineLineParallelism(Self {
             line1_point1_idx,
             line1_point2_idx,
             line2_point1_idx,
@@ -1034,17 +1034,17 @@ impl LineCircleTangency {
         line: ElementHandle<elements::Line>,
         circle: ElementHandle<elements::Circle>,
     ) -> ConstraintHandle<Self> {
-        let &Vertex::Line {
+        let &EncodedElement::Line {
             point1_idx: line_point1_idx,
             point2_idx: line_point2_idx,
-        } = &system.element_vertices[line.id as usize]
+        } = &system.elements[line.id as usize]
         else {
             unreachable!()
         };
-        let &Vertex::Circle {
+        let &EncodedElement::Circle {
             center_idx: circle_center_idx,
             radius_idx: circle_radius_idx,
-        } = &system.element_vertices[circle.id as usize]
+        } = &system.elements[circle.id as usize]
         else {
             unreachable!()
         };
@@ -1065,7 +1065,7 @@ impl LineCircleTangency {
                 circle.drop_system_id(),
             ]),
         );
-        system.add_constraint(Edge::LineCircleTangency(constraint))
+        system.add_constraint(EncodedConstraint::LineCircleTangency(constraint))
     }
 
     // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
@@ -1195,15 +1195,15 @@ pub(crate) enum ConstraintTag {
     LineCircleTangency,
 }
 
-impl<'a> From<&'a Edge> for ConstraintTag {
-    fn from(edge: &'a Edge) -> Self {
+impl<'a> From<&'a EncodedConstraint> for ConstraintTag {
+    fn from(edge: &'a EncodedConstraint) -> Self {
         match edge {
-            Edge::PointPointDistance { .. } => Self::PointPointDistance,
-            Edge::PointPointPointAngle { .. } => Self::PointPointPointAngle,
-            Edge::PointLineIncidence { .. } => Self::PointLineIncidence,
-            Edge::LineLineAngle { .. } => Self::LineLineAngle,
-            Edge::LineLineParallelism { .. } => Self::LineLineParallelism,
-            Edge::LineCircleTangency { .. } => Self::LineCircleTangency,
+            EncodedConstraint::PointPointDistance { .. } => Self::PointPointDistance,
+            EncodedConstraint::PointPointPointAngle { .. } => Self::PointPointPointAngle,
+            EncodedConstraint::PointLineIncidence { .. } => Self::PointLineIncidence,
+            EncodedConstraint::LineLineAngle { .. } => Self::LineLineAngle,
+            EncodedConstraint::LineLineParallelism { .. } => Self::LineLineParallelism,
+            EncodedConstraint::LineCircleTangency { .. } => Self::LineCircleTangency,
         }
     }
 }
