@@ -6,20 +6,23 @@ use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 use crate::{ConstraintId, EncodedConstraint};
 
 pub(crate) struct Subsystem<'s> {
-    edges: &'s [EncodedConstraint],
+    /// All constraints in the [`crate::System`] this subsystem belongs to.
+    all_constraints: &'s [EncodedConstraint],
+
+    /// The constraints that are part of this subsystem. These are indices into
+    /// [`Self::all_constraints`].
+    constraints: Vec<ConstraintId>,
 
     /// The indices of free variables.
     free_variables: Vec<u32>,
 
     /// Map from variable indices to free variable index.
     variable_to_free_variable: BTreeMap<u32, u32>,
-
-    constraints: Vec<ConstraintId>,
 }
 
 impl<'s> Subsystem<'s> {
     pub(crate) fn new(
-        edges: &'s [EncodedConstraint],
+        all_constraints: &'s [EncodedConstraint],
         mut free_variables: Vec<u32>,
         constraints: Vec<ConstraintId>,
     ) -> Self {
@@ -34,7 +37,7 @@ impl<'s> Subsystem<'s> {
         }
 
         Self {
-            edges,
+            all_constraints,
             free_variables,
             variable_to_free_variable,
             constraints,
@@ -47,7 +50,7 @@ impl Subsystem<'_> {
     pub(crate) fn constraints(&self) -> impl ExactSizeIterator<Item = &EncodedConstraint> {
         self.constraints
             .iter()
-            .map(|constraint| &self.edges[constraint.id as usize])
+            .map(|constraint| &self.all_constraints[constraint.id as usize])
     }
 
     #[inline(always)]

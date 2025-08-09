@@ -266,26 +266,32 @@ impl System {
     /// You can use [`AnyElementHandle::get_value`] to get an element-tagged value or
     /// [`AnyElementHandle::as_tagged_element`] to get a typed handle.
     pub fn get_element_handles(&self) -> impl Iterator<Item = AnyElementHandle> {
-        self.elements.iter().enumerate().map(|(id, vertex)| {
-            AnyElementHandle::from_ids_and_tag(
-                self.id,
-                id.try_into().expect("less than 2^32 elements"),
-                vertex.into(),
-            )
-        })
+        self.elements
+            .iter()
+            .enumerate()
+            .map(|(id, encoded_element)| {
+                AnyElementHandle::from_ids_and_tag(
+                    self.id,
+                    id.try_into().expect("less than 2^32 elements"),
+                    encoded_element.into(),
+                )
+            })
     }
 
     /// Iterate over the handles of all constraints in the system.
     ///
     /// You can use [`AnyConstraintHandle::as_tagged_constraint`] to get a typed handle.
     pub fn get_constraint_handles(&self) -> impl Iterator<Item = AnyConstraintHandle> {
-        self.constraints.iter().enumerate().map(|(id, edge)| {
-            AnyConstraintHandle::from_ids_and_tag(
-                self.id,
-                id.try_into().expect("less than 2^32 constraints"),
-                edge.into(),
-            )
-        })
+        self.constraints
+            .iter()
+            .enumerate()
+            .map(|(id, encoded_constraint)| {
+                AnyConstraintHandle::from_ids_and_tag(
+                    self.id,
+                    id.try_into().expect("less than 2^32 constraints"),
+                    encoded_constraint.into(),
+                )
+            })
     }
 
     /// Add an element.
@@ -294,7 +300,7 @@ impl System {
     pub(crate) fn add_element<T: Element, const N: usize>(
         &mut self,
         variables: [f64; N],
-        vertex: impl FnOnce(u32) -> EncodedElement,
+        encoded_element: impl FnOnce(u32) -> EncodedElement,
     ) -> ElementHandle<T> {
         #[expect(
             clippy::cast_possible_truncation,
@@ -332,7 +338,7 @@ impl System {
         // graph.
         self.graph.add_element(dof);
 
-        self.elements.push(vertex(variables_idx));
+        self.elements.push(encoded_element(variables_idx));
         element_handle
     }
 
@@ -341,14 +347,14 @@ impl System {
     /// Give the constraint sets the constraint belongs to in `sets`.
     pub(crate) fn add_constraint<T: Constraint>(
         &mut self,
-        edge: EncodedConstraint,
+        encoded_constraint: EncodedConstraint,
     ) -> ConstraintHandle<T> {
         let id = self
             .constraints
             .len()
             .try_into()
             .expect("less than 2^32 constraints");
-        self.constraints.push(edge);
+        self.constraints.push(encoded_constraint);
 
         ConstraintHandle::from_ids(self.id, id)
     }
@@ -422,10 +428,10 @@ impl System {
                 EncodedElement::Point { idx } => {
                     free_variables.extend(&[*idx, *idx + 1]);
                 }
-                // In the current setup, not all vertices in the set contribute free variables. E.g.
-                // `Vertex::Line` only refers to existing points, meaning it does not contribute its
-                // own free variables. `Vertex::Circle` refers to a point, but contributes its radius
-                // as free variable.
+                // In the current setup, not all vertices in the set contribute free variables.
+                // E.g. `EncodedElement::Line` only refers to existing points, meaning it does not
+                // contribute its own free variables. `EncodedElement::Circle` refers to a point,
+                // but contributes its radius as free variable.
                 EncodedElement::Circle { radius_idx, .. } => {
                     free_variables.extend(&[*radius_idx]);
                 }
@@ -495,9 +501,10 @@ impl System {
                         EncodedElement::Point { idx } => {
                             free_variables.extend(&[*idx, *idx + 1]);
                         }
-                        // In the current setup, not all vertices in the set contribute free variables. E.g.
-                        // `Vertex::Line` only refers to existing points, meaning it does not contribute its
-                        // own free variables. `Vertex::Circle` refers to a point, but contributes its radius
+                        // In the current setup, not all vertices in the set contribute free
+                        // variables. E.g. `EncodedElement::Line` only refers to existing points,
+                        // meaning it does not contribute its own free variables.
+                        // `EncodedElement::Circle` refers to a point, but contributes its radius
                         // as free variable.
                         EncodedElement::Circle { radius_idx, .. } => {
                             free_variables.extend(&[*radius_idx]);

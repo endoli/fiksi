@@ -50,7 +50,7 @@ pub(crate) mod element {
                 "Tried to get an element that is not part of this `System`"
             );
 
-            <T as ElementInner>::from_vertex(
+            <T as ElementInner>::from_encoded_element(
                 &system.elements[self.drop_system_id().id as usize],
                 &system.variables,
             )
@@ -93,17 +93,20 @@ pub(crate) mod element {
                 "Tried to get an element that is not part of this `System`"
             );
 
-            let vertex = &system.elements[self.id as usize];
+            let encoded_element = &system.elements[self.id as usize];
             match self.tag {
-                ElementTag::Point => {
-                    ElementValue::Point(super::Point::from_vertex(vertex, &system.variables))
-                }
-                ElementTag::Line => {
-                    ElementValue::Line(super::Line::from_vertex(vertex, &system.variables))
-                }
-                ElementTag::Circle => {
-                    ElementValue::Circle(super::Circle::from_vertex(vertex, &system.variables))
-                }
+                ElementTag::Point => ElementValue::Point(super::Point::from_encoded_element(
+                    encoded_element,
+                    &system.variables,
+                )),
+                ElementTag::Line => ElementValue::Line(super::Line::from_encoded_element(
+                    encoded_element,
+                    &system.variables,
+                )),
+                ElementTag::Circle => ElementValue::Circle(super::Circle::from_encoded_element(
+                    encoded_element,
+                    &system.variables,
+                )),
             }
         }
 
@@ -235,8 +238,8 @@ impl sealed::ElementInner for Point {
         ElementTag::Point
     }
 
-    fn from_vertex(vertex: &EncodedElement, variables: &[f64]) -> Self::Output {
-        let &EncodedElement::Point { idx } = vertex else {
+    fn from_encoded_element(encoded_element: &EncodedElement, variables: &[f64]) -> Self::Output {
+        let &EncodedElement::Point { idx } = encoded_element else {
             unreachable!()
         };
         kurbo::Point {
@@ -285,11 +288,11 @@ impl sealed::ElementInner for Line {
         ElementTag::Line
     }
 
-    fn from_vertex(vertex: &EncodedElement, variables: &[f64]) -> Self::Output {
+    fn from_encoded_element(encoded_element: &EncodedElement, variables: &[f64]) -> Self::Output {
         let &EncodedElement::Line {
             point1_idx,
             point2_idx,
-        } = vertex
+        } = encoded_element
         else {
             unreachable!()
         };
@@ -342,11 +345,11 @@ impl sealed::ElementInner for Circle {
         ElementTag::Circle
     }
 
-    fn from_vertex(vertex: &EncodedElement, variables: &[f64]) -> kurbo::Circle {
+    fn from_encoded_element(encoded_element: &EncodedElement, variables: &[f64]) -> kurbo::Circle {
         let &EncodedElement::Circle {
             center_idx,
             radius_idx,
-        } = vertex
+        } = encoded_element
         else {
             unreachable!()
         };
@@ -369,8 +372,8 @@ pub(crate) enum ElementTag {
 }
 
 impl<'a> From<&'a EncodedElement> for ElementTag {
-    fn from(vertex: &'a EncodedElement) -> Self {
-        match vertex {
+    fn from(encoded_element: &'a EncodedElement) -> Self {
+        match encoded_element {
             EncodedElement::Point { .. } => Self::Point,
             EncodedElement::Line { .. } => Self::Line,
             EncodedElement::Circle { .. } => Self::Circle,
@@ -389,7 +392,10 @@ pub(crate) mod sealed {
         type HandleData: Copy + core::fmt::Debug + Default;
 
         fn tag() -> super::ElementTag;
-        fn from_vertex(vertex: &EncodedElement, variables: &[f64]) -> Self::Output;
+        fn from_encoded_element(
+            encoded_element: &EncodedElement,
+            variables: &[f64],
+        ) -> Self::Output;
     }
 }
 
