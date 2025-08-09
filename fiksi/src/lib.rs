@@ -32,6 +32,11 @@
 //!
 //! gcs.solve(None, fiksi::SolvingOptions::DEFAULT);
 //! ```
+//!
+//! # Manual
+//!
+//! The Fiksi manual explains more about usage and the design.
+
 #![cfg_attr(feature = "libm", doc = "[libm]: libm")]
 #![cfg_attr(not(feature = "libm"), doc = "[libm]: https://crates.io/crates/libm")]
 // LINEBENDER LINT SET - lib.rs - v3
@@ -63,6 +68,11 @@ extern crate alloc;
 use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
 
 pub use kurbo;
+
+// Only enable the `manual` module when generating documentation or when testing. Though
+// `cargo test` also enables `doc`, a development environment probably only enables `test`.
+#[cfg(any(test, doc))]
+pub mod manual;
 
 mod analyze;
 pub mod constraints;
