@@ -12,6 +12,8 @@ pub(crate) mod element {
 
     /// Dynamically tagged, typed handles to elements.
     pub enum TaggedElementHandle {
+        /// A handle to a [`Length`](super::Length) element.
+        Length(ElementHandle<super::Length>),
         /// A handle to a [`Point`](super::Point) element.
         Point(ElementHandle<super::Point>),
         /// A handle to a [`Line`](super::Line) element.
@@ -95,6 +97,9 @@ pub(crate) mod element {
 
             let vertex = &system.elements[self.id as usize];
             match self.tag {
+                ElementTag::Length => {
+                    ElementValue::Length(super::Length::from_vertex(vertex, &system.variables))
+                }
                 ElementTag::Point => {
                     ElementValue::Point(super::Point::from_vertex(vertex, &system.variables))
                 }
@@ -110,6 +115,9 @@ pub(crate) mod element {
         /// Get a typed handle to the element.
         pub fn as_tagged_element(self) -> TaggedElementHandle {
             match self.tag {
+                ElementTag::Length => {
+                    TaggedElementHandle::Length(ElementHandle::from_ids(self.system_id, self.id))
+                }
                 ElementTag::Point => {
                     TaggedElementHandle::Point(ElementHandle::from_ids(self.system_id, self.id))
                 }
@@ -208,6 +216,38 @@ pub(crate) mod element {
 use element::ElementHandle;
 
 use crate::{EncodedElement, System};
+
+/// A length.
+#[derive(Debug)]
+pub struct Length {
+    /// The length.
+    length: f64,
+}
+
+impl Length {
+    /// Construct a new `Length` at the given coordinate.
+    pub fn create(system: &mut System, length: f64) -> ElementHandle<Self> {
+        system.add_element([length], |variables_idx| EncodedElement::Length {
+            idx: variables_idx,
+        })
+    }
+}
+
+impl sealed::ElementInner for Length {
+    type Output = f64;
+    type HandleData = ();
+
+    fn tag() -> ElementTag {
+        ElementTag::Length
+    }
+
+    fn from_vertex(vertex: &EncodedElement, variables: &[f64]) -> Self::Output {
+        let &EncodedElement::Length { idx } = vertex else {
+            unreachable!()
+        };
+        variables[idx as usize]
+    }
+}
 
 /// A point given by a 2D coordinate.
 #[derive(Debug)]
@@ -313,7 +353,7 @@ pub struct Circle {
     center: ElementHandle<Point>,
 
     /// The radius of the circle.
-    radius: f64,
+    radius: ElementHandle<Length>,
 }
 
 impl Circle {
@@ -321,15 +361,19 @@ impl Circle {
     pub fn create(
         system: &mut System,
         center: ElementHandle<Point>,
-        radius: f64,
+        radius: ElementHandle<Length>,
     ) -> ElementHandle<Self> {
         let &EncodedElement::Point { idx: center_idx } = &system.elements[center.id as usize]
         else {
             unreachable!()
         };
-        system.add_element([radius], |radius_idx| EncodedElement::Circle {
+        let &EncodedElement::Length { idx: length_idx } = &system.elements[radius.id as usize]
+        else {
+            unreachable!()
+        };
+        system.add_element([], |_| EncodedElement::Circle {
             center_idx,
-            radius_idx,
+            radius_idx: length_idx,
         })
     }
 }
@@ -363,6 +407,7 @@ impl sealed::ElementInner for Circle {
 /// The actual type of the element.
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum ElementTag {
+    Length,
     Point,
     Line,
     Circle,
@@ -371,6 +416,7 @@ pub(crate) enum ElementTag {
 impl<'a> From<&'a EncodedElement> for ElementTag {
     fn from(vertex: &'a EncodedElement) -> Self {
         match vertex {
+            EncodedElement::Length { .. } => Self::Length,
             EncodedElement::Point { .. } => Self::Point,
             EncodedElement::Line { .. } => Self::Line,
             EncodedElement::Circle { .. } => Self::Circle,
@@ -402,12 +448,18 @@ pub trait Element: sealed::ElementInner {
     type Output: From<<Self as sealed::ElementInner>::Output>;
 }
 
+impl Element for Length {
+    type Output = f64;
+}
+
 impl Element for Point {
     type Output = kurbo::Point;
 }
+
 impl Element for Line {
     type Output = kurbo::Line;
 }
+
 impl Element for Circle {
     type Output = kurbo::Circle;
 }
