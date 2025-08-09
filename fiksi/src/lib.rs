@@ -72,6 +72,7 @@ mod rand;
 pub mod solve;
 mod subsystem;
 pub(crate) mod utils;
+mod vocabulary;
 
 #[cfg(test)]
 mod tests;
