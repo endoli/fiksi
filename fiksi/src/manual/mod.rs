@@ -30,7 +30,7 @@
 //! The following elements are currently implemented.
 //!
 // TODO: should we mention internal representation?
-//! | Element  | Degrees of freedom |
+//! | Element                          | Degrees of freedom |
 //! | -- | -- |
 //! | [Point][elements::Point]         | 2 |
 //! | [Infinite line][elements::Line]  | 2 |
@@ -38,10 +38,10 @@
 //!
 //! The following is a non-exhaustive list of future elements considered for implementation.
 //!
-//! | Element  | Degrees of freedom |
+//! | Element            | Degrees of freedom |
 //! | -- | -- |
-//! | Line segment | 4 |
-//! | Circular arc | 5 |
+//! | Line segment       | 4 |
+//! | Circular arc       | 5 |
 //! | Cubic Bezier curve | 8 |
 //!
 //! ## Geometric constraints
@@ -54,14 +54,14 @@
 //! The following constraints between geometric elements are currently implemented. The valency of
 //! a constraint is the number of degrees of freedom taken away by a constraint from its arguments.
 //!
-//! | Constraint | Arity and arguments | Parameters | Valency |
+//! | Constraint                       | Arity and arguments     | Parameters | Valency |
 //! | -- | -- | -- | -- |
-//! | [Point-point distance][ppd] | 2 (point, point) | Distance | 1 |
-//! | [Point-point-point angle][pppa] | 3 (point, point, point) | Angle | 1 |
-//! | [Point-line incidence][pli] | 2 (point, line) | | 1 |
-//! | [Line-line angle][lla] | 2 (line, line) | Angle | 1 |
-//! | [Line-line parallelism][llp] | 2 (line, line) | | 1 |
-//! | [Line-circle tangency][lct] | 2 (line, circle) | | 1 |
+//! | [Point-point distance][ppd]      | 2 (point, point)        | Distance   | 1 |
+//! | [Point-point-point angle][pppa]  | 3 (point, point, point) | Angle      | 1 |
+//! | [Point-line incidence][pli]      | 2 (point, line)         |            | 1 |
+//! | [Line-line angle][lla]           | 2 (line, line)          | Angle      | 1 |
+//! | [Line-line parallelism][llp]     | 2 (line, line)          |            | 1 |
+//! | [Line-circle tangency][lct]      | 2 (line, circle)        |            | 1 |
 //!
 //! [ppd]: `constraints::PointPointDistance`
 //! [pppa]: `constraints::PointPointPointAngle`
