@@ -254,6 +254,9 @@ pub(crate) mod constraint {
 }
 
 /// Constrain two points to be exactly at the same place.
+///
+/// If you want to constrain points such that they are a given distance from each other, use
+/// [`PointPointDistance`].
 pub struct PointPointCoincidence {
     point1_idx: u32,
     point2_idx: u32,
@@ -306,6 +309,10 @@ impl PointPointCoincidence {
 }
 
 /// Constrain two points to have a given straight-line distance between each other.
+///
+/// If you want to constrain two points to be at the exact same location, i.e., having a distance
+/// of 0, use [`PointPointCoincidence`] instead. Using [`PointPointDistance`] is numerically
+/// singular at a distance of 0.
 pub struct PointPointDistance {}
 
 impl sealed::ConstraintInner for PointPointDistance {
