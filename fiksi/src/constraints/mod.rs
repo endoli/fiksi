@@ -10,6 +10,9 @@ use crate::{
 pub(crate) mod expressions;
 
 pub(crate) mod constraint {
+    #[cfg(not(feature = "std"))]
+    use crate::floatfuncs::FloatFuncs;
+
     use core::marker::PhantomData;
 
     use crate::{System, utils};
