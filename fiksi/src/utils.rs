@@ -10,6 +10,7 @@ use crate::{Expression, Subsystem};
 #[inline(always)]
 pub(crate) fn calculate_residual(expression: &Expression, variables: &[f64]) -> f64 {
     match expression {
+        Expression::VariableVariableEquality(expression) => expression.compute_residual(variables),
         Expression::PointPointDistance(expression) => expression.compute_residual(variables),
         Expression::PointPointPointAngle(expression) => expression.compute_residual(variables),
         Expression::PointLineIncidence(expression) => expression.compute_residual(variables),
@@ -48,6 +49,15 @@ pub(crate) fn calculate_residuals_and_jacobian(
 
     for (expression_idx, expression) in subsystem.expressions().enumerate() {
         match expression {
+            Expression::VariableVariableEquality(expression) => {
+                expression.compute_residual_and_gradient(
+                    subsystem,
+                    variables,
+                    &mut residuals[expression_idx],
+                    &mut jacobian[expression_idx * num_free_variables
+                        ..(expression_idx + 1) * num_free_variables],
+                );
+            }
             Expression::PointPointDistance(expression) => {
                 expression.compute_residual_and_gradient(
                     subsystem,

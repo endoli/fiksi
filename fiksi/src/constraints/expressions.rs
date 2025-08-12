@@ -23,12 +23,68 @@ impl FloatExt for f64 {
 }
 
 pub(crate) enum Expression {
+    VariableVariableEquality(VariableVariableEquality),
     PointPointDistance(PointPointDistance),
     PointPointPointAngle(PointPointPointAngle),
     PointLineIncidence(PointLineIncidence),
     LineLineAngle(LineLineAngle),
     LineLineParallelism(LineLineParallelism),
     LineCircleTangency(LineCircleTangency),
+}
+
+pub(crate) struct VariableVariableEquality {
+    pub(crate) variable1_idx: u32,
+    pub(crate) variable2_idx: u32,
+}
+
+impl From<VariableVariableEquality> for Expression {
+    fn from(expression: VariableVariableEquality) -> Self {
+        Self::VariableVariableEquality(expression)
+    }
+}
+
+impl VariableVariableEquality {
+    /// See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
+    #[inline(always)]
+    fn compute_residual_and_gradient_(variables: [f64; 2]) -> (f64, [f64; 2]) {
+        let residual = variables[1] - variables[0];
+
+        let gradient = [-1., 1.];
+
+        (residual, gradient)
+    }
+
+    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        // The compiler should be able to optimize this such that only the residual is calculated.
+        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
+        Self::compute_residual_and_gradient_([
+            variables[self.variable1_idx as usize],
+            variables[self.variable2_idx as usize],
+        ])
+        .0
+    }
+
+    pub(crate) fn compute_residual_and_gradient(
+        &self,
+        subsystem: &Subsystem<'_>,
+        variables: &[f64],
+        residual: &mut f64,
+        gradient: &mut [f64],
+    ) {
+        let (r, g) = Self::compute_residual_and_gradient_([
+            variables[self.variable1_idx as usize],
+            variables[self.variable2_idx as usize],
+        ]);
+
+        *residual += r;
+
+        if let Some(idx) = subsystem.free_variable_index(self.variable1_idx) {
+            gradient[idx as usize] += g[0];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.variable2_idx) {
+            gradient[idx as usize] += g[1];
+        }
+    }
 }
 
 /// Constrain two points to have a given straight-line distance between each other.
@@ -816,6 +872,37 @@ mod tests {
                 Actual: {first_finite_diff:?}"
             );
         }
+    }
+
+    #[test]
+    fn variable_variable_equality_finite_difference() {
+        test_first_finite_difference(
+            |variables| VariableVariableEquality::compute_residual_and_gradient_(*variables),
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e0),
+                    delta.map(|d| (d - 0.5) * 1e-4),
+                )
+            },
+        );
+        test_first_finite_difference(
+            |variables| VariableVariableEquality::compute_residual_and_gradient_(*variables),
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e-10),
+                    delta.map(|d| (d - 0.5) * 1e-14),
+                )
+            },
+        );
+        test_first_finite_difference(
+            |variables| VariableVariableEquality::compute_residual_and_gradient_(*variables),
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e10),
+                    delta.map(|d| (d - 0.5) * 1e6),
+                )
+            },
+        );
     }
 
     #[test]
