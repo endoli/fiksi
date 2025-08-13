@@ -27,6 +27,7 @@ pub(crate) enum Expression {
     PointPointDistance(PointPointDistance),
     PointPointPointAngle(PointPointPointAngle),
     PointLineIncidence(PointLineIncidence),
+    PointCircleIncidence(PointCircleIncidence),
     LineLineAngle(LineLineAngle),
     LineLineParallelism(LineLineParallelism),
     LineCircleTangency(LineCircleTangency),
@@ -415,6 +416,84 @@ impl PointLineIncidence {
         }
         if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx + 1) {
             gradient[idx as usize] += g[5];
+        }
+    }
+}
+
+/// Constrain a line and a circle such that the line is tangent on the circle.
+pub(crate) struct PointCircleIncidence {
+    pub(crate) point_idx: u32,
+    pub(crate) circle_center_idx: u32,
+    pub(crate) circle_radius_idx: u32,
+}
+
+impl From<PointCircleIncidence> for Expression {
+    fn from(expression: PointCircleIncidence) -> Self {
+        Self::PointCircleIncidence(expression)
+    }
+}
+
+impl PointCircleIncidence {
+    // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
+    #[inline(always)]
+    fn compute_residual_and_gradient_(variables: &[f64; 5]) -> (f64, [f64; 5]) {
+        // We can represent the point-circle incidence as a point-point distance constraint. The
+        // gradient on the circle's radius is a constant `-1.`.
+        let (residual, gradient) = PointPointDistance::compute_residual_and_gradient_(
+            &[variables[0], variables[1], variables[2], variables[3]],
+            variables[4],
+        );
+
+        (
+            residual,
+            [gradient[0], gradient[1], gradient[2], gradient[3], -1.],
+        )
+    }
+
+    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        // The compiler should be able to optimize this such that only the residual is calculated.
+        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
+        Self::compute_residual_and_gradient_(&[
+            variables[self.point_idx as usize],
+            variables[self.point_idx as usize + 1],
+            variables[self.circle_center_idx as usize],
+            variables[self.circle_center_idx as usize + 1],
+            variables[self.circle_radius_idx as usize],
+        ])
+        .0
+    }
+
+    pub(crate) fn compute_residual_and_gradient(
+        &self,
+        subsystem: &Subsystem<'_>,
+        variables: &[f64],
+        residual: &mut f64,
+        gradient: &mut [f64],
+    ) {
+        let (r, g) = Self::compute_residual_and_gradient_(&[
+            variables[self.point_idx as usize],
+            variables[self.point_idx as usize + 1],
+            variables[self.circle_center_idx as usize],
+            variables[self.circle_center_idx as usize + 1],
+            variables[self.circle_radius_idx as usize],
+        ]);
+
+        *residual += r;
+
+        if let Some(idx) = subsystem.free_variable_index(self.point_idx) {
+            gradient[idx as usize] += g[0];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.point_idx + 1) {
+            gradient[idx as usize] += g[1];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.circle_center_idx) {
+            gradient[idx as usize] += g[2];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.circle_center_idx + 1) {
+            gradient[idx as usize] += g[3];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.circle_radius_idx) {
+            gradient[idx as usize] += g[4];
         }
     }
 }
