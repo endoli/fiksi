@@ -47,6 +47,8 @@
 //! | -- | -- |
 //! | Line segment       | 4 |
 //! | Circular arc       | 5 |
+//! | Ellipse            | 5 |
+//! | Elliptic arc       | 7 |
 //! | Cubic Bezier curve | 8 |
 //!
 //! ## Geometric constraints
