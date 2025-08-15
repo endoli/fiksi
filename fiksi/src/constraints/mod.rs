@@ -33,6 +33,9 @@ pub(crate) mod constraint {
         /// A handle to a [`PointLineIncidence`](super::PointLineIncidence) constraint.
         PointLineIncidence(ConstraintHandle<super::PointLineIncidence>),
 
+        /// A handle to a [`PointCircleIncidence`](super::PointCircleIncidence) constraint.
+        PointCircleIncidence(ConstraintHandle<super::PointCircleIncidence>),
+
         /// A handle to a [`LineLineAngle`](super::LineLineAngle) constraint.
         LineLineAngle(ConstraintHandle<super::LineLineAngle>),
 
@@ -167,6 +170,12 @@ pub(crate) mod constraint {
                 ConstraintTag::PointLineIncidence => TaggedConstraintHandle::PointLineIncidence(
                     ConstraintHandle::from_ids(self.system_id, self.id),
                 ),
+                ConstraintTag::PointCircleIncidence => {
+                    TaggedConstraintHandle::PointCircleIncidence(ConstraintHandle::from_ids(
+                        self.system_id,
+                        self.id,
+                    ))
+                }
                 ConstraintTag::LineLineAngle => TaggedConstraintHandle::LineLineAngle(
                     ConstraintHandle::from_ids(self.system_id, self.id),
                 ),
@@ -465,6 +474,54 @@ impl PointLineIncidence {
     }
 }
 
+/// Constrain a point and a circle such that the point is on the circle.
+pub struct PointCircleIncidence {}
+
+impl sealed::ConstraintInner for PointCircleIncidence {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::PointCircleIncidence
+    }
+}
+
+impl PointCircleIncidence {
+    /// Construct a constraint between a point and a circle such that the point is at the circle's
+    /// center.
+    pub fn create(
+        system: &mut System,
+        point: ElementHandle<elements::Point>,
+        circle: ElementHandle<elements::Circle>,
+    ) -> ConstraintHandle<Self> {
+        let &EncodedElement::Point { idx: point_idx } = &system.elements[point.id as usize] else {
+            unreachable!()
+        };
+        let &EncodedElement::Circle {
+            center_idx: circle_center_idx,
+            radius_idx: circle_radius_idx,
+        } = &system.elements[circle.id as usize]
+        else {
+            unreachable!()
+        };
+
+        system.graph.add_constraint(
+            1,
+            IncidentElements::from_array([
+                point.drop_system_id(),
+                system.variable_to_primitive[circle_center_idx as usize],
+                system.variable_to_primitive[circle_radius_idx as usize],
+            ]),
+        );
+        system.add_constraint(
+            ConstraintTag::PointCircleIncidence,
+            [expressions::PointCircleIncidence {
+                point_idx,
+                circle_center_idx,
+                circle_radius_idx,
+            }
+            .into()],
+        )
+    }
+}
+
 /// Constrain two lines to describe a given angle.
 pub struct LineLineAngle {}
 
@@ -634,6 +691,7 @@ pub(crate) enum ConstraintTag {
     PointPointDistance,
     PointPointPointAngle,
     PointLineIncidence,
+    PointCircleIncidence,
     LineLineAngle,
     LineLineParallelism,
     LineCircleTangency,
@@ -646,6 +704,7 @@ impl ConstraintTag {
             Self::PointPointDistance => PointPointDistance::VALENCY,
             Self::PointPointPointAngle => PointPointPointAngle::VALENCY,
             Self::PointLineIncidence => PointLineIncidence::VALENCY,
+            Self::PointCircleIncidence => PointCircleIncidence::VALENCY,
             Self::LineLineAngle => LineLineAngle::VALENCY,
             Self::LineLineParallelism => LineLineParallelism::VALENCY,
             Self::LineCircleTangency => LineCircleTangency::VALENCY,
@@ -686,6 +745,10 @@ impl Constraint for PointPointPointAngle {
 }
 
 impl Constraint for PointLineIncidence {
+    const VALENCY: u8 = 1;
+}
+
+impl Constraint for PointCircleIncidence {
     const VALENCY: u8 = 1;
 }
 
