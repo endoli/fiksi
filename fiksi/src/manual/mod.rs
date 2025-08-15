@@ -30,11 +30,16 @@
 //! The following elements are currently implemented.
 //!
 // TODO: should we mention internal representation?
-//! | Element                          | Degrees of freedom |
+//! | Element                           | Degrees of freedom |
 //! | -- | -- |
-//! | [Point][elements::Point]         | 2 |
-//! | [Infinite line][elements::Line]  | 2 |
-//! | [Circle][elements::Circle]       | 3 |
+//! | [Point][elements::Point]          | 2 |
+//! | [Boundless line][elements::Line]  | 2 |
+//! | [Circle][elements::Circle]        | 3 |
+//!
+//! The internal representation of geometric elements and their degrees of freedom may not directly
+//! correspond. For example, a boundless line may be represented by two points incident on the line
+//! (for a total of four degrees of freedom), but a boundless line intrinsically only has two
+//! degrees of freedom (an angle and a displacement from the origin).
 //!
 //! The following is a non-exhaustive list of future elements considered for implementation.
 //!
