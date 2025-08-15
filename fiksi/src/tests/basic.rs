@@ -5,6 +5,32 @@ use crate::{System, constraints, elements, utils::sum_squares};
 
 use super::RESIDUAL_THRESHOLD;
 
+/// Tests whether a point-point coincidence configuration gets solved.
+#[test]
+fn coincident_points() {
+    let mut s = System::new();
+
+    let p0 = elements::Point::create(&mut s, 0., 0.);
+    let p1 = elements::Point::create(&mut s, 1., 0.5);
+    let coincidence = constraints::PointPointCoincidence::create(&mut s, p0, p1);
+
+    s.solve(None, crate::SolvingOptions::default());
+
+    let sum_squared_residuals = sum_squares([coincidence.calculate_residual(&s)]);
+    assert!(
+        sum_squared_residuals < RESIDUAL_THRESHOLD,
+        "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
+    );
+
+    // Similarly to testing the residual, we can test whether the points are actually moved close
+    // together.
+    let distance = p0.get_value(&s).distance(p1.get_value(&s));
+    assert!(
+        distance < RESIDUAL_THRESHOLD.sqrt(),
+        "The points did not actually become coincident (remaining distance: {distance})"
+    );
+}
+
 /// Tests whether an under-constrained triangle configuration gets solved.
 #[test]
 fn underconstrained_triangle() {

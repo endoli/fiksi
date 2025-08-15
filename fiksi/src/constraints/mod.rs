@@ -10,6 +10,9 @@ use crate::{
 pub(crate) mod expressions;
 
 pub(crate) mod constraint {
+    #[cfg(not(feature = "std"))]
+    use crate::floatfuncs::FloatFuncs;
+
     use core::marker::PhantomData;
 
     use crate::{System, utils};
@@ -18,6 +21,9 @@ pub(crate) mod constraint {
 
     /// Dynamically tagged, typed handles to constraints.
     pub enum TaggedConstraintHandle {
+        /// A handle to a [`PointPointCoincidence`](super::PointPointCoincidence) constraint.
+        PointPointCoincidence(ConstraintHandle<super::PointPointCoincidence>),
+
         /// A handle to a [`PointPointDistance`](super::PointPointDistance) constraint.
         PointPointDistance(ConstraintHandle<super::PointPointDistance>),
 
@@ -60,6 +66,9 @@ pub(crate) mod constraint {
         }
 
         /// Calculate the residual of this constraint.
+        ///
+        /// If the constraint referenced by the handle contributes more than one residual, this
+        /// calculates the square root of the sum of its squared residuals.
         pub fn calculate_residual(self, system: &System) -> f64 {
             // TODO: return `Result` instead of panicking?
             assert_eq!(
@@ -67,10 +76,19 @@ pub(crate) mod constraint {
                 "Tried to evaluate a constraint that is not part of this `System`"
             );
 
-            // TODO: handle constraints with `valency > 1`
             let constraint = &system.constraints[self.id as usize];
-            let expression = &system.expressions[constraint.expressions_idx as usize];
-            utils::calculate_residual(expression, &system.variables)
+            if T::VALENCY > 1 {
+                utils::sum_squares((0..T::VALENCY).map(|offset| {
+                    utils::calculate_residual(
+                        &system.expressions[constraint.expressions_idx as usize + offset as usize],
+                        &system.variables,
+                    )
+                }))
+                .sqrt()
+            } else {
+                let expression = &system.expressions[constraint.expressions_idx as usize];
+                utils::calculate_residual(expression, &system.variables)
+            }
         }
 
         /// Get a type-erased handle to the constraint.
@@ -102,6 +120,9 @@ pub(crate) mod constraint {
         }
 
         /// Get the value of the constraint.
+        ///
+        /// If the constraint referenced by the handle contributes more than one residual, this
+        /// calculates the square root of the sum of its squared residuals.
         pub fn calculate_residual(&self, system: &System) -> f64 {
             // TODO: return `Result` instead of panicking?
             assert_eq!(
@@ -109,15 +130,31 @@ pub(crate) mod constraint {
                 "Tried to get a constraint that is not part of this `System`"
             );
 
-            // TODO: handle constraints with `valency > 1`
+            let valency = self.tag.valency();
             let constraint = &system.constraints[self.id as usize];
-            let expression = &system.expressions[constraint.expressions_idx as usize];
-            utils::calculate_residual(expression, &system.variables)
+            if valency > 1 {
+                utils::sum_squares((0..valency).map(|offset| {
+                    utils::calculate_residual(
+                        &system.expressions[constraint.expressions_idx as usize + offset as usize],
+                        &system.variables,
+                    )
+                }))
+                .sqrt()
+            } else {
+                let expression = &system.expressions[constraint.expressions_idx as usize];
+                utils::calculate_residual(expression, &system.variables)
+            }
         }
 
         /// Get a typed handle to the constraint.
         pub fn as_tagged_constraint(self) -> TaggedConstraintHandle {
             match self.tag {
+                ConstraintTag::PointPointCoincidence => {
+                    TaggedConstraintHandle::PointPointCoincidence(ConstraintHandle::from_ids(
+                        self.system_id,
+                        self.id,
+                    ))
+                }
                 ConstraintTag::PointPointDistance => TaggedConstraintHandle::PointPointDistance(
                     ConstraintHandle::from_ids(self.system_id, self.id),
                 ),
@@ -219,7 +256,66 @@ pub(crate) mod constraint {
     }
 }
 
+/// Constrain two points to be exactly at the same place.
+///
+/// If you want to constrain points such that they are a given distance from each other, use
+/// [`PointPointDistance`].
+pub struct PointPointCoincidence {
+    point1_idx: u32,
+    point2_idx: u32,
+}
+
+impl sealed::ConstraintInner for PointPointCoincidence {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::PointPointCoincidence
+    }
+}
+
+impl PointPointCoincidence {
+    /// Construct a constraint between two points to be exactly at the same place.
+    pub fn create(
+        system: &mut System,
+        point1: ElementHandle<elements::Point>,
+        point2: ElementHandle<elements::Point>,
+    ) -> ConstraintHandle<Self> {
+        let &EncodedElement::Point { idx: point1_idx } = &system.elements[point1.id as usize]
+        else {
+            unreachable!()
+        };
+        let &EncodedElement::Point { idx: point2_idx } = &system.elements[point2.id as usize]
+        else {
+            unreachable!()
+        };
+
+        system.graph.add_constraint(
+            2,
+            IncidentElements::from_array([point1.drop_system_id(), point2.drop_system_id()]),
+        );
+        system.add_constraint(
+            ConstraintTag::PointPointCoincidence,
+            [
+                // Linear difference along the x-axis
+                expressions::VariableVariableEquality {
+                    variable1_idx: point1_idx,
+                    variable2_idx: point2_idx,
+                }
+                .into(),
+                // Linear difference along the y-axis
+                expressions::VariableVariableEquality {
+                    variable1_idx: point1_idx + 1,
+                    variable2_idx: point2_idx + 1,
+                }
+                .into(),
+            ],
+        )
+    }
+}
+
 /// Constrain two points to have a given straight-line distance between each other.
+///
+/// If you want to constrain two points to be at the exact same location, i.e., having a distance
+/// of 0, use [`PointPointCoincidence`] instead. Using [`PointPointDistance`] is numerically
+/// singular at a distance of 0.
 pub struct PointPointDistance {}
 
 impl sealed::ConstraintInner for PointPointDistance {
@@ -534,6 +630,7 @@ impl LineCircleTangency {
 /// The actual type of the constraint.
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum ConstraintTag {
+    PointPointCoincidence,
     PointPointDistance,
     PointPointPointAngle,
     PointLineIncidence,
@@ -545,6 +642,7 @@ pub(crate) enum ConstraintTag {
 impl ConstraintTag {
     pub(crate) fn valency(self) -> u8 {
         match self {
+            Self::PointPointCoincidence => PointPointCoincidence::VALENCY,
             Self::PointPointDistance => PointPointDistance::VALENCY,
             Self::PointPointPointAngle => PointPointPointAngle::VALENCY,
             Self::PointLineIncidence => PointLineIncidence::VALENCY,
@@ -573,6 +671,10 @@ pub trait Constraint: sealed::ConstraintInner {
     ///
     /// This is the number of degrees of freedom taken away by the constraint.
     const VALENCY: u8;
+}
+
+impl Constraint for PointPointCoincidence {
+    const VALENCY: u8 = 2;
 }
 
 impl Constraint for PointPointDistance {
