@@ -3,15 +3,15 @@
 
 use alloc::{collections::btree_map::BTreeMap, vec::Vec};
 
-use crate::{ConstraintId, EncodedConstraint};
+use crate::Expression;
 
 pub(crate) struct Subsystem<'s> {
-    /// All constraints in the [`crate::System`] this subsystem belongs to.
-    all_constraints: &'s [EncodedConstraint],
+    /// All expressions in the [`crate::System`] this subsystem belongs to.
+    all_expressions: &'s [Expression],
 
-    /// The constraints that are part of this subsystem. These are indices into
-    /// [`Self::all_constraints`].
-    constraints: Vec<ConstraintId>,
+    /// The expressions that are part of this subsystem. These are indices into
+    /// [`Self::all_expressions`].
+    expressions: Vec<u32>,
 
     /// The indices of free variables.
     free_variables: Vec<u32>,
@@ -22,9 +22,9 @@ pub(crate) struct Subsystem<'s> {
 
 impl<'s> Subsystem<'s> {
     pub(crate) fn new(
-        all_constraints: &'s [EncodedConstraint],
+        all_expressions: &'s [Expression],
         mut free_variables: Vec<u32>,
-        constraints: Vec<ConstraintId>,
+        expressions: Vec<u32>,
     ) -> Self {
         free_variables.sort_unstable();
 
@@ -37,25 +37,26 @@ impl<'s> Subsystem<'s> {
         }
 
         Self {
-            all_constraints,
+            all_expressions,
             free_variables,
             variable_to_free_variable,
-            constraints,
+            expressions,
         }
     }
 }
 
 impl Subsystem<'_> {
     #[inline(always)]
-    pub(crate) fn constraints(&self) -> impl ExactSizeIterator<Item = &EncodedConstraint> {
-        self.constraints
+    pub(crate) fn expressions(&self) -> impl ExactSizeIterator<Item = &Expression> {
+        self.expressions
             .iter()
-            .map(|constraint| &self.all_constraints[constraint.id as usize])
+            .copied()
+            .map(|expression| &self.all_expressions[expression as usize])
     }
 
     #[inline(always)]
-    pub(crate) fn constraint_ids(&self) -> impl ExactSizeIterator<Item = ConstraintId> {
-        self.constraints.iter().copied()
+    pub(crate) fn expression_ids(&self) -> impl ExactSizeIterator<Item = u32> {
+        self.expressions.iter().copied()
     }
 
     #[inline(always)]

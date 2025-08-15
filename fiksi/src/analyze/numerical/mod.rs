@@ -5,7 +5,8 @@ use alloc::{vec, vec::Vec};
 
 use nalgebra::DMatrix;
 
-use crate::{AnyConstraintHandle, Subsystem, System, constraints::ConstraintTag, utils};
+use crate::{AnyConstraintHandle, Subsystem, System, utils};
+
 const EPSILON: f64 = 1e-8;
 
 /// Transform the matrix to reduced row echelon form through Gauss-Jordan elimination.
@@ -115,11 +116,11 @@ pub(crate) fn find_overconstraints(
     system: &System,
     subsystem: &Subsystem<'_>,
 ) -> Vec<AnyConstraintHandle> {
-    // The (non-squared) residuals of the constraints.
-    let mut residuals = vec![0.; subsystem.constraints().len()];
-    // All first-order partial derivatives of the constraints, as constraints x free variables.
-    // This is in row-major order.
-    let mut jacobian = vec![0.; subsystem.constraints().len() * subsystem.free_variables().len()];
+    // The (non-squared) residuals of the constraints' expressions.
+    let mut residuals = vec![0.; subsystem.expressions().len()];
+    // All first-order partial derivatives of the constraints' expressions, as expressions x free
+    // variables. This is in row-major order.
+    let mut jacobian = vec![0.; subsystem.expressions().len() * subsystem.free_variables().len()];
     utils::calculate_residuals_and_jacobian(
         subsystem,
         &system.variables,
@@ -128,34 +129,31 @@ pub(crate) fn find_overconstraints(
     );
 
     let mut jacobian_ = nalgebra::DMatrix::zeros(
-        subsystem.constraints().len(),
+        subsystem.expressions().len(),
         subsystem.free_variables().len(),
     );
-    for i in 0..subsystem.constraints().len() {
+    for i in 0..subsystem.expressions().len() {
         for j in 0..subsystem.free_variables().len() {
             jacobian_[(i, j)] = jacobian[i * subsystem.free_variables().len() + j];
         }
     }
 
     let mut column_pivots = Vec::from_iter(0..jacobian_.ncols());
-    let independent_constraints =
+    let independent_expressions =
         incremental_gauss_jordan_elimination(&mut jacobian_, &mut column_pivots);
 
     let mut dependent = vec![];
-    for (constraint_idx, independent) in independent_constraints.iter().enumerate() {
-        #[expect(
-            clippy::cast_possible_truncation,
-            reason = "there are fewer than 2^32 constraints"
-        )]
+    for (expression_idx, independent) in independent_expressions.iter().enumerate() {
         if !independent {
-            let id_in_system = subsystem
-                .constraint_ids()
-                .position(|c| c.id == constraint_idx as u32)
-                .expect("constraint is present") as u32;
+            let expression = subsystem
+                .expression_ids()
+                .nth(expression_idx)
+                .expect("expression is present");
+            let constraint = system.expression_to_constraint[expression as usize];
             dependent.push(AnyConstraintHandle::from_ids_and_tag(
                 system.id,
-                id_in_system,
-                ConstraintTag::from(&system.constraints[id_in_system as usize]),
+                constraint.id,
+                system.constraints[constraint.id as usize].tag,
             ));
         }
     }

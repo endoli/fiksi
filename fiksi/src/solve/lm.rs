@@ -15,8 +15,8 @@ use crate::{
 
 /// The Levenberg-Marquardt solver.
 ///
-/// Solve for the free variables in `variables` minimizing the residuals of the constraints in
-/// `constraint_set`. The variables given by the elements in `element_set` are seen as free, other
+/// Solve for the free variables in `variables` minimizing the residuals of the expressions in the
+/// subsystem. The variables given by the elements in `element_set` are seen as free, other
 /// variables are seen as fixed parameters.
 pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'_>) {
     // TODO: this is allocation-happy.
@@ -25,15 +25,15 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
     let mut variables_scratch = variables.to_vec();
     let variables_scratch = variables_scratch.as_mut_slice();
 
-    // The (non-squared) residuals of the constraints.
-    let mut residuals = nalgebra::DVector::zeros(subsystem.constraints().len());
-    let mut residuals_scratch = nalgebra::DVector::zeros(subsystem.constraints().len());
+    // The (non-squared) residuals of the expressions.
+    let mut residuals = nalgebra::DVector::zeros(subsystem.expressions().len());
+    let mut residuals_scratch = nalgebra::DVector::zeros(subsystem.expressions().len());
 
-    // All first-order partial derivatives of the constraints. This is a dense representation (each
-    // pair of constraint and variable has a partial derivative represented here, even for
-    // variables that do not contribute to the constraint). It's possible a sparse representation
+    // All first-order partial derivatives of the expressions. This is a dense representation (each
+    // pair of expression and variable has a partial derivative represented here, even for
+    // variables that do not contribute to the expression). It's possible a sparse representation
     // may be more efficient in certain cases.
-    let mut jacobian = vec![0.; subsystem.constraints().len() * subsystem.free_variables().len()];
+    let mut jacobian = vec![0.; subsystem.expressions().len() * subsystem.free_variables().len()];
 
     calculate_residuals_and_jacobian(
         subsystem,
@@ -53,10 +53,10 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
         // Clone the Jacobian to a nalgebra matrix for now.
         // TODO: remove
         let mut jacobian_ = nalgebra::DMatrix::zeros(
-            subsystem.constraints().len(),
+            subsystem.expressions().len(),
             subsystem.free_variables().len(),
         );
-        for i in 0..subsystem.constraints().len() {
+        for i in 0..subsystem.expressions().len() {
             for j in 0..subsystem.free_variables().len() {
                 jacobian_[(i, j)] = jacobian[i * subsystem.free_variables().len() + j];
             }

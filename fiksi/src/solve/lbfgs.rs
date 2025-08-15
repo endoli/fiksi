@@ -13,9 +13,9 @@ use crate::{
 /// The limited-memory BFGS solver by Liu and Nocedal (1989), approximating the
 /// Broyden–Fletcher–Goldfarb–Shanno method.
 ///
-/// Solve for the free variables in `variables` minimizing the sum of squared residuals of the constraints in
-/// `constraint_set`. The variables given by the elements in `element_set` are seen as free, other
-/// variables are seen as fixed parameters.
+/// Solve for the free variables in `variables` minimizing the sum of squared residuals of the
+/// expressions in the subsystem. The variables given by the elements in `element_set` are seen as
+/// free, other variables are seen as fixed parameters.
 ///
 /// See:
 /// Liu, Dong C., and Jorge Nocedal. "On the limited memory BFGS method for large scale
@@ -36,11 +36,11 @@ pub(crate) fn lbfgs(variables: &mut [f64], subsystem: &Subsystem<'_>) {
     /// have converged.
     const RESIDUAL_THRESHOLD: f64 = 1e-6;
 
-    // The (non-squared) residuals of the constraints.
-    let mut residuals = vec![0.; subsystem.constraints().len()];
-    // All first-order partial derivatives of the constraints, as constraints x free variables.
+    // The (non-squared) residuals of the expressions.
+    let mut residuals = vec![0.; subsystem.expressions().len()];
+    // All first-order partial derivatives of the expressions, as expressions x free variables.
     // This is in row-major order.
-    let mut jacobian = vec![0.; subsystem.constraints().len() * subsystem.free_variables().len()];
+    let mut jacobian = vec![0.; subsystem.expressions().len() * subsystem.free_variables().len()];
 
     // Calculate initial residuals and gradients
     calculate_residuals_and_jacobian(subsystem, &*variables, &mut residuals, &mut jacobian);
@@ -199,10 +199,10 @@ fn compute_gradient(jacobian: &[f64], residuals: &[f64], gradient: &mut [f64]) {
     gradient.fill(0.0);
 
     let num_variables = gradient.len();
-    let num_constraints = residuals.len();
+    let num_expressions = residuals.len();
 
     for i in 0..num_variables {
-        for c in 0..num_constraints {
+        for c in 0..num_expressions {
             gradient[i] += jacobian[c * num_variables + i] * residuals[c];
         }
     }

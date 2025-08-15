@@ -77,6 +77,7 @@ pub(crate) mod utils;
 mod tests;
 
 pub(crate) use constraints::constraint::ConstraintId;
+pub(crate) use constraints::expressions::Expression;
 pub use constraints::{
     Constraint,
     constraint::{AnyConstraintHandle, ConstraintHandle, TaggedConstraintHandle},
@@ -89,14 +90,7 @@ pub use elements::{
 pub(crate) use rand::Rng;
 pub(crate) use subsystem::Subsystem;
 
-use crate::{
-    analyze::graph::RecombinationPlan,
-    constraints::{
-        LineCircleTangency, LineLineAngle, LineLineParallelism, PointLineIncidence,
-        PointPointDistance, PointPointPointAngle,
-    },
-    graph::Graph,
-};
+use crate::{analyze::graph::RecombinationPlan, constraints::ConstraintTag, graph::Graph};
 
 /// These are the geometric elements of the constraint system.
 ///
@@ -113,13 +107,9 @@ pub(crate) enum EncodedElement {
 ///
 /// These constraints have been flattened, in that they directly point to the variables in
 /// [`System::variables`] referenced by their original element arguments.
-pub(crate) enum EncodedConstraint {
-    PointPointDistance(PointPointDistance),
-    PointPointPointAngle(PointPointPointAngle),
-    PointLineIncidence(PointLineIncidence),
-    LineLineAngle(LineLineAngle),
-    LineLineParallelism(LineLineParallelism),
-    LineCircleTangency(LineCircleTangency),
+pub(crate) struct EncodedConstraint {
+    tag: ConstraintTag,
+    expressions_idx: u32,
 }
 
 /// A handle to a set of constraints to solve for and variables that are considered free.
@@ -217,6 +207,8 @@ pub struct System {
     elements: Vec<EncodedElement>,
     /// Constraints between geometric elements.
     constraints: Vec<EncodedConstraint>,
+    expressions: Vec<Expression>,
+    expression_to_constraint: Vec<ConstraintId>,
     /// The variables of the geometric elements, such as point coordinates.
     variables: Vec<f64>,
     variable_to_primitive: Vec<ElementId>,
@@ -237,6 +229,8 @@ impl System {
             variable_to_primitive: vec![],
             elements: vec![],
             constraints: vec![],
+            expressions: vec![],
+            expression_to_constraint: vec![],
             solve_sets: vec![],
         }
     }
@@ -289,7 +283,7 @@ impl System {
                 AnyConstraintHandle::from_ids_and_tag(
                     self.id,
                     id.try_into().expect("less than 2^32 constraints"),
-                    encoded_constraint.into(),
+                    encoded_constraint.tag,
                 )
             })
     }
@@ -347,14 +341,27 @@ impl System {
     /// Give the constraint sets the constraint belongs to in `sets`.
     pub(crate) fn add_constraint<T: Constraint>(
         &mut self,
-        encoded_constraint: EncodedConstraint,
+        tag: ConstraintTag,
+        expressions: impl IntoIterator<Item = Expression>,
     ) -> ConstraintHandle<T> {
         let id = self
             .constraints
             .len()
             .try_into()
             .expect("less than 2^32 constraints");
-        self.constraints.push(encoded_constraint);
+        let expressions_idx = self
+            .expressions
+            .len()
+            .try_into()
+            .expect("less than 2^32 expressions");
+        self.constraints.push(EncodedConstraint {
+            tag,
+            expressions_idx,
+        });
+        self.expressions.extend(expressions);
+        for _ in 0..self.expressions.len() - expressions_idx as usize {
+            self.expression_to_constraint.push(ConstraintId { id });
+        }
 
         ConstraintHandle::from_ids(self.id, id)
     }
@@ -440,9 +447,17 @@ impl System {
         }
 
         let subsystem = Subsystem::new(
-            &self.constraints,
+            &self.expressions,
             free_variables,
-            constraints.into_iter().collect(),
+            constraints
+                .iter()
+                .flat_map(|c| {
+                    let constraint = &self.constraints[c.id as usize];
+                    (0..constraint.tag.valency()).map(|offset| {
+                        self.constraints[c.id as usize].expressions_idx + u32::from(offset)
+                    })
+                })
+                .collect(),
         );
 
         let overconstrained = analyze::numerical::find_overconstraints(self, &subsystem);
@@ -524,9 +539,17 @@ impl System {
                 }
 
                 let subsystem = Subsystem::new(
-                    &self.constraints,
+                    &self.expressions,
                     free_variables,
-                    step.constraints().to_vec(),
+                    step.constraints()
+                        .iter()
+                        .flat_map(|c| {
+                            let constraint = &self.constraints[c.id as usize];
+                            (0..constraint.tag.valency()).map(|offset| {
+                                self.constraints[c.id as usize].expressions_idx + u32::from(offset)
+                            })
+                        })
+                        .collect(),
                 );
 
                 match opts.optimizer {
