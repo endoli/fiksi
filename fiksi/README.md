@@ -55,6 +55,10 @@ constraints::PointPointPointAngle::create(&mut gcs, p2, p3, p1, 60f64.to_radians
 gcs.solve(None, fiksi::SolvingOptions::DEFAULT);
 ```
 
+# Manual
+
+The Fiksi manual explains more about usage and the design.
+
 <!-- cargo-rdme end -->
 
 ## Minimum supported Rust Version (MSRV)
