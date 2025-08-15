@@ -36,6 +36,7 @@
 //! # Manual
 //!
 //! The Fiksi manual explains more about usage and the design.
+//!
 
 #![cfg_attr(feature = "libm", doc = "[libm]: libm")]
 #![cfg_attr(not(feature = "libm"), doc = "[libm]: https://crates.io/crates/libm")]
