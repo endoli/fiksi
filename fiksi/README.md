@@ -57,7 +57,7 @@ gcs.solve(None, fiksi::SolvingOptions::DEFAULT);
 
 # Manual
 
-The Fiksi manual explains more about usage and the design.
+The [Fiksi manual][manual] explains more about usage and the design.
 
 <!-- cargo-rdme end -->
 

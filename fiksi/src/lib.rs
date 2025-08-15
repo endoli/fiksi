@@ -35,7 +35,7 @@
 //!
 //! # Manual
 //!
-//! The Fiksi manual explains more about usage and the design.
+//! The [Fiksi manual][manual] explains more about usage and the design.
 //!
 
 #![cfg_attr(feature = "libm", doc = "[libm]: libm")]
