@@ -85,11 +85,11 @@
 //!
 //! ## Three dimensions
 //!
-//! It is possible to extend Fiksi to 3D, as the theory is mostly analogous. This would require
-//! some notion of hierarchies: 2D planes would be positioned in 3D space. Constraints between
-//! elements in different 2D planes (and perhaps different 3D subspaces), would work at the lowest
-//! level including all constrained elements, keeping all lower levels rigid, updating the geometry
-//! and transforms of the lower levels introduced at this level.
+//! It is possible to extend Fiksi to 3D, as the theory is mostly analogous. 2D-in-3D geometry
+//! would require some notion of hierarchies: 2D planes would be positioned in 3D space.
+//! Constraints between elements in different 2D planes (and perhaps different 3D subspaces), would
+//! work at the lowest level including all constrained elements, keeping all lower levels rigid,
+//! updating this level's geometry and the transforms of the lower levels introduced at this level.
 
 #![expect(unused_imports, reason = "Importing items to link to them in docs")]
 
