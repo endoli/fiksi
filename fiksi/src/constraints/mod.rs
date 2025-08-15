@@ -33,6 +33,9 @@ pub(crate) mod constraint {
         /// A handle to a [`PointLineIncidence`](super::PointLineIncidence) constraint.
         PointLineIncidence(ConstraintHandle<super::PointLineIncidence>),
 
+        /// A handle to a [`PointCircleCentrality`](super::PointCircleCentrality) constraint.
+        PointCircleCentrality(ConstraintHandle<super::PointCircleCentrality>),
+
         /// A handle to a [`LineLineAngle`](super::LineLineAngle) constraint.
         LineLineAngle(ConstraintHandle<super::LineLineAngle>),
 
@@ -167,6 +170,12 @@ pub(crate) mod constraint {
                 ConstraintTag::PointLineIncidence => TaggedConstraintHandle::PointLineIncidence(
                     ConstraintHandle::from_ids(self.system_id, self.id),
                 ),
+                ConstraintTag::PointCircleCentrality => {
+                    TaggedConstraintHandle::PointCircleCentrality(ConstraintHandle::from_ids(
+                        self.system_id,
+                        self.id,
+                    ))
+                }
                 ConstraintTag::LineLineAngle => TaggedConstraintHandle::LineLineAngle(
                     ConstraintHandle::from_ids(self.system_id, self.id),
                 ),
@@ -465,6 +474,59 @@ impl PointLineIncidence {
     }
 }
 
+/// Constrain a point and a circle such that the point is at the circle's center.
+pub struct PointCircleCentrality {}
+
+impl sealed::ConstraintInner for PointCircleCentrality {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::PointCircleCentrality
+    }
+}
+
+impl PointCircleCentrality {
+    /// Construct a constraint between a point and a circle such that the point is at the circle's
+    /// center.
+    pub fn create(
+        system: &mut System,
+        point: ElementHandle<elements::Point>,
+        circle: ElementHandle<elements::Circle>,
+    ) -> ConstraintHandle<Self> {
+        let &EncodedElement::Point { idx: point_idx } = &system.elements[point.id as usize] else {
+            unreachable!()
+        };
+        let &EncodedElement::Circle {
+            center_idx: circle_center_idx,
+            ..
+        } = &system.elements[circle.id as usize]
+        else {
+            unreachable!()
+        };
+
+        system.graph.add_constraint(
+            2,
+            IncidentElements::from_array([
+                point.drop_system_id(),
+                system.variable_to_primitive[circle_center_idx as usize],
+            ]),
+        );
+        system.add_constraint(
+            ConstraintTag::PointCircleCentrality,
+            [
+                expressions::VariableVariableEquality {
+                    variable1_idx: point_idx,
+                    variable2_idx: circle_center_idx,
+                }
+                .into(),
+                expressions::VariableVariableEquality {
+                    variable1_idx: point_idx + 1,
+                    variable2_idx: circle_center_idx + 1,
+                }
+                .into(),
+            ],
+        )
+    }
+}
+
 /// Constrain two lines to describe a given angle.
 pub struct LineLineAngle {}
 
@@ -634,6 +696,7 @@ pub(crate) enum ConstraintTag {
     PointPointDistance,
     PointPointPointAngle,
     PointLineIncidence,
+    PointCircleCentrality,
     LineLineAngle,
     LineLineParallelism,
     LineCircleTangency,
@@ -646,6 +709,7 @@ impl ConstraintTag {
             Self::PointPointDistance => PointPointDistance::VALENCY,
             Self::PointPointPointAngle => PointPointPointAngle::VALENCY,
             Self::PointLineIncidence => PointLineIncidence::VALENCY,
+            Self::PointCircleCentrality => PointCircleCentrality::VALENCY,
             Self::LineLineAngle => LineLineAngle::VALENCY,
             Self::LineLineParallelism => LineLineParallelism::VALENCY,
             Self::LineCircleTangency => LineCircleTangency::VALENCY,
@@ -687,6 +751,10 @@ impl Constraint for PointPointPointAngle {
 
 impl Constraint for PointLineIncidence {
     const VALENCY: u8 = 1;
+}
+
+impl Constraint for PointCircleCentrality {
+    const VALENCY: u8 = 2;
 }
 
 impl Constraint for LineLineAngle {
