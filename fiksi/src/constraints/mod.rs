@@ -33,6 +33,9 @@ pub(crate) mod constraint {
         /// A handle to a [`PointLineIncidence`](super::PointLineIncidence) constraint.
         PointLineIncidence(ConstraintHandle<super::PointLineIncidence>),
 
+        /// A handle to a [`PointLineDistance`](super::PointLineDistance) constraint.
+        PointLineDistance(ConstraintHandle<super::PointLineDistance>),
+
         /// A handle to a [`PointCircleIncidence`](super::PointCircleIncidence) constraint.
         PointCircleIncidence(ConstraintHandle<super::PointCircleIncidence>),
 
@@ -168,6 +171,9 @@ pub(crate) mod constraint {
                     ))
                 }
                 ConstraintTag::PointLineIncidence => TaggedConstraintHandle::PointLineIncidence(
+                    ConstraintHandle::from_ids(self.system_id, self.id),
+                ),
+                ConstraintTag::PointLineDistance => TaggedConstraintHandle::PointLineDistance(
                     ConstraintHandle::from_ids(self.system_id, self.id),
                 ),
                 ConstraintTag::PointCircleIncidence => {
@@ -474,6 +480,62 @@ impl PointLineIncidence {
     }
 }
 
+/// Constrain a point and a line such that the point is some signed distance from the (infinite)
+/// line.
+///
+/// The distance is signed such that negative distances are on the left of the line, from the
+/// perspective of the line's direction, and positive distances are on the right.
+///
+/// Note this does not constrain the point to lie some distance from the line *segment* defined by `line`.
+pub struct PointLineDistance {}
+
+impl sealed::ConstraintInner for PointLineDistance {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::PointLineDistance
+    }
+}
+
+impl PointLineDistance {
+    /// Construct a constraint between a point and a line such that the point lies on the
+    /// (infinite) line.
+    pub fn create(
+        system: &mut System,
+        point: ElementHandle<elements::Point>,
+        line: ElementHandle<elements::Line>,
+        distance: f64,
+    ) -> ConstraintHandle<Self> {
+        let &EncodedElement::Point { idx: point_idx } = &system.elements[point.id as usize] else {
+            unreachable!()
+        };
+        let &EncodedElement::Line {
+            point1_idx: line_point1_idx,
+            point2_idx: line_point2_idx,
+        } = &system.elements[line.id as usize]
+        else {
+            unreachable!()
+        };
+
+        system.graph.add_constraint(
+            1,
+            IncidentElements::from_array([
+                point.drop_system_id(),
+                system.variable_to_primitive[line_point1_idx as usize],
+                system.variable_to_primitive[line_point2_idx as usize],
+            ]),
+        );
+        system.add_constraint(
+            ConstraintTag::PointLineDistance,
+            [expressions::PointLineDistance {
+                point_idx,
+                line_point1_idx,
+                line_point2_idx,
+                distance,
+            }
+            .into()],
+        )
+    }
+}
+
 /// Constrain a point and a circle such that the point is on the circle.
 pub struct PointCircleIncidence {}
 
@@ -691,6 +753,7 @@ pub(crate) enum ConstraintTag {
     PointPointDistance,
     PointPointPointAngle,
     PointLineIncidence,
+    PointLineDistance,
     PointCircleIncidence,
     LineLineAngle,
     LineLineParallelism,
@@ -704,6 +767,7 @@ impl ConstraintTag {
             Self::PointPointDistance => PointPointDistance::VALENCY,
             Self::PointPointPointAngle => PointPointPointAngle::VALENCY,
             Self::PointLineIncidence => PointLineIncidence::VALENCY,
+            Self::PointLineDistance => PointLineDistance::VALENCY,
             Self::PointCircleIncidence => PointCircleIncidence::VALENCY,
             Self::LineLineAngle => LineLineAngle::VALENCY,
             Self::LineLineParallelism => LineLineParallelism::VALENCY,
@@ -745,6 +809,10 @@ impl Constraint for PointPointPointAngle {
 }
 
 impl Constraint for PointLineIncidence {
+    const VALENCY: u8 = 1;
+}
+
+impl Constraint for PointLineDistance {
     const VALENCY: u8 = 1;
 }
 

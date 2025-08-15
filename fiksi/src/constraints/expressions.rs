@@ -27,6 +27,7 @@ pub(crate) enum Expression {
     PointPointDistance(PointPointDistance),
     PointPointPointAngle(PointPointPointAngle),
     PointLineIncidence(PointLineIncidence),
+    PointLineDistance(PointLineDistance),
     PointCircleIncidence(PointCircleIncidence),
     LineLineAngle(LineLineAngle),
     LineLineParallelism(LineLineParallelism),
@@ -396,6 +397,130 @@ impl PointLineIncidence {
             variables[self.line_point2_idx as usize],
             variables[self.line_point2_idx as usize + 1],
         ]);
+
+        *residual += r;
+
+        if let Some(idx) = subsystem.free_variable_index(self.point_idx) {
+            gradient[idx as usize] += g[0];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.point_idx + 1) {
+            gradient[idx as usize] += g[1];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx) {
+            gradient[idx as usize] += g[2];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx + 1) {
+            gradient[idx as usize] += g[3];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx) {
+            gradient[idx as usize] += g[4];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx + 1) {
+            gradient[idx as usize] += g[5];
+        }
+    }
+}
+
+/// Constrain a point and a line such that the point is some signed distance from the (infinite)
+/// line.
+///
+/// The distance is signed such that negative distances are on the left of the line, from the
+/// perspective of the line's direction, and positive distances are on the right.
+///
+/// Note this does not constrain the point to lie some distance from the line *segment* defined by `line`.
+pub(crate) struct PointLineDistance {
+    pub(crate) point_idx: u32,
+    pub(crate) line_point1_idx: u32,
+    pub(crate) line_point2_idx: u32,
+    pub(crate) distance: f64,
+}
+
+impl From<PointLineDistance> for Expression {
+    fn from(expression: PointLineDistance) -> Self {
+        Self::PointLineDistance(expression)
+    }
+}
+
+impl PointLineDistance {
+    // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
+    #[inline(always)]
+    fn compute_residual_and_gradient_(
+        variables: &[f64; 6],
+        param_distance: f64,
+    ) -> (f64, [f64; 6]) {
+        let point = kurbo::Point {
+            x: variables[0],
+            y: variables[1],
+        };
+        let line_point1 = kurbo::Point {
+            x: variables[2],
+            y: variables[3],
+        };
+        let line_point2 = kurbo::Point {
+            x: variables[4],
+            y: variables[5],
+        };
+
+        let u = line_point2 - line_point1;
+        let v = point - line_point1;
+        let cross = u.cross(v);
+
+        let line_length_squared = u.hypot2();
+        let line_length = line_length_squared.sqrt();
+        let line_length_recip = 1. / line_length;
+
+        let a = cross / line_length_squared;
+        let b = -a * u.x;
+        let c = point.x + a * u.y;
+
+        let residual = line_length_recip * cross - param_distance;
+        let gradient = [
+            -line_length_recip * u.y,
+            line_length_recip * u.x,
+            -line_length_recip * (b - line_point2.y + point.y),
+            -line_length_recip * (line_point2.x - c),
+            line_length_recip * (b + v.y),
+            -line_length_recip * (c - line_point1.x),
+        ];
+
+        (residual, gradient)
+    }
+
+    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        // The compiler should be able to optimize this such that only the residual is calculated.
+        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
+        Self::compute_residual_and_gradient_(
+            &[
+                variables[self.point_idx as usize],
+                variables[self.point_idx as usize + 1],
+                variables[self.line_point1_idx as usize],
+                variables[self.line_point1_idx as usize + 1],
+                variables[self.line_point2_idx as usize],
+                variables[self.line_point2_idx as usize + 1],
+            ],
+            self.distance,
+        )
+        .0
+    }
+
+    pub(crate) fn compute_residual_and_gradient(
+        &self,
+        subsystem: &Subsystem<'_>,
+        variables: &[f64],
+        residual: &mut f64,
+        gradient: &mut [f64],
+    ) {
+        let (r, g) = Self::compute_residual_and_gradient_(
+            &[
+                variables[self.point_idx as usize],
+                variables[self.point_idx as usize + 1],
+                variables[self.line_point1_idx as usize],
+                variables[self.line_point1_idx as usize + 1],
+                variables[self.line_point2_idx as usize],
+                variables[self.line_point2_idx as usize + 1],
+            ],
+            self.distance,
+        );
 
         *residual += r;
 
@@ -1070,6 +1195,37 @@ mod tests {
                 (
                     variables.map(|d| (d - 0.5) * 1e-10),
                     delta.map(|d| (d - 0.5) * 1e-14),
+                )
+            },
+        );
+    }
+
+    #[test]
+    fn point_line_distance_first_finite_difference() {
+        test_first_finite_difference(
+            |variables| PointLineDistance::compute_residual_and_gradient_(variables, 0.5e0),
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e0),
+                    delta.map(|d| (d - 0.5) * 1e-4),
+                )
+            },
+        );
+        test_first_finite_difference(
+            |variables| PointLineDistance::compute_residual_and_gradient_(variables, 0.5e-9),
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e-10),
+                    delta.map(|d| (d - 0.5) * 1e-14),
+                )
+            },
+        );
+        test_first_finite_difference(
+            |variables| PointLineDistance::compute_residual_and_gradient_(variables, 0.5e10),
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e10),
+                    delta.map(|d| (d - 0.5) * 1e6),
                 )
             },
         );

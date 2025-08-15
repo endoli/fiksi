@@ -14,6 +14,7 @@ pub(crate) fn calculate_residual(expression: &Expression, variables: &[f64]) -> 
         Expression::PointPointDistance(expression) => expression.compute_residual(variables),
         Expression::PointPointPointAngle(expression) => expression.compute_residual(variables),
         Expression::PointLineIncidence(expression) => expression.compute_residual(variables),
+        Expression::PointLineDistance(expression) => expression.compute_residual(variables),
         Expression::PointCircleIncidence(expression) => expression.compute_residual(variables),
         Expression::LineCircleTangency(expression) => expression.compute_residual(variables),
         Expression::LineLineAngle(expression) => expression.compute_residual(variables),
@@ -78,6 +79,15 @@ pub(crate) fn calculate_residuals_and_jacobian(
                 );
             }
             Expression::PointLineIncidence(expression) => {
+                expression.compute_residual_and_gradient(
+                    subsystem,
+                    variables,
+                    &mut residuals[expression_idx],
+                    &mut jacobian[expression_idx * num_free_variables
+                        ..(expression_idx + 1) * num_free_variables],
+                );
+            }
+            Expression::PointLineDistance(expression) => {
                 expression.compute_residual_and_gradient(
                     subsystem,
                     variables,
