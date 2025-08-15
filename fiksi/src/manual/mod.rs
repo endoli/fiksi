@@ -63,27 +63,25 @@
 //!
 //! | Constraint                       | Arity and arguments     | Parameters | Valency |
 //! | -- | -- | -- | -- |
+//! | [Point-point coincidence][ppc]   | 2 (point, point)        |            | 2 |
 //! | [Point-point distance][ppd]      | 2 (point, point)        | Distance   | 1 |
 //! | [Point-point-point angle][pppa]  | 3 (point, point, point) | Angle      | 1 |
 //! | [Point-line incidence][pli]      | 2 (point, line)         |            | 1 |
+//! | [Point-line distance][pld]       | 2 (point, line)         | Distance   | 1 |
+//! | [Point-circle incidence][pci]    | 2 (point, circle)       |            | 1 |
 //! | [Line-line angle][lla]           | 2 (line, line)          | Angle      | 1 |
 //! | [Line-line parallelism][llp]     | 2 (line, line)          |            | 1 |
 //! | [Line-circle tangency][lct]      | 2 (line, circle)        |            | 1 |
 //!
+//! [ppc]: `constraints::PointPointCoincidence`
 //! [ppd]: `constraints::PointPointDistance`
 //! [pppa]: `constraints::PointPointPointAngle`
 //! [pli]: `constraints::PointLineIncidence`
+//! [pld]: `constraints::PointLineDistance`
+//! [pci]: `constraints::PointCircleIncidence`
 //! [lla]: `constraints::LineLineAngle`
 //! [llp]: `constraints::LineLineParallelism`
 //! [lct]: `constraints::LineCircleTangency`
-//!
-//! The following is a non-exhaustive list of future constraints considered for implementation.
-//!
-//! | Constraint | Arity and arguments | Parameters | Valency |
-//! | -- | -- | -- | -- |
-//! | Point-point coincidence | 2 (point, point) | | 2 |
-//! | Point-line distance | 2 (point, line) | Distance | 1 |
-//! | Point-circle centrality | 3 (point, circle) | | 2 |
 //!
 //! ## Three dimensions
 //!
