@@ -29,6 +29,7 @@ pub(crate) enum Expression {
     PointLineIncidence(PointLineIncidence),
     PointLineDistance(PointLineDistance),
     PointCircleIncidence(PointCircleIncidence),
+    SegmentSegmentLengthEquality(SegmentSegmentLengthEquality),
     LineLineAngle(LineLineAngle),
     LineLineParallelism(LineLineParallelism),
     LineCircleTangency(LineCircleTangency),
@@ -618,6 +619,111 @@ impl PointCircleIncidence {
         }
         if let Some(idx) = subsystem.free_variable_index(self.circle_radius_idx) {
             gradient[idx as usize] += g[4];
+        }
+    }
+}
+
+/// Constrain two segments to have equal length.
+pub(crate) struct SegmentSegmentLengthEquality {
+    pub(crate) segment1_point1_idx: u32,
+    pub(crate) segment1_point2_idx: u32,
+    pub(crate) segment2_point1_idx: u32,
+    pub(crate) segment2_point2_idx: u32,
+}
+
+impl From<SegmentSegmentLengthEquality> for Expression {
+    fn from(expression: SegmentSegmentLengthEquality) -> Self {
+        Self::SegmentSegmentLengthEquality(expression)
+    }
+}
+
+impl SegmentSegmentLengthEquality {
+    // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
+    #[inline(always)]
+    fn compute_residual_and_gradient_(variables: &[f64; 8]) -> (f64, [f64; 8]) {
+        let (residuals1, gradient1) = PointPointDistance::compute_residual_and_gradient_(
+            &[variables[0], variables[1], variables[2], variables[3]],
+            0.,
+        );
+        let (residuals2, gradient2) = PointPointDistance::compute_residual_and_gradient_(
+            &[variables[4], variables[5], variables[6], variables[7]],
+            0.,
+        );
+
+        (
+            residuals2 - residuals1,
+            [
+                -gradient1[0],
+                -gradient1[1],
+                -gradient1[2],
+                -gradient1[3],
+                gradient2[0],
+                gradient2[1],
+                gradient2[2],
+                gradient2[3],
+            ],
+        )
+    }
+
+    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        // The compiler should be able to optimize this such that only the residual is calculated.
+        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
+        Self::compute_residual_and_gradient_(&[
+            variables[self.segment1_point1_idx as usize],
+            variables[self.segment1_point1_idx as usize + 1],
+            variables[self.segment1_point2_idx as usize],
+            variables[self.segment1_point2_idx as usize + 1],
+            variables[self.segment2_point1_idx as usize],
+            variables[self.segment2_point1_idx as usize + 1],
+            variables[self.segment2_point2_idx as usize],
+            variables[self.segment2_point2_idx as usize + 1],
+        ])
+        .0
+    }
+
+    pub(crate) fn compute_residual_and_gradient(
+        &self,
+        subsystem: &Subsystem<'_>,
+        variables: &[f64],
+        residual: &mut f64,
+        gradient: &mut [f64],
+    ) {
+        let (r, g) = Self::compute_residual_and_gradient_(&[
+            variables[self.segment1_point1_idx as usize],
+            variables[self.segment1_point1_idx as usize + 1],
+            variables[self.segment1_point2_idx as usize],
+            variables[self.segment1_point2_idx as usize + 1],
+            variables[self.segment2_point1_idx as usize],
+            variables[self.segment2_point1_idx as usize + 1],
+            variables[self.segment2_point2_idx as usize],
+            variables[self.segment2_point2_idx as usize + 1],
+        ]);
+
+        *residual += r;
+
+        if let Some(idx) = subsystem.free_variable_index(self.segment1_point1_idx) {
+            gradient[idx as usize] += g[0];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.segment1_point1_idx + 1) {
+            gradient[idx as usize] += g[1];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.segment1_point2_idx) {
+            gradient[idx as usize] += g[2];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.segment1_point2_idx + 1) {
+            gradient[idx as usize] += g[3];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.segment2_point1_idx) {
+            gradient[idx as usize] += g[4];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.segment2_point1_idx + 1) {
+            gradient[idx as usize] += g[5];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.segment2_point2_idx) {
+            gradient[idx as usize] += g[6];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.segment2_point2_idx + 1) {
+            gradient[idx as usize] += g[7];
         }
     }
 }
