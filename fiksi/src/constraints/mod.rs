@@ -42,6 +42,9 @@ pub(crate) mod constraint {
         /// A handle to a [`SegmentSegmentLengthEquality`](super::SegmentSegmentLengthEquality) constraint.
         SegmentSegmentLengthEquality(ConstraintHandle<super::SegmentSegmentLengthEquality>),
 
+        /// A handle to a [`LineHorizontality`](super::LineHorizontality) constraint.
+        LineHorizontality(ConstraintHandle<super::LineHorizontality>),
+
         /// A handle to a [`LineLineAngle`](super::LineLineAngle) constraint.
         LineLineAngle(ConstraintHandle<super::LineLineAngle>),
 
@@ -193,6 +196,9 @@ pub(crate) mod constraint {
                         ConstraintHandle::from_ids(self.system_id, self.id),
                     )
                 }
+                ConstraintTag::LineHorizontality => TaggedConstraintHandle::LineHorizontality(
+                    ConstraintHandle::from_ids(self.system_id, self.id),
+                ),
                 ConstraintTag::LineLineAngle => TaggedConstraintHandle::LineLineAngle(
                     ConstraintHandle::from_ids(self.system_id, self.id),
                 ),
@@ -667,6 +673,47 @@ impl SegmentSegmentLengthEquality {
     }
 }
 
+/// Constrain a line to be horizontal, i.e., parallel to the X-axis).
+pub struct LineHorizontality {}
+
+impl sealed::ConstraintInner for LineHorizontality {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::LineHorizontality
+    }
+}
+
+impl LineHorizontality {
+    /// Construct a constraint on a line to be horizontal, i.e., parallel to the X-axis.
+    pub fn create(
+        system: &mut System,
+        line: ElementHandle<elements::Line>,
+    ) -> ConstraintHandle<Self> {
+        let &EncodedElement::Line {
+            point1_idx,
+            point2_idx,
+        } = &system.elements[line.id as usize]
+        else {
+            unreachable!()
+        };
+
+        system.graph.add_constraint(
+            1,
+            IncidentElements::from_array([
+                system.variable_to_primitive[point1_idx as usize],
+                system.variable_to_primitive[point2_idx as usize],
+            ]),
+        );
+        system.add_constraint(
+            ConstraintTag::LineHorizontality,
+            [expressions::VariableVariableEquality {
+                variable1_idx: point1_idx + 1,
+                variable2_idx: point2_idx + 1,
+            }
+            .into()],
+        )
+    }
+}
+
 /// Constrain two lines to describe a given angle.
 pub struct LineLineAngle {}
 
@@ -892,6 +939,7 @@ pub(crate) enum ConstraintTag {
     PointLineDistance,
     PointCircleIncidence,
     SegmentSegmentLengthEquality,
+    LineHorizontality,
     LineLineAngle,
     LineLineParallelism,
     LineLinePerpendicularity,
@@ -908,6 +956,7 @@ impl ConstraintTag {
             Self::PointLineDistance => PointLineDistance::VALENCY,
             Self::PointCircleIncidence => PointCircleIncidence::VALENCY,
             Self::SegmentSegmentLengthEquality => SegmentSegmentLengthEquality::VALENCY,
+            Self::LineHorizontality => LineHorizontality::VALENCY,
             Self::LineLineAngle => LineLineAngle::VALENCY,
             Self::LineLineParallelism => LineLineParallelism::VALENCY,
             Self::LineLinePerpendicularity => LineLinePerpendicularity::VALENCY,
@@ -961,6 +1010,10 @@ impl Constraint for PointCircleIncidence {
 }
 
 impl Constraint for SegmentSegmentLengthEquality {
+    const VALENCY: u8 = 1;
+}
+
+impl Constraint for LineHorizontality {
     const VALENCY: u8 = 1;
 }
 
