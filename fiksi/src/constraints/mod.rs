@@ -804,7 +804,7 @@ impl LineCircleTangency {
                 system.variable_to_primitive[line_point1_idx as usize],
                 system.variable_to_primitive[line_point2_idx as usize],
                 system.variable_to_primitive[circle_center_idx as usize],
-                circle.drop_system_id(),
+                system.variable_to_primitive[circle_radius_idx as usize],
             ]),
         );
         system.add_constraint(
