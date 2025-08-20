@@ -1,11 +1,6 @@
 [workspace]
 resolver = "2"
-members = [
-  "fiksi",
-  "fiksi_svg",
-  "examples/fiksi_svg_tests",
-  "examples/fiksi_toy",
-]
+members = ["fiksi", "fiksi_svg", "examples/fiksi_svg_tests", "examples/fiksi_toy"]
 
 [workspace.package]
 # Fiksi version, also used by other packages which want to mimic Fiksi's version.
