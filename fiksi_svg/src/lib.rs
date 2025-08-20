@@ -13,29 +13,36 @@
 #![cfg_attr(target_pointer_width = "64", warn(clippy::trivially_copy_pass_by_ref))]
 // END LINEBENDER LINT SET
 
-use std::{collections::HashMap, fmt::Write};
+use core::f64;
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Write,
+};
 
 pub use color;
 pub use fiksi;
 
-use color::{AlphaColor, ColorSpace, Rgba8, Srgb};
-use fiksi::{AnyElementHandle, Element, ElementHandle, System};
+use color::{AlphaColor, ColorSpace, Oklab};
+use fiksi::{
+    AnyElementHandle, Element, ElementHandle, System,
+    kurbo::{self, Shape},
+};
 
-const DEFAULT_ELEMENT_COLOR: Rgba8 = Rgba8::from_u8_array([0, 0, 0, u8::MAX]);
+const DEFAULT_ELEMENT_COLOR: AlphaColor<Oklab> = AlphaColor::<Oklab>::new([0., 0., 0., 1.]);
 
-/// An SVG builder for rendering [Fiksi systems](System) into an SVG.
+/// A Fiksi system renderer for rendering [Fiksi systems](System) into an SVG.
 #[derive(Debug)]
-pub struct SvgBuilder {
-    svg: String,
-    colors: HashMap<AnyElementHandle, Rgba8>,
+pub struct SystemRenderer {
+    colors: HashMap<AnyElementHandle, AlphaColor<Oklab>>,
+    hidden: HashSet<AnyElementHandle>,
 }
 
-impl SvgBuilder {
+impl SystemRenderer {
     /// Construct a new SVG builder, to build an SVG from [Fiksi systems](System).
     pub fn new() -> Self {
         Self {
-            svg: r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="-100 -100 200 200">"#.into(),
             colors: HashMap::new(),
+            hidden: HashSet::new(),
         }
     }
 
@@ -45,23 +52,60 @@ impl SvgBuilder {
         element: ElementHandle<T>,
         color: AlphaColor<CS>,
     ) {
-        let srgb = color.convert::<Srgb>().to_rgba8();
-        self.colors.insert(element.as_any_element(), srgb);
+        let ok = color.convert::<Oklab>();
+        self.colors.insert(element.as_any_element(), ok);
     }
 
-    /// Render the elements of the [Fiksi system](System) to the SVG.
-    pub fn add_system_snapshot(&mut self, system: &System) {
+    /// Hide element.
+    ///
+    /// The element doesn't get drawn, and doesn't get taken into account for viewbox calculation.
+    pub fn hide_element<T: Element>(&mut self, element: ElementHandle<T>) {
+        self.hidden.insert(element.as_any_element());
+    }
+
+    /// Render the elements of the [Fiksi system](System) to an SVG. The SVG is returned.
+    ///
+    /// - `viewbox` is the optional SVG viewbox to set. If not given, a bounding box is calculated
+    ///   from the system's elements.
+    /// - `stroke_width` is the width of strokes in the SVG.
+    pub fn render_system(
+        &mut self,
+        viewbox: Option<kurbo::Rect>,
+        stroke_width: f64,
+        system: &System,
+    ) -> String {
         use fiksi::ElementValue;
+
+        let mut bbox = kurbo::Rect::new(
+            f64::INFINITY,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NEG_INFINITY,
+        );
+
+        // Two layers of drawing (we want to position points on top of lines, for example).
+        let mut top = String::new();
+        let mut bottom = String::new();
+
         for handle in system.get_element_handles() {
+            if self.hidden.contains(&handle) {
+                continue;
+            }
+
             match handle.get_value(system) {
                 ElementValue::Point(point) => {
                     let color = self.colors.get(&handle).unwrap_or(&DEFAULT_ELEMENT_COLOR);
 
+                    bbox = bbox.union_pt(point);
                     write!(
-                        &mut self.svg,
-                        r#"<circle cx="{}" cy="{}" r="1" fill="{color:0X}" id="point-{}"/>"#,
+                        &mut top,
+                        r#"<circle cx="{}" cy="{}" r="{}" stroke="{:0X}" stroke-width="{}" fill="{:0X}" id="point-{}"/>"#,
                         point.x,
                         point.y,
+                        stroke_width,
+                        color.to_rgba8(),
+                        stroke_width * 0.25,
+                        color.map_lightness(|l| (l + 0.3).clamp(0., 1.)).to_rgba8(),
                         handle.as_id()
                     )
                     .unwrap();
@@ -69,35 +113,55 @@ impl SvgBuilder {
                 ElementValue::Line(line) => {
                     let color = self.colors.get(&handle).unwrap_or(&DEFAULT_ELEMENT_COLOR);
 
+                    bbox = bbox.union(line.bounding_box());
                     write!(
-                        &mut self.svg,
-                        r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{color:0X}" id="line-{}"/>"#,
+                        &mut bottom,
+                        r#"<line x1="{}" y1="{}" x2="{}" y2="{}" stroke="{:0X}" stroke-width="{}" id="line-{}"/>"#,
                         line.p0.x,
                         line.p0.y,
                         line.p1.x,
                         line.p1.y,
+                        color.to_rgba8(),
+                        stroke_width,
                         handle.as_id()
-                    ).unwrap();
+                    )
+                    .unwrap();
                 }
                 ElementValue::Circle(circle) => {
                     let color = self.colors.get(&handle).unwrap_or(&DEFAULT_ELEMENT_COLOR);
 
+                    bbox = bbox.union(circle.bounding_box());
                     write!(
-                        &mut self.svg,
-                        r#"<circle cx="{}" cy="{}" r="{}" stroke="{color:0X}" fill="none" id="circle-{}"/>"#,
+                        &mut bottom,
+                        r#"<circle cx="{}" cy="{}" r="{}" stroke="{:0X}" stroke-width="{}" fill="none" id="circle-{}"/>"#,
                         circle.center.x,
                         circle.center.y,
                         circle.radius,
+                        color.to_rgba8(),
+                        stroke_width,
                         handle.as_id()
                     ).unwrap();
                 }
             }
         }
-    }
 
-    /// Get the SVG.
-    pub fn finish(mut self) -> String {
-        write!(&mut self.svg, "</svg>").unwrap();
-        self.svg
+        let inflate = bbox.width().max(bbox.height()) * 0.1;
+        bbox = bbox.inflate(inflate, inflate);
+        let viewbox = viewbox.unwrap_or(bbox);
+        format!(
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"{} {} {} {}\">{}{}</svg>",
+            viewbox.x0,
+            viewbox.y0,
+            viewbox.width(),
+            viewbox.height(),
+            bottom,
+            top,
+        )
+    }
+}
+
+impl Default for SystemRenderer {
+    fn default() -> Self {
+        Self::new()
     }
 }
