@@ -338,31 +338,30 @@ impl PointLineIncidence {
     // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
     #[inline(always)]
     fn compute_residual_and_gradient_(variables: &[f64; 6]) -> (f64, [f64; 6]) {
-        let point1 = kurbo::Point {
+        let point = kurbo::Point {
             x: variables[0],
             y: variables[1],
         };
-        let point2 = kurbo::Point {
+        let line_point1 = kurbo::Point {
             x: variables[2],
             y: variables[3],
         };
-        let point3 = kurbo::Point {
+        let line_point2 = kurbo::Point {
             x: variables[4],
             y: variables[5],
         };
 
-        // For collinear points, the triangle defined by those points has area 0.
-        let residual = point1.x * (point2.y - point3.y)
-            + point2.x * (point3.y - point1.y)
-            + point3.x * (point1.y - point2.y);
+        let u = line_point2 - line_point1;
+        let v = point - line_point1;
+        let residual = u.cross(v);
 
         let gradient = [
-            point2.y - point3.y,
-            -point2.x + point3.x,
-            point3.y - point1.y,
-            point1.x - point3.x,
-            point1.y - point2.y,
-            -point1.x + point2.x,
+            -u.y,
+            u.x,
+            -point.y + line_point2.y,
+            point.x - line_point2.x,
+            v.y,
+            -v.x,
         ];
 
         (residual, gradient)
