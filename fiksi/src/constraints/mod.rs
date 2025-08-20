@@ -831,3 +831,59 @@ impl Constraint for LineLineParallelism {
 impl Constraint for LineCircleTangency {
     const VALENCY: u8 = 1;
 }
+
+impl ConstraintHandle<PointPointDistance> {
+    /// Update the target distance of this point-point distance constraint.
+    pub fn update_parameter(self, system: &mut System, distance: f64) {
+        let constraint = &system.constraints[self.id as usize];
+        let expressions::Expression::PointPointDistance(expression) =
+            &mut system.expressions[constraint.expressions_idx as usize]
+        else {
+            unreachable!()
+        };
+
+        expression.distance = distance;
+    }
+}
+
+impl ConstraintHandle<PointPointPointAngle> {
+    /// Update the target angle of this point-point-point angle constraint.
+    pub fn update_parameter(self, system: &mut System, angle: f64) {
+        let constraint = &system.constraints[self.id as usize];
+        let expressions::Expression::PointPointPointAngle(expression) =
+            &mut system.expressions[constraint.expressions_idx as usize]
+        else {
+            unreachable!()
+        };
+
+        expression.angle = angle;
+    }
+}
+
+impl ConstraintHandle<PointLineDistance> {
+    /// Update the target distance of this point-line distance constraint.
+    pub fn update_parameter(self, system: &mut System, distance: f64) {
+        let constraint = &system.constraints[self.id as usize];
+        let expressions::Expression::PointLineDistance(expression) =
+            &mut system.expressions[constraint.expressions_idx as usize]
+        else {
+            unreachable!()
+        };
+
+        expression.distance = distance;
+    }
+}
+
+impl ConstraintHandle<LineLineAngle> {
+    /// Update the target angle of this line-line angle constraint.
+    pub fn update_parameter(self, system: &mut System, angle: f64) {
+        let constraint = &system.constraints[self.id as usize];
+        let expressions::Expression::LineLineAngle(expression) =
+            &mut system.expressions[constraint.expressions_idx as usize]
+        else {
+            unreachable!()
+        };
+
+        expression.angle = angle;
+    }
+}
