@@ -39,7 +39,7 @@ pub(crate) mod constraint {
         /// A handle to a [`PointCircleIncidence`](super::PointCircleIncidence) constraint.
         PointCircleIncidence(ConstraintHandle<super::PointCircleIncidence>),
 
-        /// A handle to a [`SegmentLengthEquality`](super::SegmentLengthEquality) constraint.
+        /// A handle to a [`SegmentSegmentLengthEquality`](super::SegmentSegmentLengthEquality) constraint.
         SegmentSegmentLengthEquality(ConstraintHandle<super::SegmentSegmentLengthEquality>),
 
         /// A handle to a [`LineLineAngle`](super::LineLineAngle) constraint.
@@ -185,7 +185,7 @@ pub(crate) mod constraint {
                         self.id,
                     ))
                 }
-                ConstraintTag::SegmentLengthEquality => {
+                ConstraintTag::SegmentSegmentLengthEquality => {
                     TaggedConstraintHandle::SegmentSegmentLengthEquality(
                         ConstraintHandle::from_ids(self.system_id, self.id),
                     )
@@ -597,7 +597,7 @@ pub struct SegmentSegmentLengthEquality {}
 
 impl sealed::ConstraintInner for SegmentSegmentLengthEquality {
     fn tag() -> ConstraintTag {
-        ConstraintTag::SegmentLengthEquality
+        ConstraintTag::SegmentSegmentLengthEquality
     }
 }
 
@@ -646,7 +646,7 @@ impl SegmentSegmentLengthEquality {
             ]),
         );
         system.add_constraint(
-            ConstraintTag::SegmentLengthEquality,
+            ConstraintTag::SegmentSegmentLengthEquality,
             [expressions::SegmentSegmentLengthEquality {
                 segment1_point1_idx,
                 segment1_point2_idx,
@@ -829,7 +829,7 @@ pub(crate) enum ConstraintTag {
     PointLineIncidence,
     PointLineDistance,
     PointCircleIncidence,
-    SegmentLengthEquality,
+    SegmentSegmentLengthEquality,
     LineLineAngle,
     LineLineParallelism,
     LineCircleTangency,
@@ -844,7 +844,7 @@ impl ConstraintTag {
             Self::PointLineIncidence => PointLineIncidence::VALENCY,
             Self::PointLineDistance => PointLineDistance::VALENCY,
             Self::PointCircleIncidence => PointCircleIncidence::VALENCY,
-            Self::SegmentLengthEquality => SegmentSegmentLengthEquality::VALENCY,
+            Self::SegmentSegmentLengthEquality => SegmentSegmentLengthEquality::VALENCY,
             Self::LineLineAngle => LineLineAngle::VALENCY,
             Self::LineLineParallelism => LineLineParallelism::VALENCY,
             Self::LineCircleTangency => LineCircleTangency::VALENCY,
