@@ -35,6 +35,135 @@ pub(crate) enum Expression {
     LineCircleTangency(LineCircleTangency),
 }
 
+impl Expression {
+    /// Get the indices of variables affecting this expression.
+    ///
+    /// Note the size of the const-sized mutable array parameter may change when expression
+    /// variants are added.
+    #[inline]
+    pub(crate) fn variable_indices<'b>(&self, variables: &'b mut [u32; 8]) -> &'b mut [u32] {
+        match self {
+            Self::VariableVariableEquality(e) => {
+                let v = [e.variable1_idx, e.variable2_idx];
+                variables[..v.len()].copy_from_slice(&v);
+                &mut variables[..v.len()]
+            }
+            Self::PointPointDistance(e) => {
+                let v = [
+                    e.point1_idx,
+                    e.point1_idx + 1,
+                    e.point2_idx,
+                    e.point2_idx + 1,
+                ];
+                variables[..v.len()].copy_from_slice(&v);
+                &mut variables[..v.len()]
+            }
+            Self::PointPointPointAngle(e) => {
+                let v = [
+                    e.point1_idx,
+                    e.point1_idx + 1,
+                    e.point2_idx,
+                    e.point2_idx + 1,
+                    e.point3_idx,
+                    e.point3_idx + 1,
+                ];
+                variables[..v.len()].copy_from_slice(&v);
+                &mut variables[..v.len()]
+            }
+            Self::PointLineIncidence(e) => {
+                let v = [
+                    e.point_idx,
+                    e.point_idx + 1,
+                    e.line_point1_idx,
+                    e.line_point1_idx + 1,
+                    e.line_point2_idx,
+                    e.line_point2_idx + 1,
+                ];
+                variables[..v.len()].copy_from_slice(&v);
+                &mut variables[..v.len()]
+            }
+            Self::PointLineDistance(e) => {
+                let v = [
+                    e.point_idx,
+                    e.point_idx + 1,
+                    e.line_point1_idx,
+                    e.line_point1_idx + 1,
+                    e.line_point2_idx,
+                    e.line_point2_idx + 1,
+                ];
+                variables[..v.len()].copy_from_slice(&v);
+                &mut variables[..v.len()]
+            }
+            Self::PointCircleIncidence(e) => {
+                let v = [
+                    e.point_idx,
+                    e.point_idx + 1,
+                    e.circle_center_idx,
+                    e.circle_center_idx + 1,
+                    e.circle_radius_idx,
+                ];
+                variables[..v.len()].copy_from_slice(&v);
+                &mut variables[..v.len()]
+            }
+            Self::SegmentSegmentLengthEquality(e) => {
+                let v = [
+                    e.segment1_point1_idx,
+                    e.segment1_point1_idx + 1,
+                    e.segment1_point2_idx,
+                    e.segment1_point2_idx + 1,
+                    e.segment2_point1_idx,
+                    e.segment2_point1_idx + 1,
+                    e.segment2_point2_idx,
+                    e.segment2_point2_idx + 1,
+                ];
+                variables[..v.len()].copy_from_slice(&v);
+                &mut variables[..v.len()]
+            }
+            Self::LineLineAngle(e) => {
+                let v = [
+                    e.line1_point1_idx,
+                    e.line1_point1_idx + 1,
+                    e.line1_point2_idx,
+                    e.line1_point2_idx + 1,
+                    e.line2_point1_idx,
+                    e.line2_point1_idx + 1,
+                    e.line2_point2_idx,
+                    e.line2_point2_idx + 1,
+                ];
+                variables[..v.len()].copy_from_slice(&v);
+                &mut variables[..v.len()]
+            }
+            Self::LineLineParallelism(e) => {
+                let v = [
+                    e.line1_point1_idx,
+                    e.line1_point1_idx + 1,
+                    e.line1_point2_idx,
+                    e.line1_point2_idx + 1,
+                    e.line2_point1_idx,
+                    e.line2_point1_idx + 1,
+                    e.line2_point2_idx,
+                    e.line2_point2_idx + 1,
+                ];
+                variables[..v.len()].copy_from_slice(&v);
+                &mut variables[..v.len()]
+            }
+            Self::LineCircleTangency(e) => {
+                let v = [
+                    e.line_point1_idx,
+                    e.line_point1_idx + 1,
+                    e.line_point2_idx,
+                    e.line_point2_idx + 1,
+                    e.circle_center_idx,
+                    e.circle_center_idx + 1,
+                    e.circle_radius_idx,
+                ];
+                variables[..v.len()].copy_from_slice(&v);
+                &mut variables[..v.len()]
+            }
+        }
+    }
+}
+
 pub(crate) struct VariableVariableEquality {
     pub(crate) variable1_idx: u32,
     pub(crate) variable2_idx: u32,

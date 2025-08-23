@@ -102,7 +102,7 @@ pub use elements::{
 pub(crate) use rand::Rng;
 pub(crate) use subsystem::Subsystem;
 
-use crate::{analyze::graph::RecombinationPlan, constraints::ConstraintTag, graph::Graph};
+use crate::{analyze::graph::equations::ExpressionGraph, constraints::ConstraintTag, graph::Graph};
 
 /// These are the geometric elements of the constraint system.
 ///
@@ -218,7 +218,10 @@ impl SolveSet {
 pub struct System {
     id: u32,
 
+    /// Geometric element graph.
     graph: Graph,
+    /// Bipartite equation graph.
+    equation_graph: ExpressionGraph,
 
     /// Geometric elements.
     elements: Vec<EncodedElement>,
@@ -252,6 +255,7 @@ impl System {
         Self {
             id,
             graph: Graph::new(),
+            equation_graph: ExpressionGraph::new(),
             elements: vec![],
             variables: vec![],
             variable_to_primitive: vec![],
@@ -350,6 +354,7 @@ impl System {
             .expect("less than 2^32 variables");
         if N > 0 {
             self.variables.extend_from_slice(&variables);
+            self.equation_graph.insert_variables::<N>();
             self.variable_to_primitive
                 .extend((0..N).map(|_| element_handle.drop_system_id()));
         }
@@ -385,8 +390,16 @@ impl System {
             tag,
             expressions_idx,
         });
-        self.expressions.extend(expressions);
-        for _ in 0..self.expressions.len() - expressions_idx as usize {
+
+        let mut variable_indices = [0; 8];
+        for expression in expressions.into_iter() {
+            self.equation_graph.insert_expression(
+                expression
+                    .variable_indices(&mut variable_indices)
+                    .iter()
+                    .copied(),
+            );
+            self.expressions.push(expression);
             self.expression_to_constraint.push(ConstraintId { id });
         }
 
@@ -537,61 +550,72 @@ impl System {
                 )
             };
 
-            let recombination_plan = if opts.decompose {
-                analyze::graph::decompose::<3>(
-                    self.graph.clone(),
-                    elements.iter().copied(),
-                    constraints.iter().copied(),
-                )
+            if elements.is_empty() {
+                continue;
+            }
+
+            let mut free_variables = BTreeSet::<u32>::new();
+            for element_id in &elements {
+                let element = &self.elements[element_id.id as usize];
+                match element {
+                    EncodedElement::Length { idx } => {
+                        free_variables.extend(&[*idx]);
+                    }
+                    EncodedElement::Point { idx } => {
+                        free_variables.extend(&[*idx, *idx + 1]);
+                    }
+                    EncodedElement::Line {
+                        point1_idx,
+                        point2_idx,
+                    } => {
+                        free_variables.extend(&[
+                            *point1_idx,
+                            *point1_idx + 1,
+                            *point2_idx,
+                            *point2_idx + 1,
+                        ]);
+                    }
+                    EncodedElement::Circle {
+                        center_idx,
+                        radius_idx,
+                    } => {
+                        free_variables.extend(&[*center_idx, *center_idx + 1, *radius_idx]);
+                    }
+                }
+            }
+
+            if opts.perturb {
+                for free_variable in free_variables.iter().copied() {
+                    let variable = &mut self.variables[free_variable as usize];
+                    // TODO: the scale-independent perturbation here should be revisited. See
+                    // also https://github.com/endoli/fiksi/pull/41#discussion_r2234008761.
+                    *variable +=
+                        *variable * (1. / 8196.) * rng.next_f64() + (1. / 65568.) * rng.next_f64();
+                }
+            }
+
+            if opts.decompose {
+                for scc in self
+                    .equation_graph
+                    .find_strongly_connected_expressions(&free_variables)
+                {
+                    let subsystem =
+                        Subsystem::new(&self.expressions, scc.free_variables, scc.expressions);
+
+                    match opts.optimizer {
+                        solve::Optimizer::LevenbergMarquardt => {
+                            crate::solve::levenberg_marquardt(&mut self.variables, &subsystem);
+                        }
+                        solve::Optimizer::LBfgs => {
+                            crate::solve::lbfgs(&mut self.variables, &subsystem);
+                        }
+                    }
+                }
             } else {
-                RecombinationPlan::single(elements, constraints)
-            };
-
-            for step in recombination_plan.steps() {
-                let mut free_variables: Vec<u32> = vec![];
-                for element_id in step.fixes_elements() {
-                    let element = &self.elements[element_id.id as usize];
-                    match element {
-                        EncodedElement::Length { idx } => {
-                            free_variables.extend(&[*idx]);
-                        }
-                        EncodedElement::Point { idx } => {
-                            free_variables.extend(&[*idx, *idx + 1]);
-                        }
-                        EncodedElement::Line {
-                            point1_idx,
-                            point2_idx,
-                        } => {
-                            free_variables.extend(&[
-                                *point1_idx,
-                                *point1_idx + 1,
-                                *point2_idx,
-                                *point2_idx + 1,
-                            ]);
-                        }
-                        EncodedElement::Circle {
-                            center_idx,
-                            radius_idx,
-                        } => {
-                            free_variables.extend(&[*center_idx, *center_idx + 1, *radius_idx]);
-                        }
-                    }
-                }
-
-                if opts.perturb {
-                    for free_variable in free_variables.iter().copied() {
-                        let variable = &mut self.variables[free_variable as usize];
-                        // TODO: the scale-independent perturbation here should be revisited. See
-                        // also https://github.com/endoli/fiksi/pull/41#discussion_r2234008761.
-                        *variable += *variable * (1. / 8196.) * rng.next_f64()
-                            + (1. / 65568.) * rng.next_f64();
-                    }
-                }
-
                 let subsystem = Subsystem::new(
                     &self.expressions,
                     free_variables,
-                    step.constraints()
+                    constraints
                         .iter()
                         .flat_map(|c| {
                             let constraint = &self.constraints[c.id as usize];
