@@ -142,6 +142,9 @@ impl SystemRenderer {
                         handle.as_id()
                     ).unwrap();
                 }
+                ElementValue::Length(_) => {
+                    // no-op
+                }
             }
         }
 

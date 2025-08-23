@@ -26,7 +26,8 @@ fn circle_triangle_line() -> std::io::Result<()> {
     let triangle_side3 = elements::Line::create(&mut s, p1, p3);
 
     // A circle coincident with one of the triangle corners.
-    let circle = elements::Circle::create(&mut s, p3, 5.);
+    let radius = elements::Length::create(&mut s, 5.);
+    let circle = elements::Circle::create(&mut s, p3, radius);
     // The (boundless) line representing the opposite triangle side must be tangent on the circle.
     constraints::LineCircleTangency::create(&mut s, triangle_side1, circle);
 
