@@ -128,7 +128,9 @@ fn triangle_inscribed_circle() {
     let line0 = elements::Line::create(&mut s, p0, p1);
     let line1 = elements::Line::create(&mut s, p0, p2);
     let line2 = elements::Line::create(&mut s, p1, p2);
-    let circle = elements::Circle::create(&mut s, p3, 1.);
+
+    let circle_radius = elements::Length::create(&mut s, 1.);
+    let circle = elements::Circle::create(&mut s, p3, circle_radius);
 
     constraints::LineCircleTangency::create(&mut s, line0, circle);
     constraints::LineCircleTangency::create(&mut s, line1, circle);
