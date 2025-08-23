@@ -39,6 +39,9 @@ pub(crate) mod constraint {
         /// A handle to a [`PointCircleIncidence`](super::PointCircleIncidence) constraint.
         PointCircleIncidence(ConstraintHandle<super::PointCircleIncidence>),
 
+        /// A handle to a [`SegmentSegmentLengthEquality`](super::SegmentSegmentLengthEquality) constraint.
+        SegmentSegmentLengthEquality(ConstraintHandle<super::SegmentSegmentLengthEquality>),
+
         /// A handle to a [`LineLineAngle`](super::LineLineAngle) constraint.
         LineLineAngle(ConstraintHandle<super::LineLineAngle>),
 
@@ -181,6 +184,11 @@ pub(crate) mod constraint {
                         self.system_id,
                         self.id,
                     ))
+                }
+                ConstraintTag::SegmentSegmentLengthEquality => {
+                    TaggedConstraintHandle::SegmentSegmentLengthEquality(
+                        ConstraintHandle::from_ids(self.system_id, self.id),
+                    )
                 }
                 ConstraintTag::LineLineAngle => TaggedConstraintHandle::LineLineAngle(
                     ConstraintHandle::from_ids(self.system_id, self.id),
@@ -584,6 +592,72 @@ impl PointCircleIncidence {
     }
 }
 
+/// Constrain two segments (defined by two points each) to have equal length.
+pub struct SegmentSegmentLengthEquality {}
+
+impl sealed::ConstraintInner for SegmentSegmentLengthEquality {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::SegmentSegmentLengthEquality
+    }
+}
+
+impl SegmentSegmentLengthEquality {
+    /// Construct a constraint between two pairs of points such that the segments defined by the
+    /// each point pair have equal length.
+    pub fn create(
+        system: &mut System,
+        segment1_point1: ElementHandle<elements::Point>,
+        segment1_point2: ElementHandle<elements::Point>,
+        segment2_point1: ElementHandle<elements::Point>,
+        segment2_point2: ElementHandle<elements::Point>,
+    ) -> ConstraintHandle<Self> {
+        let &EncodedElement::Point {
+            idx: segment1_point1_idx,
+        } = &system.elements[segment1_point1.id as usize]
+        else {
+            unreachable!()
+        };
+        let &EncodedElement::Point {
+            idx: segment1_point2_idx,
+        } = &system.elements[segment1_point2.id as usize]
+        else {
+            unreachable!()
+        };
+        let &EncodedElement::Point {
+            idx: segment2_point1_idx,
+        } = &system.elements[segment2_point1.id as usize]
+        else {
+            unreachable!()
+        };
+        let &EncodedElement::Point {
+            idx: segment2_point2_idx,
+        } = &system.elements[segment2_point2.id as usize]
+        else {
+            unreachable!()
+        };
+
+        system.graph.add_constraint(
+            1,
+            IncidentElements::from_array([
+                system.variable_to_primitive[segment1_point1_idx as usize],
+                system.variable_to_primitive[segment1_point2_idx as usize],
+                system.variable_to_primitive[segment2_point1_idx as usize],
+                system.variable_to_primitive[segment2_point2_idx as usize],
+            ]),
+        );
+        system.add_constraint(
+            ConstraintTag::SegmentSegmentLengthEquality,
+            [expressions::SegmentSegmentLengthEquality {
+                segment1_point1_idx,
+                segment1_point2_idx,
+                segment2_point1_idx,
+                segment2_point2_idx,
+            }
+            .into()],
+        )
+    }
+}
+
 /// Constrain two lines to describe a given angle.
 pub struct LineLineAngle {}
 
@@ -755,6 +829,7 @@ pub(crate) enum ConstraintTag {
     PointLineIncidence,
     PointLineDistance,
     PointCircleIncidence,
+    SegmentSegmentLengthEquality,
     LineLineAngle,
     LineLineParallelism,
     LineCircleTangency,
@@ -769,6 +844,7 @@ impl ConstraintTag {
             Self::PointLineIncidence => PointLineIncidence::VALENCY,
             Self::PointLineDistance => PointLineDistance::VALENCY,
             Self::PointCircleIncidence => PointCircleIncidence::VALENCY,
+            Self::SegmentSegmentLengthEquality => SegmentSegmentLengthEquality::VALENCY,
             Self::LineLineAngle => LineLineAngle::VALENCY,
             Self::LineLineParallelism => LineLineParallelism::VALENCY,
             Self::LineCircleTangency => LineCircleTangency::VALENCY,
@@ -817,6 +893,10 @@ impl Constraint for PointLineDistance {
 }
 
 impl Constraint for PointCircleIncidence {
+    const VALENCY: u8 = 1;
+}
+
+impl Constraint for SegmentSegmentLengthEquality {
     const VALENCY: u8 = 1;
 }
 
