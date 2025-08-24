@@ -216,16 +216,28 @@ impl SolveSet {
 /// (sub)systems using [`System::solve`].
 pub struct System {
     id: u32,
+
     graph: Graph,
+
     /// Geometric elements.
     elements: Vec<EncodedElement>,
+    /// The variables of the geometric elements, such as point coordinates.
+    ///
+    /// Note that elements have one or more variables.
+    variables: Vec<f64>,
+    /// Mapping from variables back to the primitive geometric element that it belongs to.
+    variable_to_primitive: Vec<ElementId>,
+
     /// Constraints between geometric elements.
     constraints: Vec<EncodedConstraint>,
+    /// The expressions of the constraints, such as point-point distance.
+    ///
+    /// Note that each constraint can encode one or more expressions (see also
+    /// [`Constraint::VALENCY`]).
     expressions: Vec<Expression>,
+    /// Mapping from expressions back to the constraint it belongs to.
     expression_to_constraint: Vec<ConstraintId>,
-    /// The variables of the geometric elements, such as point coordinates.
-    variables: Vec<f64>,
-    variable_to_primitive: Vec<ElementId>,
+
     /// The sets of elements and constraints that can be solved for.
     solve_sets: Vec<SolveSet>,
 }
@@ -239,9 +251,9 @@ impl System {
         Self {
             id,
             graph: Graph::new(),
+            elements: vec![],
             variables: vec![],
             variable_to_primitive: vec![],
-            elements: vec![],
             constraints: vec![],
             expressions: vec![],
             expression_to_constraint: vec![],
