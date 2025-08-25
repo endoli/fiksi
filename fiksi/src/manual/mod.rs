@@ -83,6 +83,40 @@
 //! [llp]: `constraints::LineLineParallelism`
 //! [lct]: `constraints::LineCircleTangency`
 //!
+//! ## Decomposition
+//!
+//! General geometric constraint systems cannot be solved algebraically, and need to be solved
+//! iteratively through numeric optimization. Generally, larger systems are harder to optimize, and
+//! more often fail to converge. It is therefore useful to decompose systems into smaller systems
+//! that can be solved separately.
+//!
+//! Geometric constraint systems can be represented as systems of equations. The equations in
+//! general are non-linear. These systems of equations can be seen as a bipartite graph with the
+//! free variables being one set of vertices and the equations the other set. Edges between
+//! variables and equations encode which variables are inputs to which equations. For more
+//! information, see, e.g., Chapter 4, Graph Representation of Constraint Networks, in "Constraint
+//! Management in Conceptual Design" by David Serrano (1982). Fiksi currently implements a
+//! decomposition based on systems of equations.
+//!
+//! By finding a [maximum cardinality matching][matching] on this bipartite graph, we find a
+//! possible assignment of which equations calculate which variables. Additionally, we can use this
+//! maximum matching to define a directionality on edges: all edges point from variables to
+//! equations; further, if a variable and equation are matched in the maximum matching, their edge
+//! is bidirectional; and if a variable is unsaturated (non of its edges are matched), all its
+//! edges are bidirectional.
+//!
+//! By finding strongly connected components (e.g., using [Tarjan's algorithm][tarjan]), we can
+//! find sets of equations and free variables that must be solved together, as well as a partial
+//! ordering between those components.
+//!
+//! While this is a general approach to decomposition, its application to geometric constraint
+//! solving poses a challenge: as we consider unmatched free variables' edges to be bidirectional,
+//! under-constrained systems are not easily decomposed. Note that unanchored but otherwise rigid
+//! systems will have three unmatched free variables.
+//!
+//! [matching]: <https://en.wikipedia.org/wiki/Maximum_cardinality_matching>
+//! [tarjan]: <https://en.wikipedia.org/wiki/Tarjan's_strongly_connected_components_algorithm>
+//!
 //! ## Three dimensions
 //!
 //! It is possible to extend Fiksi to 3D, as the theory is mostly analogous. 2D-in-3D geometry
