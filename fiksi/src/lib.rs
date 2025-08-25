@@ -76,6 +76,7 @@ pub use kurbo;
 pub mod manual;
 
 mod analyze;
+pub(crate) mod collections;
 pub mod constraints;
 pub mod elements;
 pub(crate) mod graph;
