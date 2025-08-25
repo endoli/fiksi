@@ -94,15 +94,16 @@
 //! general are non-linear. These systems of equations can be seen as a bipartite graph with the
 //! free variables being one set of vertices and the equations the other set. Edges between
 //! variables and equations encode which variables are inputs to which equations. For more
-//! information, see, e.g., Chapter 4, Graph Representation of Constraint Networks in "Constraint
+//! information, see, e.g., Chapter 4, Graph Representation of Constraint Networks, in "Constraint
 //! Management in Conceptual Design" by David Serrano (1982). Fiksi currently implements a
 //! decomposition based on systems of equations.
 //!
 //! By finding a [maximum cardinality matching][matching] on this bipartite graph, we find a
-//! possible order in which equations fix variables. We can use this maximum matching to define a
-//! directionality on edges: all edges point from variables to equations; further, if a variable
-//! and equation are matched in the maximum matching, their edge is bidirectional; and if a
-//! variable is unsaturated (non of its edges are matched), all its edges are bidirectional.
+//! possible assignment of which equations calculate which variables. Additionally, we can use this
+//! maximum matching to define a directionality on edges: all edges point from variables to
+//! equations; further, if a variable and equation are matched in the maximum matching, their edge
+//! is bidirectional; and if a variable is unsaturated (non of its edges are matched), all its
+//! edges are bidirectional.
 //!
 //! By finding strongly connected components (e.g., using [Tarjan's algorithm][tarjan]), we can
 //! find sets of equations and free variables that must be solved together, as well as a partial
