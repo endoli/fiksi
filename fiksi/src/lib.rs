@@ -458,20 +458,29 @@ impl System {
         for element_id in &elements {
             let element = &self.elements[element_id.id as usize];
             match element {
-                EncodedElement::Point { idx } => {
-                    free_variables.extend(&[*idx, *idx + 1]);
-                }
                 EncodedElement::Length { idx } => {
                     free_variables.extend(&[*idx]);
                 }
-                // In the current setup, not all vertices in the set contribute free variables.
-                // E.g. `EncodedElement::Line` only refers to existing points, meaning it does not
-                // contribute its own free variables. `EncodedElement::Circle` refers to a point,
-                // but contributes its radius as free variable.
-                EncodedElement::Circle { radius_idx, .. } => {
-                    free_variables.extend(&[*radius_idx]);
+                EncodedElement::Point { idx } => {
+                    free_variables.extend(&[*idx, *idx + 1]);
                 }
-                _ => {}
+                EncodedElement::Line {
+                    point1_idx,
+                    point2_idx,
+                } => {
+                    free_variables.extend(&[
+                        *point1_idx,
+                        *point1_idx + 1,
+                        *point2_idx,
+                        *point2_idx + 1,
+                    ]);
+                }
+                EncodedElement::Circle {
+                    center_idx,
+                    radius_idx,
+                } => {
+                    free_variables.extend(&[*center_idx, *center_idx + 1, *radius_idx]);
+                }
             }
         }
 
@@ -542,21 +551,29 @@ impl System {
                 for element_id in step.fixes_elements() {
                     let element = &self.elements[element_id.id as usize];
                     match element {
-                        EncodedElement::Point { idx } => {
-                            free_variables.extend(&[*idx, *idx + 1]);
-                        }
                         EncodedElement::Length { idx } => {
                             free_variables.extend(&[*idx]);
                         }
-                        // In the current setup, not all vertices in the set contribute free
-                        // variables. E.g. `EncodedElement::Line` only refers to existing points,
-                        // meaning it does not contribute its own free variables.
-                        // `EncodedElement::Circle` refers to a point, but contributes its radius
-                        // as free variable.
-                        EncodedElement::Circle { radius_idx, .. } => {
-                            free_variables.extend(&[*radius_idx]);
+                        EncodedElement::Point { idx } => {
+                            free_variables.extend(&[*idx, *idx + 1]);
                         }
-                        _ => {}
+                        EncodedElement::Line {
+                            point1_idx,
+                            point2_idx,
+                        } => {
+                            free_variables.extend(&[
+                                *point1_idx,
+                                *point1_idx + 1,
+                                *point2_idx,
+                                *point2_idx + 1,
+                            ]);
+                        }
+                        EncodedElement::Circle {
+                            center_idx,
+                            radius_idx,
+                        } => {
+                            free_variables.extend(&[*center_idx, *center_idx + 1, *radius_idx]);
+                        }
                     }
                 }
 
