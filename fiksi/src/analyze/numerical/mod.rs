@@ -5,7 +5,7 @@ use alloc::{vec, vec::Vec};
 
 use nalgebra::DMatrix;
 
-use crate::{AnyConstraintHandle, Subsystem, System, utils};
+use crate::{AnyConstraintHandle, System, VariableMap, collections::IndexSet};
 
 const EPSILON: f64 = 1e-8;
 
@@ -112,29 +112,35 @@ pub(crate) fn incremental_gauss_jordan_elimination(
 ///
 /// Note if, e.g., two distance constraints together cause the system to be overconstrained, either
 /// one of those could be designated as causing the system to become overconstrained.
-pub(crate) fn find_overconstraints(
-    system: &System,
-    subsystem: &Subsystem<'_>,
-) -> Vec<AnyConstraintHandle> {
+pub(crate) fn find_overconstraints(system: &System) -> Vec<AnyConstraintHandle> {
+    // TODO: this currently assumes all variables are free.
+
     // The (non-squared) residuals of the constraints' expressions.
-    let mut residuals = vec![0.; subsystem.expressions().len()];
+    let mut residuals = vec![0.; system.expressions.len()];
     // All first-order partial derivatives of the constraints' expressions, as expressions x free
     // variables. This is in row-major order.
-    let mut jacobian = vec![0.; subsystem.expressions().len() * subsystem.free_variables().len()];
-    utils::calculate_residuals_and_jacobian(
-        subsystem,
-        &system.variables,
-        &mut residuals,
-        &mut jacobian,
-    );
+    let mut jacobian = vec![0.; system.expressions.len() * system.variables.len()];
 
-    let mut jacobian_ = nalgebra::DMatrix::zeros(
-        subsystem.expressions().len(),
-        subsystem.free_variables().len(),
-    );
-    for i in 0..subsystem.expressions().len() {
-        for j in 0..subsystem.free_variables().len() {
-            jacobian_[(i, j)] = jacobian[i * subsystem.free_variables().len() + j];
+    // All variables are free.
+    #[expect(
+        clippy::cast_possible_truncation,
+        reason = "We don't allow this many variables."
+    )]
+    let variable_map = VariableMap {
+        free_variables: &IndexSet::from_iter(0..system.variables.len() as u32),
+        variable_values: &system.variables,
+        free_variable_values: &system.variables,
+    };
+    for (row, expression) in system.expressions.iter().enumerate() {
+        let gradient =
+            &mut jacobian[row * system.variables.len()..(row + 1) * system.variables.len()];
+        residuals[row] = expression.calculate_residual_and_gradient(variable_map, gradient);
+    }
+
+    let mut jacobian_ = nalgebra::DMatrix::zeros(system.expressions.len(), system.variables.len());
+    for i in 0..system.expressions.len() {
+        for j in 0..system.variables.len() {
+            jacobian_[(i, j)] = jacobian[i * system.variables.len() + j];
         }
     }
 
@@ -145,11 +151,7 @@ pub(crate) fn find_overconstraints(
     let mut dependent = vec![];
     for (expression_idx, independent) in independent_expressions.iter().enumerate() {
         if !independent {
-            let expression = subsystem
-                .expression_ids()
-                .nth(expression_idx)
-                .expect("expression is present");
-            let constraint = system.expression_to_constraint[expression as usize];
+            let constraint = system.expression_to_constraint[expression_idx];
             dependent.push(AnyConstraintHandle::from_ids_and_tag(
                 system.id,
                 constraint.id,

@@ -104,7 +104,7 @@ fn overconstrained() {
     constraints::PointPointDistance::create(&mut s, p1, p2, 2.);
     let p0p3 = constraints::PointPointDistance::create(&mut s, p0, p3, 5.);
 
-    let analysis = s.analyze(None);
+    let analysis = s.analyze();
     // Note we don't guarantee a specific ordering in which a constraint is designated as
     // causing overconstrainedness. Currently it's always the constraint that was added later,
     // though.

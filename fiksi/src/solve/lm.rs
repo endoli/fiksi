@@ -8,44 +8,45 @@ use alloc::vec;
 #[cfg(not(feature = "std"))]
 use crate::floatfuncs::FloatFuncs;
 
-use crate::{
-    Subsystem,
-    utils::{calculate_residuals, calculate_residuals_and_jacobian},
-};
+use super::Problem;
 
 /// The Levenberg-Marquardt solver.
 ///
-/// Solve for the free variables in `variables` minimizing the residuals of the expressions in the
-/// subsystem. The variables given by the elements in `element_set` are seen as free, other
-/// variables are seen as fixed parameters.
-pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'_>) {
+/// Solve for the free variables in `variables` minimizing the residuals in the [problem](Problem).
+pub(crate) fn levenberg_marquardt_<P: Problem>(problem: &mut P, variables: &mut [f64]) {
+    debug_assert_eq!(
+        problem.num_variables() as usize,
+        variables.len(),
+        "The number of variables as given by the `Problem` and the slice of variables passed in must match."
+    );
+
     let mut variables_scratch = variables.to_vec();
     let variables_scratch = variables_scratch.as_mut_slice();
 
     // The (non-squared) residuals of the expressions.
-    let mut residuals = nalgebra::DVector::zeros(subsystem.expressions().len());
-    let mut residuals_scratch = nalgebra::DVector::zeros(subsystem.expressions().len());
+    let mut residuals = nalgebra::DVector::zeros(problem.num_residuals() as usize);
+    let mut residuals_scratch = nalgebra::DVector::zeros(problem.num_residuals() as usize);
 
     // All first-order partial derivatives of the expressions, in row-major order. This is a dense
     // representation (each pair of expression and variable has a partial derivative represented
     // here, even for variables that do not contribute to the expression). It's possible a sparse
     // representation may be more efficient in certain cases.
-    let mut jacobian = vec![0.; subsystem.expressions().len() * subsystem.free_variables().len()];
+    let mut jacobian =
+        vec![0.; problem.num_residuals() as usize * problem.num_variables() as usize];
 
     // The same Jacobian, but a separate allocation for the column-major representation, which
     // nalgebra expects. TODO: perhaps make everything use a column-major allocation, as that's
     // somewhat more common (making the per-expression gradients have a stride instead).
     let mut jacobian_ = nalgebra::DMatrix::zeros(
-        subsystem.expressions().len(),
-        subsystem.free_variables().len(),
+        problem.num_residuals() as usize,
+        problem.num_variables() as usize,
     );
 
     // The (augmented) residual matrix.
     let mut r_aug = nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), 1);
 
-    calculate_residuals_and_jacobian(
-        subsystem,
-        variables,
+    problem.calculate_residuals_and_jacobian(
+        &*variables_scratch,
         residuals.as_mut_slice(),
         &mut jacobian,
     );
@@ -59,9 +60,9 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
         }
 
         // Copy from the row-major Jacobian to the column-major Jacobian.
-        for i in 0..subsystem.expressions().len() {
-            for j in 0..subsystem.free_variables().len() {
-                jacobian_[(i, j)] = jacobian[i * subsystem.free_variables().len() + j];
+        for i in 0..problem.num_residuals() as usize {
+            for j in 0..problem.num_variables() as usize {
+                jacobian_[(i, j)] = jacobian[i * problem.num_variables() as usize + j];
             }
         }
 
@@ -130,15 +131,11 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
                 break 'steps;
             }
 
-            for (idx, variable) in subsystem.free_variables().enumerate() {
-                variables_scratch[variable as usize] = variables[variable as usize] + delta[idx];
+            for idx in 0..problem.num_variables() as usize {
+                variables_scratch[idx] = variables[idx] + delta[idx];
             }
 
-            calculate_residuals(
-                subsystem,
-                variables_scratch,
-                residuals_scratch.as_mut_slice(),
-            );
+            problem.calculate_residuals(variables_scratch, residuals_scratch.as_mut_slice());
             let residual_scratch = residuals_scratch.norm();
 
             if residual_scratch < residual {
@@ -152,8 +149,7 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
 
                 // It might be nice to have a calculate_jacobian function here, but the additional
                 // residual calculation shouldn't be too bad.
-                calculate_residuals_and_jacobian(
-                    subsystem,
+                problem.calculate_residuals_and_jacobian(
                     variables_scratch,
                     residuals.as_mut_slice(),
                     &mut jacobian,
