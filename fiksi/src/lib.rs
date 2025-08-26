@@ -30,7 +30,7 @@
 //! constraints::PointPointPointAngle::create(&mut gcs, p1, p2, p3, 10f64.to_radians());
 //! constraints::PointPointPointAngle::create(&mut gcs, p2, p3, p1, 60f64.to_radians());
 //!
-//! gcs.solve(None, fiksi::SolvingOptions::DEFAULT);
+//! gcs.solve(fiksi::SolvingOptions::DEFAULT);
 //! ```
 //!
 //! # Manual
@@ -66,7 +66,7 @@ fn ensure_libm_dependency_used() -> f32 {
 }
 
 extern crate alloc;
-use alloc::{collections::btree_set::BTreeSet, vec, vec::Vec};
+use alloc::{vec, vec::Vec};
 
 pub use kurbo;
 
@@ -76,6 +76,7 @@ pub use kurbo;
 pub mod manual;
 
 mod analyze;
+mod assemble;
 pub(crate) mod collections;
 pub mod constraints;
 pub mod elements;
@@ -104,7 +105,14 @@ pub(crate) use rand::Rng;
 pub(crate) use subsystem::Subsystem;
 pub(crate) use variable_map::{Variable, VariableMap};
 
-use crate::{analyze::graph::equations::ExpressionGraph, constraints::ConstraintTag, graph::Graph};
+use crate::{
+    analyze::graph::{
+        equations::ExpressionGraph,
+        recursive_assembly::{ClusterKey, RecombinationStep},
+    },
+    constraints::{ConstraintTag, expressions::Pose2D},
+    graph::Graph,
+};
 
 /// These are the geometric elements of the constraint system.
 ///
@@ -127,16 +135,6 @@ pub(crate) struct EncodedConstraint {
     expressions_idx: u32,
 }
 
-/// A handle to a set of constraints to solve for and variables that are considered free.
-///
-/// See [`System::create_solve_set`].
-pub struct SolveSetHandle {
-    /// The ID of the system the element set belongs to.
-    system_id: u32,
-    /// The ID of the element set within the system.
-    id: u32,
-}
-
 /// An element value.
 pub enum ElementValue {
     /// An [`elements::Length`] value.
@@ -149,14 +147,56 @@ pub enum ElementValue {
     Circle(kurbo::Circle),
 }
 
+/// The decomposer used for splitting the full geometric constraint system into smaller, solvable
+/// subsystems.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Decomposer {
+    /// No decomposer. Solve the entire system at once using a numeric optimizer.
+    ///
+    /// This is generally stable for small systems, and is the fastest method for very small
+    /// systems on the order of tens of elements. Solving without decomposition becomes intractable
+    /// as systems grow beyond hundreds of elements.
+    None,
+
+    /// Decompose the system of non-linear equations by matching constraints' expressions to
+    /// elements' variables.
+    ///
+    /// This decomposition is relatively cheap to compute, and results in an ordering of groups of
+    /// constraints' residual expressions and the elements' variables they calculate. Each
+    /// expression calculates one variable. A single pass through these partially ordered groups,
+    /// solving for all constraints within each group together, solves the system.
+    ///
+    /// This works well for fully-determined systems, especially those fully anchored to the global
+    /// coordinate system; this works less well for systems with under-constrained parts. Severely
+    /// under-constrained systems tend to generate big expression groups, which requires many
+    /// expressions to be solved for at once.
+    SinglePass,
+
+    /// Warning: experimental. Perform a geometric recursive assembly of the system.
+    ///
+    /// This currently does not correctly handle constraints relative to the global coordinate
+    /// system, nor fixing elements to the global coordinate system.
+    ///
+    /// This searches for minimal, rigid clusters of elements and constraints within the geometric
+    /// system that can be solved separately. These rigid clusters can be transformed through
+    /// displacement relative to each other, but internal geometry remains unchanged. A partial
+    /// order for solving is induced by the hierarchy of such clusters.
+    ///
+    /// This works well for rigidly well-constrained systems, and is relatively robust against
+    /// under-constrained geometry. All rigidly well-constrained geometry will be found and solved
+    /// individually. Any left-over under-constrained part still requires solving for all its
+    /// expressions at once.
+    RecursiveAssembly,
+}
+
 /// Options used by [`System::solve`].
 #[derive(PartialEq, Debug)]
 pub struct SolvingOptions {
     /// The numerical optimization algorithm to use for solving constraint systems.
     pub optimizer: solve::Optimizer,
 
-    /// Whether to perform decomposition.
-    pub decompose: bool,
+    /// Which decomposer to use, if any.
+    pub decomposer: Decomposer,
 
     /// Whether to slightly perturb the values of elements before solving.
     ///
@@ -174,13 +214,13 @@ impl SolvingOptions {
     /// ```rust
     /// assert_eq!(fiksi::SolvingOptions::DEFAULT, fiksi::SolvingOptions {
     ///     optimizer: fiksi::solve::Optimizer::LevenbergMarquardt,
-    ///     decompose: false,
+    ///     decomposer: fiksi::Decomposer::None,
     ///     perturb: true,
     /// });
     /// ```
     pub const DEFAULT: Self = Self {
         optimizer: solve::Optimizer::LevenbergMarquardt,
-        decompose: false,
+        decomposer: Decomposer::None,
         perturb: true,
     };
 }
@@ -196,21 +236,6 @@ impl Default for SolvingOptions {
 pub struct Analysis {
     /// Constraints causing parts of the system to be overconstrained.
     pub overconstrained: Vec<AnyConstraintHandle>,
-}
-
-/// Contains constraints that should be solved and elements whose variables are free.
-pub(crate) struct SolveSet {
-    pub(crate) elements: BTreeSet<ElementId>,
-    pub(crate) constraints: BTreeSet<ConstraintId>,
-}
-
-impl SolveSet {
-    pub(crate) fn new() -> Self {
-        Self {
-            elements: BTreeSet::new(),
-            constraints: BTreeSet::new(),
-        }
-    }
 }
 
 /// A geometric constraint system.
@@ -243,9 +268,6 @@ pub struct System {
     expressions: Vec<Expression>,
     /// Mapping from expressions back to the constraint it belongs to.
     expression_to_constraint: Vec<ConstraintId>,
-
-    /// The sets of elements and constraints that can be solved for.
-    solve_sets: Vec<SolveSet>,
 }
 
 impl System {
@@ -264,27 +286,6 @@ impl System {
             constraints: vec![],
             expressions: vec![],
             expression_to_constraint: vec![],
-            solve_sets: vec![],
-        }
-    }
-
-    /// Add a solve set to the geometric constraint system.
-    ///
-    /// Solve sets can be used to create separate sets of constraints that should be solved, and
-    /// elements whose variables are free and can be used for solving.
-    ///
-    /// This can be used to isolate distinct parts of constraint systems that should be solved
-    /// separately, or to choose which variables are free and which are kept fixed.
-    ///
-    /// You always solve for at most one solve set at once. If you don't use a solve set, all
-    /// constraints are solved for, and all variables are considered free.
-    pub fn create_solve_set(&mut self) -> SolveSetHandle {
-        let id = self.solve_sets.len();
-        self.solve_sets.push(SolveSet::new());
-
-        SolveSetHandle {
-            system_id: self.id,
-            id: id.try_into().expect("less than 2^32 solve sets"),
         }
     }
 
@@ -408,48 +409,6 @@ impl System {
         ConstraintHandle::from_ids(self.id, id)
     }
 
-    /// Add an element to the solve set.
-    ///
-    /// See [`System::create_solve_set`].
-    pub fn add_element_to_solve_set<T: Element>(
-        &mut self,
-        solve_set: &SolveSetHandle,
-        element: &ElementHandle<T>,
-    ) {
-        // TODO: return `Result` instead of panicking?
-        assert_eq!(
-            self.id, solve_set.system_id,
-            "Tried to use a solve set that is not part of this `System`"
-        );
-        assert_eq!(
-            self.id, element.system_id,
-            "Tried to use an element that is not part of this `System`"
-        );
-        let solve_set = &mut self.solve_sets[solve_set.id as usize];
-        solve_set.elements.insert(element.drop_system_id());
-    }
-
-    /// Add a constraint to the solve set.
-    ///
-    /// See [`System::create_solve_set`].
-    pub fn add_constraint_to_solve_set<T: Constraint>(
-        &mut self,
-        solve_set: &SolveSetHandle,
-        constraint: &ConstraintHandle<T>,
-    ) {
-        // TODO: return `Result` instead of panicking?
-        assert_eq!(
-            self.id, solve_set.system_id,
-            "Tried to use a solve set that is not part of this `System`"
-        );
-        assert_eq!(
-            self.id, constraint.system_id,
-            "Tried to use an element that is not part of this `System`"
-        );
-        let solve_set = &mut self.solve_sets[solve_set.id as usize];
-        solve_set.constraints.insert(constraint.drop_system_id());
-    }
-
     /// Analyze the system, without performing a full solve.
     ///
     /// This may change elements' positions in order to satisfy numeric requirements.
@@ -461,164 +420,10 @@ impl System {
 
     /// Solve the system.
     ///
-    /// The system is solved for constraints and free variables in `solve_set`. Variables not in
-    /// `solve_set` are taken as fixed parameters. If no `solve_set` is given, all constraints are
-    /// solved for, and all variables are considered free.
-    ///
-    /// Note handle values (such as the center point of a circle) are free if and only if the
-    /// element the handle corresponds to is considered free, regardless of whether the circle
-    /// itself is in `solve_set`.
-    pub fn solve(&mut self, solve_set: Option<&SolveSetHandle>, opts: SolvingOptions) {
-        let mut rng = Rng::from_seed(42);
-
-        for connected_component in self.graph.connected_components() {
-            let (elements, constraints) = if let Some(solve_set) = solve_set {
-                let solve_set = &self.solve_sets[solve_set.id as usize];
-                let elements = connected_component
-                    .elements
-                    .intersection(&solve_set.elements)
-                    .copied()
-                    .collect();
-                let constraints = connected_component
-                    .constraints
-                    .intersection(&solve_set.constraints)
-                    .copied()
-                    .collect();
-                (elements, constraints)
-            } else {
-                (
-                    connected_component.elements.clone(),
-                    connected_component.constraints.clone(),
-                )
-            };
-
-            if elements.is_empty() {
-                continue;
-            }
-
-            let mut free_variables = BTreeSet::<u32>::new();
-            for element_id in &elements {
-                let element = &self.elements[element_id.id as usize];
-                match element {
-                    EncodedElement::Length { idx } => {
-                        free_variables.extend(&[*idx]);
-                    }
-                    EncodedElement::Point { idx } => {
-                        free_variables.extend(&[*idx, *idx + 1]);
-                    }
-                    EncodedElement::Line {
-                        point1_idx,
-                        point2_idx,
-                    } => {
-                        free_variables.extend(&[
-                            *point1_idx,
-                            *point1_idx + 1,
-                            *point2_idx,
-                            *point2_idx + 1,
-                        ]);
-                    }
-                    EncodedElement::Circle {
-                        center_idx,
-                        radius_idx,
-                    } => {
-                        free_variables.extend(&[*center_idx, *center_idx + 1, *radius_idx]);
-                    }
-                }
-            }
-
-            if opts.perturb {
-                for free_variable in free_variables.iter().copied() {
-                    let variable = &mut self.variables[free_variable as usize];
-                    // TODO: the scale-independent perturbation here should be revisited. See
-                    // also https://github.com/endoli/fiksi/pull/41#discussion_r2234008761.
-                    *variable +=
-                        *variable * (1. / 8196.) * rng.next_f64() + (1. / 65568.) * rng.next_f64();
-                }
-            }
-
-            if opts.decompose {
-                let mut free_variables_values = Vec::new();
-                for scc in self
-                    .equation_graph
-                    .find_strongly_connected_expressions(&free_variables)
-                {
-                    free_variables_values.clear();
-                    free_variables_values.extend(
-                        scc.free_variables
-                            .iter()
-                            .copied()
-                            .map(|free_variable_idx| self.variables[free_variable_idx as usize]),
-                    );
-
-                    let mut subsystem = Subsystem::new(
-                        &self.variables,
-                        &self.expressions,
-                        scc.free_variables.iter().copied(),
-                        scc.expressions,
-                    );
-
-                    match opts.optimizer {
-                        solve::Optimizer::LevenbergMarquardt => {
-                            crate::solve::levenberg_marquardt(
-                                &mut subsystem,
-                                &mut free_variables_values,
-                            );
-                        }
-                        solve::Optimizer::LBfgs => {
-                            crate::solve::lbfgs(&mut subsystem, &mut free_variables_values);
-                        }
-                    }
-
-                    for (free_variable_idx, variable_idx) in
-                        subsystem.free_variables.into_iter().enumerate()
-                    {
-                        self.variables[variable_idx as usize] =
-                            free_variables_values[free_variable_idx];
-                    }
-                }
-            } else {
-                let mut free_variables_values = Vec::from_iter(
-                    free_variables
-                        .iter()
-                        .copied()
-                        .map(|free_variable_idx| self.variables[free_variable_idx as usize]),
-                );
-                let mut subsystem = Subsystem::new(
-                    &self.variables,
-                    &self.expressions,
-                    free_variables.iter().copied(),
-                    constraints
-                        .iter()
-                        .flat_map(|c| {
-                            let constraint = &self.constraints[c.id as usize];
-                            (0..constraint.tag.valency()).map(|offset| {
-                                self.constraints[c.id as usize].expressions_idx + u32::from(offset)
-                            })
-                        })
-                        .collect(),
-                );
-
-                match opts.optimizer {
-                    solve::Optimizer::LevenbergMarquardt => {
-                        crate::solve::levenberg_marquardt(
-                            &mut subsystem,
-                            &mut free_variables_values,
-                        );
-                    }
-                    solve::Optimizer::LBfgs => {
-                        crate::solve::lbfgs(&mut subsystem, &mut free_variables_values);
-                    }
-                }
-
-                // Update system variables' values with the free variables' values.
-                for (free_variable_idx, variable_idx) in
-                    subsystem.free_variables.into_iter().enumerate()
-                {
-                    self.variables[variable_idx as usize] =
-                        free_variables_values[free_variable_idx];
-                }
-            }
-        }
+    /// All constraints are solved for, and will be satisfied if the solving is successful.
+    /// Currently all elements are considered free.
+    pub fn solve(&mut self, opts: SolvingOptions) {
+        assemble::solve(self, opts);
     }
 }
 

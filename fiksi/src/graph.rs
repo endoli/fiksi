@@ -94,7 +94,7 @@ impl IncidentElements {
 }
 
 /// A primitive geometric element.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub(crate) struct Element {
     /// The degrees of freedom of the element.
     pub(crate) dof: i16,
@@ -104,7 +104,7 @@ pub(crate) struct Element {
 }
 
 /// A constraint between elements.
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Debug)]
 pub(crate) struct Constraint {
     /// The valency of the constraint (in other words, the degrees of freedom taken away by this
     /// constraint).

@@ -14,7 +14,7 @@ fn coincident_points() {
     let p1 = elements::Point::create(&mut s, 1., 0.5);
     let coincidence = constraints::PointPointCoincidence::create(&mut s, p0, p1);
 
-    s.solve(None, crate::SolvingOptions::default());
+    s.solve(crate::SolvingOptions::default());
 
     let sum_squared_residuals = sum_squares([coincidence.calculate_residual(&s)]);
     assert!(
@@ -41,7 +41,7 @@ fn underconstrained_triangle() {
     let p2 = elements::Point::create(&mut s, 2., 1.);
     let angle0 = constraints::PointPointPointAngle::create(&mut s, p0, p1, p2, 40_f64.to_radians());
     let angle1 = constraints::PointPointPointAngle::create(&mut s, p1, p2, p0, 80_f64.to_radians());
-    s.solve(None, crate::SolvingOptions::default());
+    s.solve(crate::SolvingOptions::default());
 
     let sum_squared_residuals =
         sum_squares([angle0.calculate_residual(&s), angle1.calculate_residual(&s)]);
@@ -67,7 +67,7 @@ fn overconstrained_triangle_line_incidence() {
     let angle2 =
         constraints::PointPointPointAngle::create(&mut s, p2, p0, p1, 100_f64.to_radians());
     let incidence = constraints::PointLineIncidence::create(&mut s, p1, line0);
-    s.solve(None, crate::SolvingOptions::default());
+    s.solve(crate::SolvingOptions::default());
 
     let sum_squared_residuals = sum_squares([
         angle0.calculate_residual(&s),
@@ -136,7 +136,7 @@ fn triangle_inscribed_circle() {
     constraints::LineCircleTangency::create(&mut s, line1, circle);
     constraints::LineCircleTangency::create(&mut s, line2, circle);
 
-    s.solve(None, crate::SolvingOptions::default());
+    s.solve(crate::SolvingOptions::default());
 
     let sum_squared_residuals = sum_squares(
         s.get_constraint_handles()
@@ -160,7 +160,7 @@ fn two_connected_components() {
     let p0p1 = constraints::PointPointDistance::create(&mut s, p0, p1, 1.);
     let p2p3 = constraints::PointPointDistance::create(&mut s, p2, p3, 1.2);
 
-    s.solve(None, crate::SolvingOptions::default());
+    s.solve(crate::SolvingOptions::default());
     let sum_squared_residuals =
         sum_squares([p0p1.calculate_residual(&s), p2p3.calculate_residual(&s)]);
     assert!(

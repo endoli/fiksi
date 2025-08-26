@@ -1,7 +1,38 @@
 // Copyright 2025 the Fiksi Authors
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::{System, constraints, elements, utils::sum_squares};
+use crate::{Decomposer, System, constraints, elements, utils::sum_squares};
+
+#[test]
+fn single_triangle() {
+    for decomposer in [
+        Decomposer::None,
+        Decomposer::SinglePass,
+        Decomposer::RecursiveAssembly,
+    ] {
+        let mut s = System::new();
+
+        let p0 = elements::Point::create(&mut s, 0., 0.);
+        let p1 = elements::Point::create(&mut s, 1., 0.5);
+        let p2 = elements::Point::create(&mut s, 2., 1.);
+
+        constraints::PointPointDistance::create(&mut s, p0, p1, 1.);
+        constraints::PointPointDistance::create(&mut s, p0, p2, 1.);
+        constraints::PointPointDistance::create(&mut s, p1, p2, 1.);
+
+        s.solve(crate::SolvingOptions {
+            decomposer,
+            ..crate::SolvingOptions::default()
+        });
+
+        let sum_squared_residuals =
+            sum_squares(s.get_constraint_handles().map(|c| c.calculate_residual(&s)));
+        assert!(
+            sum_squared_residuals < 1e-8,
+            "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
+        );
+    }
+}
 
 #[test]
 fn connected_triangles() {
@@ -25,7 +56,7 @@ fn connected_triangles() {
     constraints::PointPointDistance::create(&mut s, p4, p5, 6.);
     constraints::PointPointDistance::create(&mut s, p5, p0, 7.);
 
-    s.solve(None, crate::SolvingOptions::default());
+    s.solve(crate::SolvingOptions::DEFAULT);
 
     let sum_squared_residuals =
         sum_squares(s.get_constraint_handles().map(|c| c.calculate_residual(&s)));
@@ -48,19 +79,19 @@ fn hinged_triangles() {
     let p5 = elements::Point::create(&mut s, 5.1, 2.5);
     let p6 = elements::Point::create(&mut s, 6.1, 3.);
 
-    constraints::PointPointDistance::create(&mut s, p0, p1, 1.);
-    constraints::PointPointDistance::create(&mut s, p0, p2, 1.);
-    constraints::PointPointDistance::create(&mut s, p1, p2, 1.);
+    constraints::PointPointDistance::create(&mut s, p0, p1, 1.); // 0
+    constraints::PointPointDistance::create(&mut s, p0, p2, 1.); // 1
+    constraints::PointPointDistance::create(&mut s, p1, p2, 1.); // 2
 
-    constraints::PointPointDistance::create(&mut s, p0, p3, 1.);
-    constraints::PointPointDistance::create(&mut s, p0, p4, 1.);
-    constraints::PointPointDistance::create(&mut s, p3, p4, 1.);
+    constraints::PointPointDistance::create(&mut s, p0, p3, 1.); // 3
+    constraints::PointPointDistance::create(&mut s, p0, p4, 1.); // 4
+    constraints::PointPointDistance::create(&mut s, p3, p4, 1.); // 5
 
-    constraints::PointPointDistance::create(&mut s, p0, p5, 1.);
-    constraints::PointPointDistance::create(&mut s, p0, p6, 1.);
-    constraints::PointPointDistance::create(&mut s, p5, p6, 1.);
+    constraints::PointPointDistance::create(&mut s, p0, p5, 1.); // 6
+    constraints::PointPointDistance::create(&mut s, p0, p6, 1.); // 7
+    constraints::PointPointDistance::create(&mut s, p5, p6, 1.); // 8
 
-    s.solve(None, crate::SolvingOptions::default());
+    s.solve(crate::SolvingOptions::DEFAULT);
 
     let sum_squared_residuals =
         sum_squares(s.get_constraint_handles().map(|c| c.calculate_residual(&s)));

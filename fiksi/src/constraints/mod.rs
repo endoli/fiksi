@@ -290,7 +290,7 @@ pub(crate) mod constraint {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub(crate) struct ConstraintId {
         /// The ID of the constraint within the system.
         pub(crate) id: u32,

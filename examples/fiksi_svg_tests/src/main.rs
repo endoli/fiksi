@@ -65,7 +65,7 @@ fn circle_triangle_line() -> std::io::Result<()> {
         renderer.render_system(None, 1., &s),
     )?;
 
-    s.solve(None, fiksi::SolvingOptions::DEFAULT);
+    s.solve(fiksi::SolvingOptions::DEFAULT);
     std::fs::write(
         "./circle-triangle-line-solved.svg",
         renderer.render_system(None, 1., &s),

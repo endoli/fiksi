@@ -57,7 +57,7 @@ fn bench_hinged_triangles(c: &mut Criterion) {
                 // This also times the time required for resetting the system's elements to their
                 // initial values, but that shouldn't be too bad.
                 reset(&mut s);
-                s.solve(None, SolvingOptions::DEFAULT);
+                s.solve(SolvingOptions::DEFAULT);
                 black_box(&mut s);
             });
         });

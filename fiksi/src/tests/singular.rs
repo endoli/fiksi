@@ -27,13 +27,7 @@ fn collinear_points() {
     constraints::PointPointDistance::create(&mut s, p0, p2, 1.);
     constraints::PointPointDistance::create(&mut s, p1, p2, 1.);
 
-    s.solve(
-        None,
-        crate::SolvingOptions {
-            decompose: false,
-            ..crate::SolvingOptions::default()
-        },
-    );
+    s.solve(crate::SolvingOptions::DEFAULT);
 
     let sum_squared_residuals = sum_squares(
         s.get_constraint_handles()
