@@ -3,7 +3,7 @@
 
 use alloc::vec::Vec;
 
-use crate::{Expression, collections::FxIndexSet};
+use crate::{Expression, collections::IndexSet};
 
 pub(crate) struct Subsystem<'s> {
     /// All expressions in the [`crate::System`] this subsystem belongs to.
@@ -15,7 +15,7 @@ pub(crate) struct Subsystem<'s> {
 
     /// The free variables that are part of this subsystem. These are indices into the system's
     /// variable slice.
-    free_variables: FxIndexSet<u32>,
+    free_variables: IndexSet<u32>,
 }
 
 impl<'s> Subsystem<'s> {
