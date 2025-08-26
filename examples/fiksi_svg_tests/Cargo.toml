@@ -1,0 +1,15 @@
+[package]
+name = "fiksi_svg_tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+fiksi = { workspace = true, features = ["std"] }
+fiksi_svg = { workspace = true, features = ["std"] }
+
+[lints]
+workspace = true
