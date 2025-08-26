@@ -229,7 +229,7 @@ pub struct Length {
 }
 
 impl Length {
-    /// Construct a new `Length` at the given coordinate.
+    /// Construct a new `Length` with the given `length` value.
     pub fn create(system: &mut System, length: f64) -> ElementHandle<Self> {
         system.add_element([length], |variables_idx| EncodedElement::Length {
             idx: variables_idx,
