@@ -12,6 +12,8 @@ use crate::{
     graph::{Graph, IncidentElements},
 };
 
+pub(crate) mod equations;
+
 /// A recombination plan.
 ///
 /// This consists of [steps](RecombinationStep) to be solved to get to a full solution. Each step
