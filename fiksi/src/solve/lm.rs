@@ -29,11 +29,19 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
     let mut residuals = nalgebra::DVector::zeros(subsystem.expressions().len());
     let mut residuals_scratch = nalgebra::DVector::zeros(subsystem.expressions().len());
 
-    // All first-order partial derivatives of the expressions. This is a dense representation (each
-    // pair of expression and variable has a partial derivative represented here, even for
-    // variables that do not contribute to the expression). It's possible a sparse representation
-    // may be more efficient in certain cases.
+    // All first-order partial derivatives of the expressions, in row-major order. This is a dense
+    // representation (each pair of expression and variable has a partial derivative represented
+    // here, even for variables that do not contribute to the expression). It's possible a sparse
+    // representation may be more efficient in certain cases.
     let mut jacobian = vec![0.; subsystem.expressions().len() * subsystem.free_variables().len()];
+
+    // The same Jacobian, but a separate allocation for the column-major representation, which
+    // nalgebra expects. TODO: perhaps make everything use a column-major allocation, as that's
+    // somewhat more common (making the per-expression gradients have a stride instead).
+    let mut jacobian_ = nalgebra::DMatrix::zeros(
+        subsystem.expressions().len(),
+        subsystem.free_variables().len(),
+    );
 
     calculate_residuals_and_jacobian(
         subsystem,
@@ -50,12 +58,7 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
             break;
         }
 
-        // Clone the Jacobian to a nalgebra matrix for now.
-        // TODO: remove
-        let mut jacobian_ = nalgebra::DMatrix::zeros(
-            subsystem.expressions().len(),
-            subsystem.free_variables().len(),
-        );
+        // Copy from the row-major Jacobian to the column-major Jacobian.
         for i in 0..subsystem.expressions().len() {
             for j in 0..subsystem.free_variables().len() {
                 jacobian_[(i, j)] = jacobian[i * subsystem.free_variables().len() + j];
