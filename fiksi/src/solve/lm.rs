@@ -19,9 +19,6 @@ use crate::{
 /// subsystem. The variables given by the elements in `element_set` are seen as free, other
 /// variables are seen as fixed parameters.
 pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'_>) {
-    // TODO: this is allocation-happy.
-    // TODO: we don't use enough of nalgebra here to justify including that dependency.
-
     let mut variables_scratch = variables.to_vec();
     let variables_scratch = variables_scratch.as_mut_slice();
 
@@ -42,6 +39,9 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
         subsystem.expressions().len(),
         subsystem.free_variables().len(),
     );
+
+    // The (augmented) residual matrix.
+    let mut r_aug = nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), 1);
 
     calculate_residuals_and_jacobian(
         subsystem,
@@ -88,8 +88,13 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
             // ill-conditioned cases, the lack of stability due to forming the square can lead to
             // having to perform many more iterations to converge, as well as failure to convergence at
             // all.
+            //
+            // (It seems that with the current nalgebra API, it's not entirely straightforward to
+            // reuse the allocation for `j_aug`. It's moved into `ColPivQR`, and moving it out
+            // again requires an expensive resizing operation that copies elements around.)
             let mut j_aug =
                 nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), jacobian_.ncols());
+
             j_aug.rows_mut(0, jacobian_.nrows()).copy_from(&jacobian_);
             // Augment by the damping factor `lambda`.
             for idx in 0..jacobian_.ncols() {
@@ -98,19 +103,28 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
             // The augmented residual matrix:
             // [ r ]
             // [ 0 ]
-            let mut r_aug = nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), 1);
-            r_aug.rows_mut(0, jacobian_.nrows()).copy_from(&residuals);
+            {
+                let mut r = r_aug.rows_mut(0, jacobian_.nrows());
+                r.copy_from(&residuals);
+                r.neg_mut();
+            }
+            r_aug
+                .rows_mut(jacobian_.nrows(), jacobian_.ncols())
+                .fill(0.);
 
             let qr = j_aug.col_piv_qr();
-            let Some(mut delta) = qr
-                .r()
-                .solve_upper_triangular(&(-qr.q().transpose() * r_aug))
-            else {
+            qr.q_tr_mul(&mut r_aug);
+
+            // Clone the permutation sequence, as we'd have to clone the trapezoidal matrix R
+            // otherwise.
+            let qr_p = qr.p().clone();
+            let mut delta = r_aug.rows_mut(0, jacobian_.ncols());
+            if !qr.unpack_r().solve_upper_triangular_mut(&mut delta) {
                 lambda *= 8.;
                 continue;
             };
 
-            qr.p().inv_permute_rows(&mut delta);
+            qr_p.inv_permute_rows(&mut delta);
             if delta.norm() < 1e-6 {
                 break 'steps;
             }
