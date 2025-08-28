@@ -31,6 +31,7 @@ pub(crate) enum Expression {
     PointCircleIncidence(PointCircleIncidence),
     SegmentSegmentLengthEquality(SegmentSegmentLengthEquality),
     LineLineAngle(LineLineAngle),
+    LineLineOrthogonality(LineLineOrthogonality),
     LineLineParallelism(LineLineParallelism),
     LineCircleTangency(LineCircleTangency),
 }
@@ -120,6 +121,20 @@ impl Expression {
                 &mut variables[..v.len()]
             }
             Self::LineLineAngle(e) => {
+                let v = [
+                    e.line1_point1_idx,
+                    e.line1_point1_idx + 1,
+                    e.line1_point2_idx,
+                    e.line1_point2_idx + 1,
+                    e.line2_point1_idx,
+                    e.line2_point1_idx + 1,
+                    e.line2_point2_idx,
+                    e.line2_point2_idx + 1,
+                ];
+                variables[..v.len()].copy_from_slice(&v);
+                &mut variables[..v.len()]
+            }
+            Self::LineLineOrthogonality(e) => {
                 let v = [
                     e.line1_point1_idx,
                     e.line1_point1_idx + 1,
@@ -1117,6 +1132,123 @@ impl LineLineParallelism {
     }
 }
 
+/// Constrain two lines to be orthogonal to each other.
+pub(crate) struct LineLineOrthogonality {
+    pub(crate) line1_point1_idx: u32,
+    pub(crate) line1_point2_idx: u32,
+    pub(crate) line2_point1_idx: u32,
+    pub(crate) line2_point2_idx: u32,
+}
+
+impl From<LineLineOrthogonality> for Expression {
+    fn from(expression: LineLineOrthogonality) -> Self {
+        Self::LineLineOrthogonality(expression)
+    }
+}
+
+impl LineLineOrthogonality {
+    /// See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
+    #[inline(always)]
+    fn compute_residual_and_gradient_(variables: &[f64; 8]) -> (f64, [f64; 8]) {
+        let line1_point1 = kurbo::Point {
+            x: variables[0],
+            y: variables[1],
+        };
+        let line1_point2 = kurbo::Point {
+            x: variables[2],
+            y: variables[3],
+        };
+        let line2_point1 = kurbo::Point {
+            x: variables[4],
+            y: variables[5],
+        };
+        let line2_point2 = kurbo::Point {
+            x: variables[6],
+            y: variables[7],
+        };
+
+        let u = line1_point2 - line1_point1;
+        let v = line2_point2 - line2_point1;
+
+        let residual = v.dot(u);
+
+        let gradient = [
+            -v.x,
+            -v.y,
+            v.x,
+            v.y,
+            -u.x,
+            -u.y,
+            u.x,
+            u.y,
+        ];
+
+        (residual, gradient)
+    }
+
+    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
+        // The compiler should be able to optimize this such that only the residual is calculated.
+        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
+        Self::compute_residual_and_gradient_(&[
+            variables[self.line1_point1_idx as usize],
+            variables[self.line1_point1_idx as usize + 1],
+            variables[self.line1_point2_idx as usize],
+            variables[self.line1_point2_idx as usize + 1],
+            variables[self.line2_point1_idx as usize],
+            variables[self.line2_point1_idx as usize + 1],
+            variables[self.line2_point2_idx as usize],
+            variables[self.line2_point2_idx as usize + 1],
+        ])
+        .0
+    }
+
+    pub(crate) fn compute_residual_and_gradient(
+        &self,
+        subsystem: &Subsystem<'_>,
+        variables: &[f64],
+        residual: &mut f64,
+        gradient: &mut [f64],
+    ) {
+        let (r, g) = Self::compute_residual_and_gradient_(&[
+            variables[self.line1_point1_idx as usize],
+            variables[self.line1_point1_idx as usize + 1],
+            variables[self.line1_point2_idx as usize],
+            variables[self.line1_point2_idx as usize + 1],
+            variables[self.line2_point1_idx as usize],
+            variables[self.line2_point1_idx as usize + 1],
+            variables[self.line2_point2_idx as usize],
+            variables[self.line2_point2_idx as usize + 1],
+        ]);
+
+        *residual += r;
+
+        if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx) {
+            gradient[idx as usize] += g[0];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx + 1) {
+            gradient[idx as usize] += g[1];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx) {
+            gradient[idx as usize] += g[2];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx + 1) {
+            gradient[idx as usize] += g[3];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx) {
+            gradient[idx as usize] += g[4];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx + 1) {
+            gradient[idx as usize] += g[5];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx) {
+            gradient[idx as usize] += g[6];
+        }
+        if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx + 1) {
+            gradient[idx as usize] += g[7];
+        }
+    }
+}
+
 /// Constrain a line and a circle such that the line is tangent on the circle.
 pub(crate) struct LineCircleTangency {
     pub(crate) line_point1_idx: u32,
@@ -1504,6 +1636,28 @@ mod tests {
         );
         test_first_finite_difference(
             LineLineParallelism::compute_residual_and_gradient_,
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e-10),
+                    delta.map(|d| (d - 0.5) * 1e-14),
+                )
+            },
+        );
+    }
+
+    #[test]
+    fn line_line_orthogonality_first_finite_difference() {
+        test_first_finite_difference(
+            LineLineOrthogonality::compute_residual_and_gradient_,
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e0),
+                    delta.map(|d| (d - 0.5) * 1e-4),
+                )
+            },
+        );
+        test_first_finite_difference(
+            LineLineOrthogonality::compute_residual_and_gradient_,
             |variables, delta| {
                 (
                     variables.map(|d| (d - 0.5) * 1e-10),
