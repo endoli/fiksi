@@ -1172,16 +1172,7 @@ impl LineLineOrthogonality {
 
         let residual = v.dot(u);
 
-        let gradient = [
-            -v.x,
-            -v.y,
-            v.x,
-            v.y,
-            -u.x,
-            -u.y,
-            u.x,
-            u.y,
-        ];
+        let gradient = [-v.x, -v.y, v.x, v.y, -u.x, -u.y, u.x, u.y];
 
         (residual, gradient)
     }
