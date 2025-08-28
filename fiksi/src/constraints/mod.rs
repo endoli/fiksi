@@ -48,6 +48,9 @@ pub(crate) mod constraint {
         /// A handle to a [`LineLineParallelism`](super::LineLineParallelism) constraint.
         LineLineParallelism(ConstraintHandle<super::LineLineParallelism>),
 
+        /// A handle to a [`LineLineOrthogonality`](super::LineLineOrthogonality) constraint.
+        LineLineOrthogonality(ConstraintHandle<super::LineLineOrthogonality>),
+
         /// A handle to a [`LineCircleTangency`](super::LineCircleTangency) constraint.
         LineCircleTangency(ConstraintHandle<super::LineCircleTangency>),
     }
@@ -196,6 +199,12 @@ pub(crate) mod constraint {
                 ConstraintTag::LineLineParallelism => TaggedConstraintHandle::LineLineParallelism(
                     ConstraintHandle::from_ids(self.system_id, self.id),
                 ),
+                ConstraintTag::LineLineOrthogonality => {
+                    TaggedConstraintHandle::LineLineOrthogonality(ConstraintHandle::from_ids(
+                        self.system_id,
+                        self.id,
+                    ))
+                }
                 ConstraintTag::LineCircleTangency => TaggedConstraintHandle::LineCircleTangency(
                     ConstraintHandle::from_ids(self.system_id, self.id),
                 ),
@@ -766,6 +775,59 @@ impl LineLineParallelism {
     }
 }
 
+/// Constrain two lines to be orthogonal to each other.
+pub struct LineLineOrthogonality {}
+
+impl sealed::ConstraintInner for LineLineOrthogonality {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::LineLineOrthogonality
+    }
+}
+
+impl LineLineOrthogonality {
+    /// Construct a constraint between two lines to be orthogonal to each other.
+    pub fn create(
+        system: &mut System,
+        line1: ElementHandle<elements::Line>,
+        line2: ElementHandle<elements::Line>,
+    ) -> ConstraintHandle<Self> {
+        let &EncodedElement::Line {
+            point1_idx: line1_point1_idx,
+            point2_idx: line1_point2_idx,
+        } = &system.elements[line1.id as usize]
+        else {
+            unreachable!()
+        };
+        let &EncodedElement::Line {
+            point1_idx: line2_point1_idx,
+            point2_idx: line2_point2_idx,
+        } = &system.elements[line2.id as usize]
+        else {
+            unreachable!()
+        };
+
+        system.graph.add_constraint(
+            1,
+            IncidentElements::from_array([
+                system.variable_to_primitive[line1_point1_idx as usize],
+                system.variable_to_primitive[line1_point2_idx as usize],
+                system.variable_to_primitive[line2_point1_idx as usize],
+                system.variable_to_primitive[line2_point2_idx as usize],
+            ]),
+        );
+        system.add_constraint(
+            ConstraintTag::LineLineOrthogonality,
+            [expressions::LineLineOrthogonality {
+                line1_point1_idx,
+                line1_point2_idx,
+                line2_point1_idx,
+                line2_point2_idx,
+            }
+            .into()],
+        )
+    }
+}
+
 /// Constrain a line and a circle such that the line is tangent on the circle.
 pub struct LineCircleTangency {}
 
@@ -832,6 +894,7 @@ pub(crate) enum ConstraintTag {
     SegmentSegmentLengthEquality,
     LineLineAngle,
     LineLineParallelism,
+    LineLineOrthogonality,
     LineCircleTangency,
 }
 
@@ -847,6 +910,7 @@ impl ConstraintTag {
             Self::SegmentSegmentLengthEquality => SegmentSegmentLengthEquality::VALENCY,
             Self::LineLineAngle => LineLineAngle::VALENCY,
             Self::LineLineParallelism => LineLineParallelism::VALENCY,
+            Self::LineLineOrthogonality => LineLineOrthogonality::VALENCY,
             Self::LineCircleTangency => LineCircleTangency::VALENCY,
         }
     }
@@ -905,6 +969,10 @@ impl Constraint for LineLineAngle {
 }
 
 impl Constraint for LineLineParallelism {
+    const VALENCY: u8 = 1;
+}
+
+impl Constraint for LineLineOrthogonality {
     const VALENCY: u8 = 1;
 }
 
