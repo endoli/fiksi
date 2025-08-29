@@ -1,7 +1,7 @@
 // Copyright 2025 the Fiksi Authors
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-#![allow(missing_docs)]
+#![allow(missing_docs, reason = "Acceptable in the benchmarks.")]
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use std::hint::black_box;
