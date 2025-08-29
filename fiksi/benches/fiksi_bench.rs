@@ -52,7 +52,7 @@ fn bench_hinged_triangles(c: &mut Criterion) {
         let mut s = System::new();
         let reset = add_hinged_triangles(&mut s, size);
 
-        group.bench_function(&format!("hinged_triangles_size={size}"), |b| {
+        group.bench_function(format!("size={size}"), |b| {
             let s = &mut s;
             b.iter(|| {
                 // This also times the time required for resetting the system's elements to their
