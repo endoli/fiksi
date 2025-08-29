@@ -115,16 +115,15 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
             let qr = j_aug.col_piv_qr();
             qr.q_tr_mul(&mut r_aug);
 
-            // Clone the permutation sequence, as we'd have to clone the trapezoidal matrix R
-            // otherwise.
-            let qr_p = qr.p().clone();
             let mut delta = r_aug.rows_mut(0, jacobian_.ncols());
-            if !qr.unpack_r().solve_upper_triangular_mut(&mut delta) {
+            // Note: we'd like to use qr.unpack_r() here, but there may be some UB in `nalgebra`:
+            // <https://github.com/endoli/fiksi/pull/91>.
+            if !qr.r().solve_upper_triangular_mut(&mut delta) {
                 lambda *= 8.;
                 continue;
             };
 
-            qr_p.inv_permute_rows(&mut delta);
+            qr.p().inv_permute_rows(&mut delta);
             if delta.norm() < 1e-6 {
                 break 'steps;
             }
