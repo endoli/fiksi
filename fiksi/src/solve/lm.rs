@@ -112,6 +112,8 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
                 .rows_mut(jacobian_.nrows(), jacobian_.ncols())
                 .fill(0.);
 
+            // We do a column-pivoting QR specifically, for its increased numerical stability. See
+            // also the note above about the use of QR decomposition for solving.
             let qr = j_aug.col_piv_qr();
             qr.q_tr_mul(&mut r_aug);
 
