@@ -59,7 +59,7 @@ fn bench_hinged_triangles(c: &mut Criterion) {
                 reset(&mut s);
                 s.solve(None, SolvingOptions::DEFAULT);
                 black_box(&mut s);
-            })
+            });
         });
 
         // As a spot-check, test whether the system actually ends up being solved.
