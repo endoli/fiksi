@@ -53,12 +53,12 @@ fn bench_hinged_triangles(c: &mut Criterion) {
         let reset = add_hinged_triangles(&mut s, size);
 
         group.bench_function(format!("size={size}"), |b| {
-            let s = &mut s;
             b.iter(|| {
                 // This also times the time required for resetting the system's elements to their
                 // initial values, but that shouldn't be too bad.
-                reset(s);
-                black_box(s.solve(None, SolvingOptions::DEFAULT));
+                reset(&mut s);
+                s.solve(None, SolvingOptions::DEFAULT);
+                black_box(&mut s);
             })
         });
 
