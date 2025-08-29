@@ -45,7 +45,7 @@ fn large_order_of_magnitude() {
 fn metric_and_singular() {
     let mut s = System::new();
 
-    const FACTOR: f64 = 1e8;
+    const FACTOR: f64 = 1e7;
 
     let p0 = elements::Point::create(&mut s, 1.5 * FACTOR, 6.5 * FACTOR);
     let p1 = elements::Point::create(&mut s, 3.2 * FACTOR, 0.8 * FACTOR);

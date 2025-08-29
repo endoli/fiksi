@@ -19,9 +19,6 @@ use crate::{
 /// subsystem. The variables given by the elements in `element_set` are seen as free, other
 /// variables are seen as fixed parameters.
 pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'_>) {
-    // TODO: this is allocation-happy.
-    // TODO: we don't use enough of nalgebra here to justify including that dependency.
-
     let mut variables_scratch = variables.to_vec();
     let variables_scratch = variables_scratch.as_mut_slice();
 
@@ -29,11 +26,22 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
     let mut residuals = nalgebra::DVector::zeros(subsystem.expressions().len());
     let mut residuals_scratch = nalgebra::DVector::zeros(subsystem.expressions().len());
 
-    // All first-order partial derivatives of the expressions. This is a dense representation (each
-    // pair of expression and variable has a partial derivative represented here, even for
-    // variables that do not contribute to the expression). It's possible a sparse representation
-    // may be more efficient in certain cases.
+    // All first-order partial derivatives of the expressions, in row-major order. This is a dense
+    // representation (each pair of expression and variable has a partial derivative represented
+    // here, even for variables that do not contribute to the expression). It's possible a sparse
+    // representation may be more efficient in certain cases.
     let mut jacobian = vec![0.; subsystem.expressions().len() * subsystem.free_variables().len()];
+
+    // The same Jacobian, but a separate allocation for the column-major representation, which
+    // nalgebra expects. TODO: perhaps make everything use a column-major allocation, as that's
+    // somewhat more common (making the per-expression gradients have a stride instead).
+    let mut jacobian_ = nalgebra::DMatrix::zeros(
+        subsystem.expressions().len(),
+        subsystem.free_variables().len(),
+    );
+
+    // The (augmented) residual matrix.
+    let mut r_aug = nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), 1);
 
     calculate_residuals_and_jacobian(
         subsystem,
@@ -50,12 +58,7 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
             break;
         }
 
-        // Clone the Jacobian to a nalgebra matrix for now.
-        // TODO: remove
-        let mut jacobian_ = nalgebra::DMatrix::zeros(
-            subsystem.expressions().len(),
-            subsystem.free_variables().len(),
-        );
+        // Copy from the row-major Jacobian to the column-major Jacobian.
         for i in 0..subsystem.expressions().len() {
             for j in 0..subsystem.free_variables().len() {
                 jacobian_[(i, j)] = jacobian[i * subsystem.free_variables().len() + j];
@@ -85,8 +88,13 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
             // ill-conditioned cases, the lack of stability due to forming the square can lead to
             // having to perform many more iterations to converge, as well as failure to convergence at
             // all.
+            //
+            // (It seems that with the current nalgebra API, it's not entirely straightforward to
+            // reuse the allocation for `j_aug`. It's moved into `ColPivQR`, and moving it out
+            // again requires an expensive resizing operation that copies elements around.)
             let mut j_aug =
                 nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), jacobian_.ncols());
+
             j_aug.rows_mut(0, jacobian_.nrows()).copy_from(&jacobian_);
             // Augment by the damping factor `lambda`.
             for idx in 0..jacobian_.ncols() {
@@ -95,14 +103,22 @@ pub(crate) fn levenberg_marquardt(variables: &mut [f64], subsystem: &Subsystem<'
             // The augmented residual matrix:
             // [ r ]
             // [ 0 ]
-            let mut r_aug = nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), 1);
-            r_aug.rows_mut(0, jacobian_.nrows()).copy_from(&residuals);
+            {
+                let mut r = r_aug.rows_mut(0, jacobian_.nrows());
+                r.copy_from(&residuals);
+                r.neg_mut();
+            }
+            r_aug
+                .rows_mut(jacobian_.nrows(), jacobian_.ncols())
+                .fill(0.);
 
             let qr = j_aug.col_piv_qr();
-            let Some(mut delta) = qr
-                .r()
-                .solve_upper_triangular(&(-qr.q().transpose() * r_aug))
-            else {
+            qr.q_tr_mul(&mut r_aug);
+
+            let mut delta = r_aug.rows_mut(0, jacobian_.ncols());
+            // Note: we'd like to use qr.unpack_r() here, but there may be some UB in `nalgebra`:
+            // <https://github.com/endoli/fiksi/pull/91>.
+            if !qr.r().solve_upper_triangular_mut(&mut delta) {
                 lambda *= 8.;
                 continue;
             };
