@@ -470,3 +470,26 @@ impl Element for Line {
 impl Element for Circle {
     type Output = kurbo::Circle;
 }
+
+impl ElementHandle<Point> {
+    /// Update the coordinates of this point element.
+    pub fn update_value(self, system: &mut System, x: f64, y: f64) {
+        let EncodedElement::Point { idx } = &system.elements[self.id as usize] else {
+            unreachable!()
+        };
+
+        system.variables[*idx as usize] = x;
+        system.variables[*idx as usize + 1] = y;
+    }
+}
+
+impl ElementHandle<Length> {
+    /// Update the value of this length element.
+    pub fn update_value(self, system: &mut System, length: f64) {
+        let EncodedElement::Length { idx } = &system.elements[self.id as usize] else {
+            unreachable!()
+        };
+
+        system.variables[*idx as usize] = length;
+    }
+}
