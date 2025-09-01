@@ -87,6 +87,13 @@ pub(crate) mod element {
             Self { system_id, id, tag }
         }
 
+        /// Get the handle as an opaque numeric identifier.
+        ///
+        /// These are unique across systems, but there is no other meaning associated with them.
+        pub fn as_id(&self) -> u64 {
+            (u64::from(self.system_id) << 32) + u64::from(self.id)
+        }
+
         /// Get the value of the element.
         pub fn get_value(&self, system: &System) -> ElementValue {
             // TODO: return `Result` instead of panicking?
