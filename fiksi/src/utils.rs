@@ -22,6 +22,7 @@ pub(crate) fn calculate_residual(expression: &Expression, variables: &[f64]) -> 
         Expression::LineCircleTangency(expression) => expression.compute_residual(variables),
         Expression::LineLineAngle(expression) => expression.compute_residual(variables),
         Expression::LineLineParallelism(expression) => expression.compute_residual(variables),
+        Expression::LineLinePerpendicularity(expression) => expression.compute_residual(variables),
     }
 }
 
@@ -136,6 +137,15 @@ pub(crate) fn calculate_residuals_and_jacobian(
                 );
             }
             Expression::LineLineParallelism(expression) => {
+                expression.compute_residual_and_gradient(
+                    subsystem,
+                    variables,
+                    &mut residuals[expression_idx],
+                    &mut jacobian[expression_idx * num_free_variables
+                        ..(expression_idx + 1) * num_free_variables],
+                );
+            }
+            Expression::LineLinePerpendicularity(expression) => {
                 expression.compute_residual_and_gradient(
                     subsystem,
                     variables,
