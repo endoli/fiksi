@@ -31,8 +31,8 @@ pub(crate) enum Expression {
     PointCircleIncidence(PointCircleIncidence),
     SegmentSegmentLengthEquality(SegmentSegmentLengthEquality),
     LineLineAngle(LineLineAngle),
-    LineLineOrthogonality(LineLineOrthogonality),
     LineLineParallelism(LineLineParallelism),
+    LineLinePerpendicularity(LineLinePerpendicularity),
     LineCircleTangency(LineCircleTangency),
 }
 
@@ -134,7 +134,7 @@ impl Expression {
                 variables[..v.len()].copy_from_slice(&v);
                 &mut variables[..v.len()]
             }
-            Self::LineLineOrthogonality(e) => {
+            Self::LineLineParallelism(e) => {
                 let v = [
                     e.line1_point1_idx,
                     e.line1_point1_idx + 1,
@@ -148,7 +148,7 @@ impl Expression {
                 variables[..v.len()].copy_from_slice(&v);
                 &mut variables[..v.len()]
             }
-            Self::LineLineParallelism(e) => {
+            Self::LineLinePerpendicularity(e) => {
                 let v = [
                     e.line1_point1_idx,
                     e.line1_point1_idx + 1,
@@ -1132,21 +1132,21 @@ impl LineLineParallelism {
     }
 }
 
-/// Constrain two lines to be orthogonal to each other.
-pub(crate) struct LineLineOrthogonality {
+/// Constrain two lines to be perpendicular to each other.
+pub(crate) struct LineLinePerpendicularity {
     pub(crate) line1_point1_idx: u32,
     pub(crate) line1_point2_idx: u32,
     pub(crate) line2_point1_idx: u32,
     pub(crate) line2_point2_idx: u32,
 }
 
-impl From<LineLineOrthogonality> for Expression {
-    fn from(expression: LineLineOrthogonality) -> Self {
-        Self::LineLineOrthogonality(expression)
+impl From<LineLinePerpendicularity> for Expression {
+    fn from(expression: LineLinePerpendicularity) -> Self {
+        Self::LineLinePerpendicularity(expression)
     }
 }
 
-impl LineLineOrthogonality {
+impl LineLinePerpendicularity {
     /// See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
     #[inline(always)]
     fn compute_residual_and_gradient_(variables: &[f64; 8]) -> (f64, [f64; 8]) {
@@ -1637,9 +1637,9 @@ mod tests {
     }
 
     #[test]
-    fn line_line_orthogonality_first_finite_difference() {
+    fn line_line_perpendicularity_first_finite_difference() {
         test_first_finite_difference(
-            LineLineOrthogonality::compute_residual_and_gradient_,
+            LineLinePerpendicularity::compute_residual_and_gradient_,
             |variables, delta| {
                 (
                     variables.map(|d| (d - 0.5) * 1e0),
@@ -1648,7 +1648,7 @@ mod tests {
             },
         );
         test_first_finite_difference(
-            LineLineOrthogonality::compute_residual_and_gradient_,
+            LineLinePerpendicularity::compute_residual_and_gradient_,
             |variables, delta| {
                 (
                     variables.map(|d| (d - 0.5) * 1e-10),

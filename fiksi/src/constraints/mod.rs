@@ -48,8 +48,8 @@ pub(crate) mod constraint {
         /// A handle to a [`LineLineParallelism`](super::LineLineParallelism) constraint.
         LineLineParallelism(ConstraintHandle<super::LineLineParallelism>),
 
-        /// A handle to a [`LineLineOrthogonality`](super::LineLineOrthogonality) constraint.
-        LineLineOrthogonality(ConstraintHandle<super::LineLineOrthogonality>),
+        /// A handle to a [`LineLinePerpendicularity`](super::LineLinePerpendicularity) constraint.
+        LineLinePerpendicularity(ConstraintHandle<super::LineLinePerpendicularity>),
 
         /// A handle to a [`LineCircleTangency`](super::LineCircleTangency) constraint.
         LineCircleTangency(ConstraintHandle<super::LineCircleTangency>),
@@ -199,8 +199,8 @@ pub(crate) mod constraint {
                 ConstraintTag::LineLineParallelism => TaggedConstraintHandle::LineLineParallelism(
                     ConstraintHandle::from_ids(self.system_id, self.id),
                 ),
-                ConstraintTag::LineLineOrthogonality => {
-                    TaggedConstraintHandle::LineLineOrthogonality(ConstraintHandle::from_ids(
+                ConstraintTag::LineLinePerpendicularity => {
+                    TaggedConstraintHandle::LineLinePerpendicularity(ConstraintHandle::from_ids(
                         self.system_id,
                         self.id,
                     ))
@@ -775,17 +775,17 @@ impl LineLineParallelism {
     }
 }
 
-/// Constrain two lines to be orthogonal to each other.
-pub struct LineLineOrthogonality {}
+/// Constrain two lines to be perpenpdicular to each other.
+pub struct LineLinePerpendicularity {}
 
-impl sealed::ConstraintInner for LineLineOrthogonality {
+impl sealed::ConstraintInner for LineLinePerpendicularity {
     fn tag() -> ConstraintTag {
-        ConstraintTag::LineLineOrthogonality
+        ConstraintTag::LineLinePerpendicularity
     }
 }
 
-impl LineLineOrthogonality {
-    /// Construct a constraint between two lines to be orthogonal to each other.
+impl LineLinePerpendicularity {
+    /// Construct a constraint between two lines to be perpendicular to each other.
     pub fn create(
         system: &mut System,
         line1: ElementHandle<elements::Line>,
@@ -816,8 +816,8 @@ impl LineLineOrthogonality {
             ]),
         );
         system.add_constraint(
-            ConstraintTag::LineLineOrthogonality,
-            [expressions::LineLineOrthogonality {
+            ConstraintTag::LineLinePerpendicularity,
+            [expressions::LineLinePerpendicularity {
                 line1_point1_idx,
                 line1_point2_idx,
                 line2_point1_idx,
@@ -894,7 +894,7 @@ pub(crate) enum ConstraintTag {
     SegmentSegmentLengthEquality,
     LineLineAngle,
     LineLineParallelism,
-    LineLineOrthogonality,
+    LineLinePerpendicularity,
     LineCircleTangency,
 }
 
@@ -910,7 +910,7 @@ impl ConstraintTag {
             Self::SegmentSegmentLengthEquality => SegmentSegmentLengthEquality::VALENCY,
             Self::LineLineAngle => LineLineAngle::VALENCY,
             Self::LineLineParallelism => LineLineParallelism::VALENCY,
-            Self::LineLineOrthogonality => LineLineOrthogonality::VALENCY,
+            Self::LineLinePerpendicularity => LineLinePerpendicularity::VALENCY,
             Self::LineCircleTangency => LineCircleTangency::VALENCY,
         }
     }
@@ -972,7 +972,7 @@ impl Constraint for LineLineParallelism {
     const VALENCY: u8 = 1;
 }
 
-impl Constraint for LineLineOrthogonality {
+impl Constraint for LineLinePerpendicularity {
     const VALENCY: u8 = 1;
 }
 
