@@ -32,5 +32,12 @@ nalgebra = { version = "0.33.2", default-features = false, features = ["alloc"] 
 version = "0.2.15"
 optional = true
 
+[dev-dependencies]
+criterion.workspace = true
+
+[[bench]]
+name = "fiksi_bench"
+harness = false
+
 [lints]
 workspace = true
