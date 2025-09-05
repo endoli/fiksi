@@ -4,7 +4,7 @@
 #[cfg(not(feature = "std"))]
 use crate::floatfuncs::FloatFuncs;
 
-use crate::Subsystem;
+use crate::{Variable, VariableMap};
 
 trait FloatExt {
     /// Returns the square of `self`.
@@ -200,38 +200,6 @@ impl VariableVariableEquality {
 
         (residual, gradient)
     }
-
-    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
-        // The compiler should be able to optimize this such that only the residual is calculated.
-        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
-        Self::compute_residual_and_gradient_([
-            variables[self.variable1_idx as usize],
-            variables[self.variable2_idx as usize],
-        ])
-        .0
-    }
-
-    pub(crate) fn compute_residual_and_gradient(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        gradient: &mut [f64],
-    ) {
-        let (r, g) = Self::compute_residual_and_gradient_([
-            variables[self.variable1_idx as usize],
-            variables[self.variable2_idx as usize],
-        ]);
-
-        *residual += r;
-
-        if let Some(idx) = subsystem.free_variable_index(self.variable1_idx) {
-            gradient[idx as usize] += g[0];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.variable2_idx) {
-            gradient[idx as usize] += g[1];
-        }
-    }
 }
 
 /// Constrain two points to have a given straight-line distance between each other.
@@ -282,54 +250,6 @@ impl PointPointDistance {
         ];
 
         (residual, gradient)
-    }
-
-    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
-        // The compiler should be able to optimize this such that only the residual is calculated.
-        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
-        Self::compute_residual_and_gradient_(
-            &[
-                variables[self.point1_idx as usize],
-                variables[self.point1_idx as usize + 1],
-                variables[self.point2_idx as usize],
-                variables[self.point2_idx as usize + 1],
-            ],
-            self.distance,
-        )
-        .0
-    }
-
-    pub(crate) fn compute_residual_and_gradient(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        gradient: &mut [f64],
-    ) {
-        let (r, g) = Self::compute_residual_and_gradient_(
-            &[
-                variables[self.point1_idx as usize],
-                variables[self.point1_idx as usize + 1],
-                variables[self.point2_idx as usize],
-                variables[self.point2_idx as usize + 1],
-            ],
-            self.distance,
-        );
-
-        *residual += r;
-
-        if let Some(idx) = subsystem.free_variable_index(self.point1_idx) {
-            gradient[idx as usize] += g[0];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.point1_idx + 1) {
-            gradient[idx as usize] += g[1];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.point2_idx) {
-            gradient[idx as usize] += g[2];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.point2_idx + 1) {
-            gradient[idx as usize] += g[3];
-        }
     }
 }
 
@@ -402,64 +322,6 @@ impl PointPointPointAngle {
 
         (residual, gradient)
     }
-
-    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
-        // The compiler should be able to optimize this such that only the residual is calculated.
-        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
-        Self::compute_residual_and_gradient_(
-            &[
-                variables[self.point1_idx as usize],
-                variables[self.point1_idx as usize + 1],
-                variables[self.point2_idx as usize],
-                variables[self.point2_idx as usize + 1],
-                variables[self.point3_idx as usize],
-                variables[self.point3_idx as usize + 1],
-            ],
-            self.angle,
-        )
-        .0
-    }
-
-    pub(crate) fn compute_residual_and_gradient(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        gradient: &mut [f64],
-    ) {
-        let (r, g) = Self::compute_residual_and_gradient_(
-            &[
-                variables[self.point1_idx as usize],
-                variables[self.point1_idx as usize + 1],
-                variables[self.point2_idx as usize],
-                variables[self.point2_idx as usize + 1],
-                variables[self.point3_idx as usize],
-                variables[self.point3_idx as usize + 1],
-            ],
-            self.angle,
-        );
-
-        *residual += r;
-
-        if let Some(idx) = subsystem.free_variable_index(self.point1_idx) {
-            gradient[idx as usize] += g[0];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.point1_idx + 1) {
-            gradient[idx as usize] += g[1];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.point2_idx) {
-            gradient[idx as usize] += g[2];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.point2_idx + 1) {
-            gradient[idx as usize] += g[3];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.point3_idx) {
-            gradient[idx as usize] += g[4];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.point3_idx + 1) {
-            gradient[idx as usize] += g[5];
-        }
-    }
 }
 
 /// Constrain a point and a line such that the point lies on the (infinite) line.
@@ -510,58 +372,6 @@ impl PointLineIncidence {
         ];
 
         (residual, gradient)
-    }
-
-    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
-        // The compiler should be able to optimize this such that only the residual is calculated.
-        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
-        Self::compute_residual_and_gradient_(&[
-            variables[self.point_idx as usize],
-            variables[self.point_idx as usize + 1],
-            variables[self.line_point1_idx as usize],
-            variables[self.line_point1_idx as usize + 1],
-            variables[self.line_point2_idx as usize],
-            variables[self.line_point2_idx as usize + 1],
-        ])
-        .0
-    }
-
-    pub(crate) fn compute_residual_and_gradient(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        gradient: &mut [f64],
-    ) {
-        let (r, g) = Self::compute_residual_and_gradient_(&[
-            variables[self.point_idx as usize],
-            variables[self.point_idx as usize + 1],
-            variables[self.line_point1_idx as usize],
-            variables[self.line_point1_idx as usize + 1],
-            variables[self.line_point2_idx as usize],
-            variables[self.line_point2_idx as usize + 1],
-        ]);
-
-        *residual += r;
-
-        if let Some(idx) = subsystem.free_variable_index(self.point_idx) {
-            gradient[idx as usize] += g[0];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.point_idx + 1) {
-            gradient[idx as usize] += g[1];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx) {
-            gradient[idx as usize] += g[2];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx + 1) {
-            gradient[idx as usize] += g[3];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx) {
-            gradient[idx as usize] += g[4];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx + 1) {
-            gradient[idx as usize] += g[5];
-        }
     }
 }
 
@@ -629,64 +439,6 @@ impl PointLineDistance {
 
         (residual, gradient)
     }
-
-    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
-        // The compiler should be able to optimize this such that only the residual is calculated.
-        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
-        Self::compute_residual_and_gradient_(
-            &[
-                variables[self.point_idx as usize],
-                variables[self.point_idx as usize + 1],
-                variables[self.line_point1_idx as usize],
-                variables[self.line_point1_idx as usize + 1],
-                variables[self.line_point2_idx as usize],
-                variables[self.line_point2_idx as usize + 1],
-            ],
-            self.distance,
-        )
-        .0
-    }
-
-    pub(crate) fn compute_residual_and_gradient(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        gradient: &mut [f64],
-    ) {
-        let (r, g) = Self::compute_residual_and_gradient_(
-            &[
-                variables[self.point_idx as usize],
-                variables[self.point_idx as usize + 1],
-                variables[self.line_point1_idx as usize],
-                variables[self.line_point1_idx as usize + 1],
-                variables[self.line_point2_idx as usize],
-                variables[self.line_point2_idx as usize + 1],
-            ],
-            self.distance,
-        );
-
-        *residual += r;
-
-        if let Some(idx) = subsystem.free_variable_index(self.point_idx) {
-            gradient[idx as usize] += g[0];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.point_idx + 1) {
-            gradient[idx as usize] += g[1];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx) {
-            gradient[idx as usize] += g[2];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx + 1) {
-            gradient[idx as usize] += g[3];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx) {
-            gradient[idx as usize] += g[4];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx + 1) {
-            gradient[idx as usize] += g[5];
-        }
-    }
 }
 
 /// Constrain a line and a circle such that the line is tangent on the circle.
@@ -717,53 +469,6 @@ impl PointCircleIncidence {
             residual,
             [gradient[0], gradient[1], gradient[2], gradient[3], -1.],
         )
-    }
-
-    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
-        // The compiler should be able to optimize this such that only the residual is calculated.
-        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
-        Self::compute_residual_and_gradient_(&[
-            variables[self.point_idx as usize],
-            variables[self.point_idx as usize + 1],
-            variables[self.circle_center_idx as usize],
-            variables[self.circle_center_idx as usize + 1],
-            variables[self.circle_radius_idx as usize],
-        ])
-        .0
-    }
-
-    pub(crate) fn compute_residual_and_gradient(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        gradient: &mut [f64],
-    ) {
-        let (r, g) = Self::compute_residual_and_gradient_(&[
-            variables[self.point_idx as usize],
-            variables[self.point_idx as usize + 1],
-            variables[self.circle_center_idx as usize],
-            variables[self.circle_center_idx as usize + 1],
-            variables[self.circle_radius_idx as usize],
-        ]);
-
-        *residual += r;
-
-        if let Some(idx) = subsystem.free_variable_index(self.point_idx) {
-            gradient[idx as usize] += g[0];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.point_idx + 1) {
-            gradient[idx as usize] += g[1];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.circle_center_idx) {
-            gradient[idx as usize] += g[2];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.circle_center_idx + 1) {
-            gradient[idx as usize] += g[3];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.circle_radius_idx) {
-            gradient[idx as usize] += g[4];
-        }
     }
 }
 
@@ -807,68 +512,6 @@ impl SegmentSegmentLengthEquality {
                 gradient2[3],
             ],
         )
-    }
-
-    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
-        // The compiler should be able to optimize this such that only the residual is calculated.
-        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
-        Self::compute_residual_and_gradient_(&[
-            variables[self.segment1_point1_idx as usize],
-            variables[self.segment1_point1_idx as usize + 1],
-            variables[self.segment1_point2_idx as usize],
-            variables[self.segment1_point2_idx as usize + 1],
-            variables[self.segment2_point1_idx as usize],
-            variables[self.segment2_point1_idx as usize + 1],
-            variables[self.segment2_point2_idx as usize],
-            variables[self.segment2_point2_idx as usize + 1],
-        ])
-        .0
-    }
-
-    pub(crate) fn compute_residual_and_gradient(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        gradient: &mut [f64],
-    ) {
-        let (r, g) = Self::compute_residual_and_gradient_(&[
-            variables[self.segment1_point1_idx as usize],
-            variables[self.segment1_point1_idx as usize + 1],
-            variables[self.segment1_point2_idx as usize],
-            variables[self.segment1_point2_idx as usize + 1],
-            variables[self.segment2_point1_idx as usize],
-            variables[self.segment2_point1_idx as usize + 1],
-            variables[self.segment2_point2_idx as usize],
-            variables[self.segment2_point2_idx as usize + 1],
-        ]);
-
-        *residual += r;
-
-        if let Some(idx) = subsystem.free_variable_index(self.segment1_point1_idx) {
-            gradient[idx as usize] += g[0];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.segment1_point1_idx + 1) {
-            gradient[idx as usize] += g[1];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.segment1_point2_idx) {
-            gradient[idx as usize] += g[2];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.segment1_point2_idx + 1) {
-            gradient[idx as usize] += g[3];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.segment2_point1_idx) {
-            gradient[idx as usize] += g[4];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.segment2_point1_idx + 1) {
-            gradient[idx as usize] += g[5];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.segment2_point2_idx) {
-            gradient[idx as usize] += g[6];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.segment2_point2_idx + 1) {
-            gradient[idx as usize] += g[7];
-        }
     }
 }
 
@@ -945,74 +588,6 @@ impl LineLineAngle {
 
         (residual, gradient)
     }
-
-    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
-        // The compiler should be able to optimize this such that only the residual is calculated.
-        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
-        Self::compute_residual_and_gradient_(
-            &[
-                variables[self.line1_point1_idx as usize],
-                variables[self.line1_point1_idx as usize + 1],
-                variables[self.line1_point2_idx as usize],
-                variables[self.line1_point2_idx as usize + 1],
-                variables[self.line2_point1_idx as usize],
-                variables[self.line2_point1_idx as usize + 1],
-                variables[self.line2_point2_idx as usize],
-                variables[self.line2_point2_idx as usize + 1],
-            ],
-            self.angle,
-        )
-        .0
-    }
-
-    pub(crate) fn compute_residual_and_gradient(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        gradient: &mut [f64],
-    ) {
-        let (r, g) = Self::compute_residual_and_gradient_(
-            &[
-                variables[self.line1_point1_idx as usize],
-                variables[self.line1_point1_idx as usize + 1],
-                variables[self.line1_point2_idx as usize],
-                variables[self.line1_point2_idx as usize + 1],
-                variables[self.line2_point1_idx as usize],
-                variables[self.line2_point1_idx as usize + 1],
-                variables[self.line2_point2_idx as usize],
-                variables[self.line2_point2_idx as usize + 1],
-            ],
-            self.angle,
-        );
-
-        *residual += r;
-
-        if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx) {
-            gradient[idx as usize] += g[0];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx + 1) {
-            gradient[idx as usize] += g[1];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx) {
-            gradient[idx as usize] += g[2];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx + 1) {
-            gradient[idx as usize] += g[3];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx) {
-            gradient[idx as usize] += g[4];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx + 1) {
-            gradient[idx as usize] += g[5];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx) {
-            gradient[idx as usize] += g[6];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx + 1) {
-            gradient[idx as usize] += g[7];
-        }
-    }
 }
 
 /// Constrain two lines to be parallel to each other.
@@ -1068,68 +643,6 @@ impl LineLineParallelism {
 
         (residual, gradient)
     }
-
-    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
-        // The compiler should be able to optimize this such that only the residual is calculated.
-        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
-        Self::compute_residual_and_gradient_(&[
-            variables[self.line1_point1_idx as usize],
-            variables[self.line1_point1_idx as usize + 1],
-            variables[self.line1_point2_idx as usize],
-            variables[self.line1_point2_idx as usize + 1],
-            variables[self.line2_point1_idx as usize],
-            variables[self.line2_point1_idx as usize + 1],
-            variables[self.line2_point2_idx as usize],
-            variables[self.line2_point2_idx as usize + 1],
-        ])
-        .0
-    }
-
-    pub(crate) fn compute_residual_and_gradient(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        gradient: &mut [f64],
-    ) {
-        let (r, g) = Self::compute_residual_and_gradient_(&[
-            variables[self.line1_point1_idx as usize],
-            variables[self.line1_point1_idx as usize + 1],
-            variables[self.line1_point2_idx as usize],
-            variables[self.line1_point2_idx as usize + 1],
-            variables[self.line2_point1_idx as usize],
-            variables[self.line2_point1_idx as usize + 1],
-            variables[self.line2_point2_idx as usize],
-            variables[self.line2_point2_idx as usize + 1],
-        ]);
-
-        *residual += r;
-
-        if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx) {
-            gradient[idx as usize] += g[0];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx + 1) {
-            gradient[idx as usize] += g[1];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx) {
-            gradient[idx as usize] += g[2];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx + 1) {
-            gradient[idx as usize] += g[3];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx) {
-            gradient[idx as usize] += g[4];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx + 1) {
-            gradient[idx as usize] += g[5];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx) {
-            gradient[idx as usize] += g[6];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx + 1) {
-            gradient[idx as usize] += g[7];
-        }
-    }
 }
 
 /// Constrain two lines to be perpendicular to each other.
@@ -1175,68 +688,6 @@ impl LineLinePerpendicularity {
         let gradient = [-v.x, -v.y, v.x, v.y, -u.x, -u.y, u.x, u.y];
 
         (residual, gradient)
-    }
-
-    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
-        // The compiler should be able to optimize this such that only the residual is calculated.
-        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
-        Self::compute_residual_and_gradient_(&[
-            variables[self.line1_point1_idx as usize],
-            variables[self.line1_point1_idx as usize + 1],
-            variables[self.line1_point2_idx as usize],
-            variables[self.line1_point2_idx as usize + 1],
-            variables[self.line2_point1_idx as usize],
-            variables[self.line2_point1_idx as usize + 1],
-            variables[self.line2_point2_idx as usize],
-            variables[self.line2_point2_idx as usize + 1],
-        ])
-        .0
-    }
-
-    pub(crate) fn compute_residual_and_gradient(
-        &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
-        gradient: &mut [f64],
-    ) {
-        let (r, g) = Self::compute_residual_and_gradient_(&[
-            variables[self.line1_point1_idx as usize],
-            variables[self.line1_point1_idx as usize + 1],
-            variables[self.line1_point2_idx as usize],
-            variables[self.line1_point2_idx as usize + 1],
-            variables[self.line2_point1_idx as usize],
-            variables[self.line2_point1_idx as usize + 1],
-            variables[self.line2_point2_idx as usize],
-            variables[self.line2_point2_idx as usize + 1],
-        ]);
-
-        *residual += r;
-
-        if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx) {
-            gradient[idx as usize] += g[0];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line1_point1_idx + 1) {
-            gradient[idx as usize] += g[1];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx) {
-            gradient[idx as usize] += g[2];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line1_point2_idx + 1) {
-            gradient[idx as usize] += g[3];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx) {
-            gradient[idx as usize] += g[4];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line2_point1_idx + 1) {
-            gradient[idx as usize] += g[5];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx) {
-            gradient[idx as usize] += g[6];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line2_point2_idx + 1) {
-            gradient[idx as usize] += g[7];
-        }
     }
 }
 
@@ -1312,61 +763,221 @@ impl LineCircleTangency {
 
         (residual, gradient)
     }
+}
 
-    pub(crate) fn compute_residual(&self, variables: &[f64]) -> f64 {
-        // The compiler should be able to optimize this such that only the residual is calculated.
-        // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
-        Self::compute_residual_and_gradient_(&[
-            variables[self.line_point1_idx as usize],
-            variables[self.line_point1_idx as usize + 1],
-            variables[self.line_point2_idx as usize],
-            variables[self.line_point2_idx as usize + 1],
-            variables[self.circle_center_idx as usize],
-            variables[self.circle_center_idx as usize + 1],
-            variables[self.circle_radius_idx as usize],
-        ])
-        .0
+/// Utility function to reslice an array to a smaller array.
+#[inline(always)]
+fn reslice<const N: usize, const M: usize>(slice: &[f64; M]) -> &[f64; N] {
+    slice[..N].try_into().unwrap()
+}
+
+impl Expression {
+    pub(crate) fn calculate_residual(&self, variable_map: VariableMap<'_>) -> f64 {
+        // Buffer to get variable indices of this expression.
+        let mut variable_indices = [0_u32; 8];
+
+        // Buffer to write the values of this expression's variables into.
+        let mut variable_values = [0_f64; 8];
+
+        // Buffer to map from this expression's input variables to the free variables' indices.
+        // Note not all input variables have to be free, some (or technically, even all) may be
+        // fixed.
+        for (i, &variable_idx) in self
+            .variable_indices(&mut variable_indices)
+            .iter()
+            .enumerate()
+        {
+            match variable_map.get_variable(variable_idx) {
+                Variable::Free { value, idx: _ } => {
+                    variable_values[i] = value;
+                }
+                Variable::Fixed { value } => {
+                    variable_values[i] = value;
+                }
+            };
+        }
+
+        match self {
+            Self::VariableVariableEquality(_e) => {
+                VariableVariableEquality::compute_residual_and_gradient_(*reslice(&variable_values))
+                    .0
+            }
+            Self::PointPointDistance(e) => {
+                PointPointDistance::compute_residual_and_gradient_(
+                    reslice(&variable_values),
+                    e.distance,
+                )
+                .0
+            }
+            Self::PointPointPointAngle(e) => {
+                PointPointPointAngle::compute_residual_and_gradient_(
+                    reslice(&variable_values),
+                    e.angle,
+                )
+                .0
+            }
+            Self::PointLineIncidence(_e) => {
+                PointLineIncidence::compute_residual_and_gradient_(reslice(&variable_values)).0
+            }
+            Self::PointLineDistance(e) => {
+                PointLineDistance::compute_residual_and_gradient_(
+                    reslice(&variable_values),
+                    e.distance,
+                )
+                .0
+            }
+
+            Self::PointCircleIncidence(_e) => {
+                PointCircleIncidence::compute_residual_and_gradient_(reslice(&variable_values)).0
+            }
+            Self::SegmentSegmentLengthEquality(_e) => {
+                SegmentSegmentLengthEquality::compute_residual_and_gradient_(reslice(
+                    &variable_values,
+                ))
+                .0
+            }
+            Self::LineLineAngle(e) => {
+                LineLineAngle::compute_residual_and_gradient_(reslice(&variable_values), e.angle).0
+            }
+            Self::LineLineParallelism(_e) => {
+                LineLineParallelism::compute_residual_and_gradient_(reslice(&variable_values)).0
+            }
+            Self::LineLinePerpendicularity(_e) => {
+                LineLinePerpendicularity::compute_residual_and_gradient_(reslice(&variable_values))
+                    .0
+            }
+            Self::LineCircleTangency(_e) => {
+                LineCircleTangency::compute_residual_and_gradient_(reslice(&variable_values)).0
+            }
+        }
     }
-
-    pub(crate) fn compute_residual_and_gradient(
+    pub(crate) fn calculate_residual_and_gradient(
         &self,
-        subsystem: &Subsystem<'_>,
-        variables: &[f64],
-        residual: &mut f64,
+        variable_map: VariableMap<'_>,
         gradient: &mut [f64],
-    ) {
-        let (r, g) = Self::compute_residual_and_gradient_(&[
-            variables[self.line_point1_idx as usize],
-            variables[self.line_point1_idx as usize + 1],
-            variables[self.line_point2_idx as usize],
-            variables[self.line_point2_idx as usize + 1],
-            variables[self.circle_center_idx as usize],
-            variables[self.circle_center_idx as usize + 1],
-            variables[self.circle_radius_idx as usize],
-        ]);
+    ) -> f64 {
+        // Buffer to get variable indices of this expression.
+        let mut variable_indices = [0_u32; 8];
 
-        *residual += r;
+        // Buffer to write the values of this expression's variables into.
+        let mut variable_values = [0_f64; 8];
 
-        if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx) {
-            gradient[idx as usize] += g[0];
+        // Buffer to map from this expression's input variables to the free variables' indices.
+        // Note not all input variables have to be free, some (or technically, even all) may be
+        // fixed.
+        let mut free_variable_indices = [None; 8];
+        for (i, &variable_idx) in self
+            .variable_indices(&mut variable_indices)
+            .iter()
+            .enumerate()
+        {
+            match variable_map.get_variable(variable_idx) {
+                Variable::Free { value, idx } => {
+                    variable_values[i] = value;
+                    free_variable_indices[i] = Some(idx);
+                }
+                Variable::Fixed { value } => {
+                    variable_values[i] = value;
+                }
+            };
         }
-        if let Some(idx) = subsystem.free_variable_index(self.line_point1_idx + 1) {
-            gradient[idx as usize] += g[1];
+
+        fn map_residual_and_gradient<const N: usize>(
+            result: (f64, [f64; N]),
+            free_variable_indices: [Option<u32>; 8],
+            gradient: &mut [f64],
+        ) -> f64 {
+            assert!(
+                N <= 8,
+                "This currently assumes expressions don't take more than 8 input variables."
+            );
+
+            for (i, free_variable_idx) in free_variable_indices.into_iter().enumerate() {
+                if let Some(free_variable_idx) = free_variable_idx {
+                    gradient[free_variable_idx as usize] = result.1[i];
+                }
+            }
+            result.0
         }
-        if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx) {
-            gradient[idx as usize] += g[2];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.line_point2_idx + 1) {
-            gradient[idx as usize] += g[3];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.circle_center_idx) {
-            gradient[idx as usize] += g[4];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.circle_center_idx + 1) {
-            gradient[idx as usize] += g[5];
-        }
-        if let Some(idx) = subsystem.free_variable_index(self.circle_radius_idx) {
-            gradient[idx as usize] += g[6];
+
+        match self {
+            Self::VariableVariableEquality(_e) => map_residual_and_gradient(
+                VariableVariableEquality::compute_residual_and_gradient_(*reslice(
+                    &variable_values,
+                )),
+                free_variable_indices,
+                gradient,
+            ),
+            Self::PointPointDistance(e) => map_residual_and_gradient(
+                PointPointDistance::compute_residual_and_gradient_(
+                    reslice(&variable_values),
+                    e.distance,
+                ),
+                free_variable_indices,
+                gradient,
+            ),
+
+            Self::PointPointPointAngle(e) => map_residual_and_gradient(
+                PointPointPointAngle::compute_residual_and_gradient_(
+                    reslice(&variable_values),
+                    e.angle,
+                ),
+                free_variable_indices,
+                gradient,
+            ),
+
+            Self::PointLineIncidence(_e) => map_residual_and_gradient(
+                PointLineIncidence::compute_residual_and_gradient_(reslice(&variable_values)),
+                free_variable_indices,
+                gradient,
+            ),
+
+            Self::PointLineDistance(e) => map_residual_and_gradient(
+                PointLineDistance::compute_residual_and_gradient_(
+                    reslice(&variable_values),
+                    e.distance,
+                ),
+                free_variable_indices,
+                gradient,
+            ),
+
+            Self::PointCircleIncidence(_e) => map_residual_and_gradient(
+                PointCircleIncidence::compute_residual_and_gradient_(reslice(&variable_values)),
+                free_variable_indices,
+                gradient,
+            ),
+
+            Self::SegmentSegmentLengthEquality(_e) => map_residual_and_gradient(
+                SegmentSegmentLengthEquality::compute_residual_and_gradient_(reslice(
+                    &variable_values,
+                )),
+                free_variable_indices,
+                gradient,
+            ),
+
+            Self::LineLineAngle(e) => map_residual_and_gradient(
+                LineLineAngle::compute_residual_and_gradient_(reslice(&variable_values), e.angle),
+                free_variable_indices,
+                gradient,
+            ),
+
+            Self::LineLineParallelism(_e) => map_residual_and_gradient(
+                LineLineParallelism::compute_residual_and_gradient_(reslice(&variable_values)),
+                free_variable_indices,
+                gradient,
+            ),
+
+            Self::LineLinePerpendicularity(_e) => map_residual_and_gradient(
+                LineLinePerpendicularity::compute_residual_and_gradient_(reslice(&variable_values)),
+                free_variable_indices,
+                gradient,
+            ),
+
+            Self::LineCircleTangency(_e) => map_residual_and_gradient(
+                LineCircleTangency::compute_residual_and_gradient_(reslice(&variable_values)),
+                free_variable_indices,
+                gradient,
+            ),
         }
     }
 }

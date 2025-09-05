@@ -15,7 +15,11 @@ pub(crate) mod constraint {
 
     use core::marker::PhantomData;
 
-    use crate::{System, utils};
+    use crate::{
+        System, VariableMap,
+        collections::{CollectionExt, IndexSet},
+        utils::{self},
+    };
 
     use super::{Constraint, ConstraintTag};
 
@@ -89,17 +93,22 @@ pub(crate) mod constraint {
             );
 
             let constraint = &system.constraints[self.id as usize];
+            // An empty variable map.
+            let variable_map = VariableMap {
+                free_variables: &IndexSet::new(),
+                variable_values: &system.variables,
+                free_variable_values: &[],
+            };
+
             if T::VALENCY > 1 {
                 utils::sum_squares((0..T::VALENCY).map(|offset| {
-                    utils::calculate_residual(
-                        &system.expressions[constraint.expressions_idx as usize + offset as usize],
-                        &system.variables,
-                    )
+                    system.expressions[constraint.expressions_idx as usize + usize::from(offset)]
+                        .calculate_residual(variable_map)
                 }))
                 .sqrt()
             } else {
                 let expression = &system.expressions[constraint.expressions_idx as usize];
-                utils::calculate_residual(expression, &system.variables)
+                expression.calculate_residual(variable_map)
             }
         }
 
@@ -144,17 +153,23 @@ pub(crate) mod constraint {
 
             let valency = self.tag.valency();
             let constraint = &system.constraints[self.id as usize];
+
+            // An empty variable map.
+            let variable_map = VariableMap {
+                free_variables: &IndexSet::new(),
+                variable_values: &system.variables,
+                free_variable_values: &[],
+            };
+
             if valency > 1 {
                 utils::sum_squares((0..valency).map(|offset| {
-                    utils::calculate_residual(
-                        &system.expressions[constraint.expressions_idx as usize + offset as usize],
-                        &system.variables,
-                    )
+                    system.expressions[constraint.expressions_idx as usize + offset as usize]
+                        .calculate_residual(variable_map)
                 }))
                 .sqrt()
             } else {
                 let expression = &system.expressions[constraint.expressions_idx as usize];
-                utils::calculate_residual(expression, &system.variables)
+                expression.calculate_residual(variable_map)
             }
         }
 

@@ -5,10 +5,7 @@ use core::f64;
 
 use alloc::vec;
 
-use crate::{
-    Subsystem,
-    utils::{calculate_residuals_and_jacobian, sum_squares},
-};
+use crate::{solve::Problem, utils::sum_squares};
 
 /// The limited-memory BFGS solver by Liu and Nocedal (1989), approximating the
 /// Broyden–Fletcher–Goldfarb–Shanno method.
@@ -20,7 +17,13 @@ use crate::{
 /// See:
 /// Liu, Dong C., and Jorge Nocedal. "On the limited memory BFGS method for large scale
 /// optimization." Mathematical programming 45.1 (1989): 503-528.
-pub(crate) fn lbfgs(variables: &mut [f64], subsystem: &Subsystem<'_>) {
+pub(crate) fn lbfgs<P: Problem>(problem: &mut P, variables: &mut [f64]) {
+    debug_assert_eq!(
+        problem.num_variables() as usize,
+        variables.len(),
+        "The number of variables as given by the `Problem` and the slice of variables passed in must match."
+    );
+
     /// The max length of the limited history.
     const MAX_HISTORY: u8 = 5;
 
@@ -36,23 +39,24 @@ pub(crate) fn lbfgs(variables: &mut [f64], subsystem: &Subsystem<'_>) {
     /// have converged.
     const RESIDUAL_THRESHOLD: f64 = 1e-6;
 
+    let num_variables = problem.num_variables() as usize;
+
     // The (non-squared) residuals of the expressions.
-    let mut residuals = vec![0.; subsystem.expressions().len()];
+    let mut residuals = vec![0.; problem.num_residuals() as usize];
     // All first-order partial derivatives of the expressions, as expressions x free variables.
     // This is in row-major order.
-    let mut jacobian = vec![0.; subsystem.expressions().len() * subsystem.free_variables().len()];
+    let mut jacobian = vec![0.; problem.num_residuals() as usize * num_variables];
 
     // Calculate initial residuals and gradients
-    calculate_residuals_and_jacobian(subsystem, &*variables, &mut residuals, &mut jacobian);
+    problem.calculate_residuals_and_jacobian(&*variables, &mut residuals, &mut jacobian);
 
     let mut prev_sum_squared_residuals = sum_squares(&residuals);
     if prev_sum_squared_residuals < 1e-4 {
         return;
     }
 
-    let num_variables = subsystem.free_variables().len();
     // Gradient (`g_k`) scratch buffer.
-    let mut gradient = vec![0.; num_variables];
+    let mut gradient = vec![0.; problem.num_variables() as usize];
     // Calculate initial gradient
     compute_gradient(&jacobian, &residuals, &mut gradient);
 
@@ -66,10 +70,7 @@ pub(crate) fn lbfgs(variables: &mut [f64], subsystem: &Subsystem<'_>) {
     // `MAX_HISTORY`-sized scratch buffer for `α` (not a ringbuffer, this is updated every iteration).
     let mut alpha = vec![0.; MAX_HISTORY as usize];
 
-    // Reusable scratch buffers for update step direction and variables. The `variables_scratch`
-    // buffer contains space for all variables of the system (both fixed and free), whereas
-    // `direction` only contains space for the free variables. In principle we don't need
-    // `variables_scratch` to contain the fixed variables, but this is easier for now.
+    // Reusable scratch buffers for update step direction and variables.
     let mut direction = vec![0.; num_variables];
     let mut variables_scratch = vec![0.; variables.len()];
 
@@ -156,7 +157,7 @@ pub(crate) fn lbfgs(variables: &mut [f64], subsystem: &Subsystem<'_>) {
             phi: sum_squared_residuals,
             ..
         } = hager_zhang::line_search(
-            subsystem,
+            problem,
             variables,
             &mut variables_scratch,
             &mut jacobian,
@@ -215,10 +216,7 @@ fn dot_product(a: &[f64], b: &[f64]) -> f64 {
 }
 
 mod hager_zhang {
-    use crate::{
-        Subsystem,
-        utils::{calculate_residuals_and_jacobian, sum_squares},
-    };
+    use crate::{solve::Problem, utils::sum_squares};
 
     use super::{compute_gradient, dot_product};
 
@@ -258,8 +256,8 @@ mod hager_zhang {
     }
 
     /// Helper struct for evaluating the system's residual and gradient.
-    struct Eval<'a> {
-        subsystem: &'a Subsystem<'a>,
+    struct Eval<'a, P> {
+        problem: &'a mut P,
         variables: &'a [f64],
         variables_scratch: &'a mut [f64],
         jacobian: &'a mut [f64],
@@ -268,15 +266,14 @@ mod hager_zhang {
         direction: &'a [f64],
     }
 
-    impl Eval<'_> {
+    impl<P: Problem> Eval<'_, P> {
         fn calculate_phi(&mut self, p: f64) -> Param {
-            for (idx, d) in self.subsystem.free_variables().zip(self.direction) {
-                self.variables_scratch[idx as usize] = self.variables[idx as usize] + p * d;
+            for idx in 0..self.variables.len() {
+                self.variables_scratch[idx] = self.variables[idx] + p * self.direction[idx];
             }
 
-            calculate_residuals_and_jacobian(
-                self.subsystem,
-                self.variables_scratch,
+            self.problem.calculate_residuals_and_jacobian(
+                &*self.variables_scratch,
                 self.residuals,
                 self.jacobian,
             );
@@ -324,7 +321,13 @@ mod hager_zhang {
         }
 
         /// Perform the `update` step as defined in Hager and Zhang (2005).
-        fn update(&self, eval: &mut Eval<'_>, a: Param, b: Param, c: Param) -> (Param, Param) {
+        fn update(
+            &self,
+            eval: &mut Eval<'_, impl Problem>,
+            a: Param,
+            b: Param,
+            c: Param,
+        ) -> (Param, Param) {
             if c.p < a.p || c.p > b.p {
                 // U0 in the paper
                 return (a, b);
@@ -361,7 +364,12 @@ mod hager_zhang {
         ///
         /// Returns `HzResult::Satisfied(param)` if a point was found satisfying the Wolfe
         /// conditions. Returns `HzResult::Unsatisfied((a,b))` bracketing the point otherwise.
-        fn secant2(&self, eval: &mut Eval<'_>, a: Param, b: Param) -> HzResult<(Param, Param)> {
+        fn secant2(
+            &self,
+            eval: &mut Eval<'_, impl Problem>,
+            a: Param,
+            b: Param,
+        ) -> HzResult<(Param, Param)> {
             let c = {
                 let p = secant(a, b);
                 eval.calculate_phi(p)
@@ -397,7 +405,7 @@ mod hager_zhang {
 
         /// Find an initial bracket around `c` that satisfies the Wolfe conditions within its
         /// range.
-        fn bracket(&self, eval: &mut Eval<'_>, _c: Param) -> (Param, Param) {
+        fn bracket(&self, eval: &mut Eval<'_, impl Problem>, _c: Param) -> (Param, Param) {
             // TODO: implement the initial bracketing. Set to [0., 5.] for now.
             let a = Param {
                 p: 0.,
@@ -410,7 +418,7 @@ mod hager_zhang {
 
         /// The main search loop, updating the bracket and bisecting until a step size is found
         /// satisfying the Wolfe conditions.
-        fn search(&self, eval: &mut Eval<'_>, a: Param, b: Param, c: Param) -> Param {
+        fn search(&self, eval: &mut Eval<'_, impl Problem>, a: Param, b: Param, c: Param) -> Param {
             let (mut a, mut b, mut c) = (a, b, c);
 
             for _ in 0..MAX_ITERATIONS {
@@ -439,7 +447,7 @@ mod hager_zhang {
         }
 
         /// This guarantees [`Eval::calculate_phi`] was last called with parameter [`Param::p`].
-        fn run(&self, eval: &mut Eval<'_>) -> Param {
+        fn run(&self, eval: &mut Eval<'_, impl Problem>) -> Param {
             // For the L-BFGS routine as above, a step size of `1` is often accepted. In that case,
             // we can exit early.
             let c = eval.calculate_phi(1.);
@@ -471,7 +479,7 @@ mod hager_zhang {
     ///
     /// [Wolfe]: https://en.wikipedia.org/wiki/Wolfe_conditions
     pub(super) fn line_search(
-        subsystem: &Subsystem<'_>,
+        problem: &mut impl Problem,
         variables: &[f64],
         variables_scratch: &mut [f64],
         jacobian: &mut [f64],
@@ -485,7 +493,7 @@ mod hager_zhang {
         let hz = HagerZhangLineSearch { phi0, dphi0 };
 
         let eval = &mut Eval {
-            subsystem,
+            problem,
             variables,
             variables_scratch,
             jacobian,

@@ -84,6 +84,7 @@ mod rand;
 pub mod solve;
 mod subsystem;
 pub(crate) mod utils;
+mod variable_map;
 
 #[cfg(test)]
 mod tests;
@@ -101,6 +102,7 @@ pub use elements::{
 };
 pub(crate) use rand::Rng;
 pub(crate) use subsystem::Subsystem;
+pub(crate) use variable_map::{Variable, VariableMap};
 
 use crate::{analyze::graph::equations::ExpressionGraph, constraints::ConstraintTag, graph::Graph};
 
@@ -451,68 +453,8 @@ impl System {
     /// Analyze the system, without performing a full solve.
     ///
     /// This may change elements' positions in order to satisfy numeric requirements.
-    pub fn analyze(&mut self, solve_set: Option<&SolveSetHandle>) -> Analysis {
-        let (elements, constraints) = if let Some(solve_set) = solve_set {
-            let solve_set = &self.solve_sets[solve_set.id as usize];
-            let elements = solve_set.elements.clone();
-            let constraints = solve_set.constraints.clone();
-            (elements, constraints)
-        } else {
-            (
-                (0..self.elements.len().try_into().unwrap())
-                    .map(|id| ElementId { id })
-                    .collect(),
-                (0..self.constraints.len().try_into().unwrap())
-                    .map(|id| ConstraintId { id })
-                    .collect(),
-            )
-        };
-
-        let mut free_variables: Vec<u32> = vec![];
-        for element_id in &elements {
-            let element = &self.elements[element_id.id as usize];
-            match element {
-                EncodedElement::Length { idx } => {
-                    free_variables.extend(&[*idx]);
-                }
-                EncodedElement::Point { idx } => {
-                    free_variables.extend(&[*idx, *idx + 1]);
-                }
-                EncodedElement::Line {
-                    point1_idx,
-                    point2_idx,
-                } => {
-                    free_variables.extend(&[
-                        *point1_idx,
-                        *point1_idx + 1,
-                        *point2_idx,
-                        *point2_idx + 1,
-                    ]);
-                }
-                EncodedElement::Circle {
-                    center_idx,
-                    radius_idx,
-                } => {
-                    free_variables.extend(&[*center_idx, *center_idx + 1, *radius_idx]);
-                }
-            }
-        }
-
-        let subsystem = Subsystem::new(
-            &self.expressions,
-            free_variables,
-            constraints
-                .iter()
-                .flat_map(|c| {
-                    let constraint = &self.constraints[c.id as usize];
-                    (0..constraint.tag.valency()).map(|offset| {
-                        self.constraints[c.id as usize].expressions_idx + u32::from(offset)
-                    })
-                })
-                .collect(),
-        );
-
-        let overconstrained = analyze::numerical::find_overconstraints(self, &subsystem);
+    pub fn analyze(&mut self) -> Analysis {
+        let overconstrained = analyze::numerical::find_overconstraints(self);
 
         Analysis { overconstrained }
     }
@@ -595,26 +537,56 @@ impl System {
             }
 
             if opts.decompose {
+                let mut free_variables_values = Vec::new();
                 for scc in self
                     .equation_graph
                     .find_strongly_connected_expressions(&free_variables)
                 {
-                    let subsystem =
-                        Subsystem::new(&self.expressions, scc.free_variables, scc.expressions);
+                    free_variables_values.clear();
+                    free_variables_values.extend(
+                        scc.free_variables
+                            .iter()
+                            .copied()
+                            .map(|free_variable_idx| self.variables[free_variable_idx as usize]),
+                    );
+
+                    let mut subsystem = Subsystem::new(
+                        &self.variables,
+                        &self.expressions,
+                        scc.free_variables.iter().copied(),
+                        scc.expressions,
+                    );
 
                     match opts.optimizer {
                         solve::Optimizer::LevenbergMarquardt => {
-                            crate::solve::levenberg_marquardt(&mut self.variables, &subsystem);
+                            crate::solve::levenberg_marquardt_(
+                                &mut subsystem,
+                                &mut free_variables_values,
+                            );
                         }
                         solve::Optimizer::LBfgs => {
-                            crate::solve::lbfgs(&mut self.variables, &subsystem);
+                            crate::solve::lbfgs(&mut subsystem, &mut free_variables_values);
                         }
+                    }
+
+                    for (free_variable_idx, variable_idx) in
+                        subsystem.free_variables.into_iter().enumerate()
+                    {
+                        self.variables[variable_idx as usize] =
+                            free_variables_values[free_variable_idx];
                     }
                 }
             } else {
-                let subsystem = Subsystem::new(
+                let mut free_variables_values = Vec::from_iter(
+                    free_variables
+                        .iter()
+                        .copied()
+                        .map(|free_variable_idx| self.variables[free_variable_idx as usize]),
+                );
+                let mut subsystem = Subsystem::new(
+                    &self.variables,
                     &self.expressions,
-                    free_variables,
+                    free_variables.iter().copied(),
                     constraints
                         .iter()
                         .flat_map(|c| {
@@ -628,11 +600,22 @@ impl System {
 
                 match opts.optimizer {
                     solve::Optimizer::LevenbergMarquardt => {
-                        crate::solve::levenberg_marquardt(&mut self.variables, &subsystem);
+                        crate::solve::levenberg_marquardt_(
+                            &mut subsystem,
+                            &mut free_variables_values,
+                        );
                     }
                     solve::Optimizer::LBfgs => {
-                        crate::solve::lbfgs(&mut self.variables, &subsystem);
+                        crate::solve::lbfgs(&mut subsystem, &mut free_variables_values);
                     }
+                }
+
+                // Update system variables' values with the free variables' values.
+                for (free_variable_idx, variable_idx) in
+                    subsystem.free_variables.into_iter().enumerate()
+                {
+                    self.variables[variable_idx as usize] =
+                        free_variables_values[free_variable_idx];
                 }
             }
         }
