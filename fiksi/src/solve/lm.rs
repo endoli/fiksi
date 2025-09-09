@@ -13,7 +13,7 @@ use super::Problem;
 /// The Levenberg-Marquardt solver.
 ///
 /// Solve for the free variables in `variables` minimizing the residuals in the [problem](Problem).
-pub(crate) fn levenberg_marquardt_<P: Problem>(problem: &mut P, variables: &mut [f64]) {
+pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [f64]) {
     debug_assert_eq!(
         problem.num_variables() as usize,
         variables.len(),

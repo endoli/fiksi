@@ -559,7 +559,7 @@ impl System {
 
                     match opts.optimizer {
                         solve::Optimizer::LevenbergMarquardt => {
-                            crate::solve::levenberg_marquardt_(
+                            crate::solve::levenberg_marquardt(
                                 &mut subsystem,
                                 &mut free_variables_values,
                             );
@@ -600,7 +600,7 @@ impl System {
 
                 match opts.optimizer {
                     solve::Optimizer::LevenbergMarquardt => {
-                        crate::solve::levenberg_marquardt_(
+                        crate::solve::levenberg_marquardt(
                             &mut subsystem,
                             &mut free_variables_values,
                         );
