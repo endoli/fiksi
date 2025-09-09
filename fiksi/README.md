@@ -52,7 +52,7 @@ constraints::PointPointDistance::create(&mut gcs, p2, p3, 5.);
 constraints::PointPointPointAngle::create(&mut gcs, p1, p2, p3, 10f64.to_radians());
 constraints::PointPointPointAngle::create(&mut gcs, p2, p3, p1, 60f64.to_radians());
 
-gcs.solve(None, fiksi::SolvingOptions::DEFAULT);
+gcs.solve(fiksi::SolvingOptions::DEFAULT);
 ```
 
 # Manual
