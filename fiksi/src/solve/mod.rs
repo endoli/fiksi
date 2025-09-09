@@ -23,3 +23,18 @@ pub enum Optimizer {
     /// [wikipedia]: https://en.wikipedia.org/wiki/Limited-memory_BFGS
     LBfgs,
 }
+
+pub(crate) trait Problem {
+    fn num_variables(&self) -> u32;
+
+    fn num_residuals(&self) -> u32;
+
+    fn calculate_residuals(&mut self, variables: &[f64], residuals: &mut [f64]);
+
+    fn calculate_residuals_and_jacobian(
+        &mut self,
+        variables: &[f64],
+        residuals: &mut [f64],
+        jacobian: &mut [f64],
+    );
+}
