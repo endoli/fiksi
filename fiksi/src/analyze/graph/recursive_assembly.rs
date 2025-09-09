@@ -32,7 +32,7 @@ pub(crate) struct ClusterKey(u32);
 /// This consists of [steps](RecombinationStep) to be solved to get to a full solution. Each step
 /// represents one new cluster, containing the constraints that are to be solved, the geometric
 /// elements that are introduced for the first time, and in which previously-seen clusters elements
-/// in this step have already occured.
+/// in this step have already occurred.
 ///
 /// Elements occurring in previously-seen clusters, must remain rigid with respect to those
 /// clusters (e.g., any number of points occurring in a previously-seen cluster, must remain at the
