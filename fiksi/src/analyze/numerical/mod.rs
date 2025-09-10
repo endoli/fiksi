@@ -5,10 +5,7 @@ use alloc::{vec, vec::Vec};
 
 use nalgebra::DMatrix;
 
-use crate::{
-    AnyConstraintHandle, System,
-    variable_map::IdentityFreeVariableMap,
-};
+use crate::{AnyConstraintHandle, System, variable_map::IdentityFreeVariableMap};
 
 const EPSILON: f64 = 1e-8;
 
