@@ -74,7 +74,7 @@ pub(crate) struct IdentityVariableMap<'s, const FREE: bool> {
 
 pub(crate) type IdentityFreeVariableMap<'s> = IdentityVariableMap<'s, true>;
 
-pub(crate) type IdentityFixedVariableMap<'s> = IdentityVariableMap<'s, true>;
+pub(crate) type IdentityFixedVariableMap<'s> = IdentityVariableMap<'s, false>;
 
 impl<const FREE: bool> VariableMap for IdentityVariableMap<'_, FREE> {
     /// Get the variable with the global `system_idx` out of the variable map.
