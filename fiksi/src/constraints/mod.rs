@@ -16,9 +16,9 @@ pub(crate) mod constraint {
     use core::marker::PhantomData;
 
     use crate::{
-        System, VariableMap,
-        collections::{CollectionExt, IndexSet},
+        System,
         utils::{self},
+        variable_map::IdentityFixedVariableMap,
     };
 
     use super::{Constraint, ConstraintTag};
@@ -94,10 +94,8 @@ pub(crate) mod constraint {
 
             let constraint = &system.constraints[self.id as usize];
             // An empty variable map.
-            let variable_map = VariableMap {
-                free_variables: &IndexSet::new(),
+            let variable_map = IdentityFixedVariableMap {
                 variable_values: &system.variables,
-                free_variable_values: &[],
             };
 
             if T::VALENCY > 1 {
@@ -155,10 +153,8 @@ pub(crate) mod constraint {
             let constraint = &system.constraints[self.id as usize];
 
             // An empty variable map.
-            let variable_map = VariableMap {
-                free_variables: &IndexSet::new(),
+            let variable_map = IdentityFixedVariableMap {
                 variable_values: &system.variables,
-                free_variable_values: &[],
             };
 
             if valency > 1 {

@@ -3,7 +3,7 @@
 
 use alloc::vec::Vec;
 
-use crate::{Expression, VariableMap, collections::IndexSet};
+use crate::{Expression, collections::IndexSet, variable_map::IndexSetVariableMap};
 
 pub(crate) struct Subsystem<'s> {
     /// The variable values of the full system.
@@ -90,7 +90,7 @@ impl crate::solve::Problem for Subsystem<'_> {
     }
 
     fn calculate_residuals(&mut self, variables: &[f64], residuals: &mut [f64]) {
-        let variable_map = VariableMap {
+        let variable_map = IndexSetVariableMap {
             free_variables: &self.free_variables,
             variable_values: self.system_variables,
             free_variable_values: variables,
@@ -108,7 +108,7 @@ impl crate::solve::Problem for Subsystem<'_> {
         residuals: &mut [f64],
         jacobian: &mut [f64],
     ) {
-        let variable_map = VariableMap {
+        let variable_map = IndexSetVariableMap {
             free_variables: &self.free_variables,
             variable_values: self.system_variables,
             free_variable_values: variables,
