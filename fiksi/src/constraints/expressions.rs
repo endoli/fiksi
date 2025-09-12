@@ -197,69 +197,50 @@ impl Expression {
             (residual_and_gradient.0, &mut gradient[0..N])
         }
 
-        let variables = variables.as_slice();
         match self {
             Self::VariableVariableEquality(_) => copy_gradient(
                 gradient,
-                VariableVariableEquality::compute_residual_and_gradient_(
-                    variables.try_into().unwrap(),
-                ),
+                VariableVariableEquality::compute_residual_and_gradient_(*reslice(variables)),
             ),
             Self::PointPointDistance(e) => copy_gradient(
                 gradient,
-                PointPointDistance::compute_residual_and_gradient_(
-                    variables[..4].try_into().unwrap(),
-                    e.distance,
-                ),
+                PointPointDistance::compute_residual_and_gradient_(reslice(variables), e.distance),
             ),
             Self::PointPointPointAngle(e) => copy_gradient(
                 gradient,
-                PointPointPointAngle::compute_residual_and_gradient_(
-                    variables.try_into().unwrap(),
-                    e.angle,
-                ),
+                PointPointPointAngle::compute_residual_and_gradient_(reslice(variables), e.angle),
             ),
             Self::PointLineIncidence(_) => copy_gradient(
                 gradient,
-                PointLineIncidence::compute_residual_and_gradient_(variables.try_into().unwrap()),
+                PointLineIncidence::compute_residual_and_gradient_(reslice(variables)),
             ),
             Self::PointLineDistance(e) => copy_gradient(
                 gradient,
-                PointLineDistance::compute_residual_and_gradient_(
-                    variables.try_into().unwrap(),
-                    e.distance,
-                ),
+                PointLineDistance::compute_residual_and_gradient_(reslice(variables), e.distance),
             ),
             Self::PointCircleIncidence(_) => copy_gradient(
                 gradient,
-                PointCircleIncidence::compute_residual_and_gradient_(variables.try_into().unwrap()),
+                PointCircleIncidence::compute_residual_and_gradient_(reslice(variables)),
             ),
             Self::SegmentSegmentLengthEquality(_) => copy_gradient(
                 gradient,
-                SegmentSegmentLengthEquality::compute_residual_and_gradient_(
-                    variables.try_into().unwrap(),
-                ),
+                SegmentSegmentLengthEquality::compute_residual_and_gradient_(reslice(variables)),
             ),
             Self::LineLineAngle(e) => copy_gradient(
                 gradient,
-                LineLineAngle::compute_residual_and_gradient_(
-                    variables.try_into().unwrap(),
-                    e.angle,
-                ),
+                LineLineAngle::compute_residual_and_gradient_(reslice(variables), e.angle),
             ),
             Self::LineLineParallelism(_) => copy_gradient(
                 gradient,
-                LineLineParallelism::compute_residual_and_gradient_(variables.try_into().unwrap()),
+                LineLineParallelism::compute_residual_and_gradient_(reslice(variables)),
             ),
             Self::LineLinePerpendicularity(_) => copy_gradient(
                 gradient,
-                LineLinePerpendicularity::compute_residual_and_gradient_(
-                    variables.try_into().unwrap(),
-                ),
+                LineLinePerpendicularity::compute_residual_and_gradient_(reslice(variables)),
             ),
             Self::LineCircleTangency(_) => copy_gradient(
                 gradient,
-                LineCircleTangency::compute_residual_and_gradient_(variables.try_into().unwrap()),
+                LineCircleTangency::compute_residual_and_gradient_(reslice(variables)),
             ),
         }
     }
