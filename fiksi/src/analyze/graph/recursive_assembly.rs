@@ -58,6 +58,7 @@ impl RecombinationPlan {
                 free_elements,
                 on_frontiers: HashMap::new(),
                 owned_elements: HashMap::new(),
+                frontier_elements: HashMap::new(),
             }],
         }
     }
@@ -109,6 +110,9 @@ pub(crate) struct RecombinationStep {
     // element. Once the cluster is merged into a parent cluster, the parent cluster becomes the
     // owner.
     owned_elements: HashMap<ClusterKey, Vec<ElementId>>,
+
+    // Which elements are on each clusters' frontiers.
+    frontier_elements: HashMap<ClusterKey, Vec<ElementId>>,
 }
 
 impl RecombinationStep {
@@ -132,6 +136,10 @@ impl RecombinationStep {
 
     pub(crate) fn owned_elements(&self, cluster: ClusterKey) -> Option<&[ElementId]> {
         self.owned_elements.get(&cluster).map(Vec::as_slice)
+    }
+
+    pub(crate) fn frontier_elements(&self, cluster: ClusterKey) -> Option<&[ElementId]> {
+        self.frontier_elements.get(&cluster).map(Vec::as_slice)
     }
 }
 
@@ -238,6 +246,7 @@ pub(crate) fn decompose<const D: i16>(
                     free_elements: fixes_elements,
                     on_frontiers: on_frontiers.clone(),
                     owned_elements: owned_elements_before,
+                    frontier_elements: frontier_elements.clone(),
                 });
             }
 
@@ -303,6 +312,7 @@ pub(crate) fn decompose<const D: i16>(
                 free_elements: core::mem::take(&mut step_fixes_elements),
                 on_frontiers: on_frontiers.clone(),
                 owned_elements: owned_elements_before,
+                frontier_elements: frontier_elements.clone(),
             });
         }
 

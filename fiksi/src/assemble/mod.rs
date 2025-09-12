@@ -190,7 +190,10 @@ pub(crate) fn solve(system: &mut System, opts: SolvingOptions) {
                             pose_and_element_variables[pose_start_idx + 2],
                         ]);
                         for &element_id in step.owned_elements(cluster).unwrap_or(&[]) {
-                            if !step.elements().contains(&element_id) {
+                            if !clustered_system
+                                .step_plus_frontier_elements
+                                .contains(&element_id)
+                            {
                                 let element = &system.elements[element_id.id as usize];
                                 match element {
                                     &EncodedElement::Point { idx } => {
@@ -224,6 +227,9 @@ pub(crate) struct ClusteredSystem {
     /// These are the poses of the clusters this level transforms, and the
     /// variables of elements that are free at this level.
     num_variables: u32,
+
+    /// All the elements and elements on clusters' frontiers that we update at this step.
+    step_plus_frontier_elements: Vec<ElementId>,
 
     /// The clusters this clustered system rigidly transforms.
     ///
@@ -268,7 +274,65 @@ impl ClusteredSystem {
             }
         }
 
-        for &element_id in step.elements() {
+        self.step_plus_frontier_elements
+            .extend_from_slice(step.elements());
+        {
+            // When solving using a recursive assembly plan, elements we're now solving for may
+            // occur on one or more existing cluster's frontiers. We need to solve for those
+            // cluster's poses such that all clusters agree on those elements' global positions.
+            // Additionally, changing one of those clusters' poses may move an element that we're
+            // not directly solving for, but which may itself occur on some other cluster's
+            // frontier. That cluster will then also have to be moved, etc.
+            //
+            // Therefore, we need to solve for the transitive closure of all elements affected.
+            // Elements on a cluster's frontier or interior, which are *only* part of that single
+            // cluster, are not solved for directly. Instead, they are transformed with their
+            // cluster's pose after this solve.
+            let mut reachable_clusters = vec![];
+            for &element_id in step.elements() {
+                let element = &system.elements[element_id.id as usize];
+                // Only point elements (for now) are affected by rigid transformation.
+                if !matches!(element, &EncodedElement::Point { .. }) {
+                    continue;
+                }
+                if let Some(clusters) = step.on_frontiers(element_id) {
+                    for cluster in clusters {
+                        if !reachable_clusters.contains(cluster) {
+                            reachable_clusters.push(*cluster);
+                        }
+                    }
+                }
+            }
+            let mut i = 0;
+            while let Some(&cluster) = reachable_clusters.get(i) {
+                i += 1;
+                for &element_id in step.frontier_elements(cluster).unwrap() {
+                    let element = &system.elements[element_id.id as usize];
+                    // Only point elements (for now) are affected by rigid transformation.
+                    if !matches!(element, &EncodedElement::Point { .. }) {
+                        continue;
+                    }
+                    if let Some(clusters) = step.on_frontiers(element_id) {
+                        for cluster in clusters {
+                            if !reachable_clusters.contains(cluster) {
+                                reachable_clusters.push(*cluster);
+                            }
+                        }
+                    }
+
+                    let num_frontiers = step
+                        .on_frontiers(element_id)
+                        .map(|clusters| clusters.len())
+                        .unwrap_or(0);
+                    if !self.step_plus_frontier_elements.contains(&element_id) && num_frontiers > 1
+                    {
+                        self.step_plus_frontier_elements.push(element_id);
+                    }
+                }
+            }
+        }
+
+        for &element_id in &self.step_plus_frontier_elements {
             let element = &system.elements[element_id.id as usize];
 
             if let Some(clusters) = step.on_frontiers(element_id) {
@@ -307,9 +371,10 @@ impl ClusteredSystem {
         // Add the variables for the poses.
         pose_and_element_variables.resize(self.clusters.len() * 3, 0.);
 
-        // Add the variables for the elements that are in the core or frontier of
-        // the current step.
-        for &element_id in step.elements() {
+        // Add the variables for the elements that we will be solving for this step. This is the
+        // transitive closure of all elements affected, either directly or by being on more than
+        // one cluster's frontier.
+        for &element_id in &self.step_plus_frontier_elements {
             let element = &system.elements[element_id.id as usize];
 
             match element {
@@ -353,6 +418,7 @@ impl ClusteredSystem {
 
     fn clear(&mut self) {
         self.num_variables = 0;
+        self.step_plus_frontier_elements.clear();
         self.clusters.clear();
         self.expressions.clear();
         self.num_pose_expressions = 0;
