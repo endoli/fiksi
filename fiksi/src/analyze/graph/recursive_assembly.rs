@@ -196,7 +196,7 @@ pub(crate) fn decompose<const D: i16>(
     // Clusters we have "blocked." If a cluster is found, but that cluster does not have a core of
     // two or more elements, it cannot be simplified. It is then possible we find the same cluster
     // over and over. Blocking those clusters ensures we make progress.
-    let mut blocked_clusters: Vec<HashSet<ElementId>> = Vec::new();
+    let mut blocked_clusters: Vec<Vec<ElementId>> = Vec::new();
 
     let mut recombination_plan = RecombinationPlan { steps: vec![] };
 
@@ -371,9 +371,10 @@ pub(crate) fn decompose<const D: i16>(
         }
 
         if subgraph.len() - frontier.len() <= 1 {
-            // No simplification is possible, as the cluster's core is empty or consists of
-            // exactly one element, i.e., no elements are merged. This is expected, but mark
-            // this subgraph so we don't find it again.
+            // No simplification is possible, as the cluster's core is empty or consists of exactly
+            // one element, i.e., no elements are merged. This is expected. We block this subgraph
+            // so we don't find it again. (Note we also block subgraphs if a simplication *is*
+            // made.)
             //
             // TODO: perhaps when a simplification *is* made, remove old blocked clusters
             // containing any of the removed elements.
@@ -385,10 +386,15 @@ pub(crate) fn decompose<const D: i16>(
         owning_cluster.insert(core, cluster_key);
         vertices.insert(core);
 
+        // Collect all the new (top-level) elements of this cluster, so we can block it to ensure
+        // we don't find it as the next dense subgraph.
+        let mut cluster_elements = Vec::with_capacity(1 + frontier.len());
+
         let mut total_frontier_vertex_dof = 0;
         let mut total_incoming_edge_valency = 0;
         // Create edges from frontier vertices to the inner vertex cluster
         for &vertex in &frontier {
+            cluster_elements.push(vertex);
             let element = &graph.elements[vertex.id as usize];
 
             total_frontier_vertex_dof += element.dof;
@@ -431,6 +437,10 @@ pub(crate) fn decompose<const D: i16>(
             }
         }
 
+        cluster_elements.push(core);
+        cluster_elements.sort_unstable();
+        blocked_clusters.push(cluster_elements);
+
         if total_incoming_edge_valency > 0 {
             graph.elements[core.id as usize].dof =
                 total_frontier_vertex_dof - total_incoming_edge_valency - D;
@@ -444,101 +454,426 @@ pub(crate) fn decompose<const D: i16>(
 
 /// Find an arbitrary, minimal dense subgraph.
 ///
+/// The returned subgraph consists of all its elements' IDs, in ascending order.
+///
 /// This searches for a minimal dense subgraph such that
 /// `(elements' degrees of freedom) - (constraints' valencies) < D + 1`. See also "Finding Solvable
-/// Subsets of Constraints Graph" (1997) by C. M. Hoffmann, A. Lomonosov, and M. Sitharam.
+/// Subsets of Constraints Graph" (1997) by C. M. Hoffmann, A. Lomonosov, and M. Sitharam. Here,
+/// the parameter `D` is the degree-dependent parameter, and is the const-generic parameter to this
+/// function. This generally is 3 for 2D and 6 for 3D.
 ///
 /// The subgraph is minimal in the sense that it contains no proper subgraph upholding that
-/// condition. Trivial subgraphs of single elements are not considered.
+/// condition. Trivial subgraphs of single elements are not considered. It is not *minimum*: i.e.,
+/// it is not necessarily the smallest such subgraph. Finding the smallest such subgraph is known
+/// to be NP-hard.
 ///
-/// TODO: this currently does an exhaustive search, actually finding optimal *minimum* dense
-/// subgraphs, which is very slow. This should be replaced with a smarter algorithm, as it's not
-/// necessary to find optimal solutions.
+/// This is based on the observation that a
 fn dense<const D: i16>(
     graph: &Graph,
-    blocked_subgraphs: &[HashSet<ElementId>],
+    blocked_subgraphs: &[Vec<ElementId>],
     available_edges: &HashSet<ConstraintId>,
     vertices: &HashSet<ElementId>,
-) -> HashSet<ElementId> {
-    let mut available_vertices = vertices.clone();
-    let mut subgraph = HashSet::new();
+) -> Vec<ElementId> {
+    // Build the bipartite flow graph.
+    let mut bmf = dinic::BipartiteMaxFlow::new();
 
-    fn recurse<const D: i16>(
-        graph: &Graph,
-        blocked_subgraphs: &[HashSet<ElementId>],
-        available_edges: &HashSet<ConstraintId>,
-        available_vertices: &mut HashSet<ElementId>,
-        subgraph: &mut HashSet<ElementId>,
-        dof_vertices: i16,
-        valency_edges: i16,
-    ) -> bool {
-        let k = const { -(D + 1) };
+    let mut element_mapping = HashMap::<ElementId, usize>::new();
+    let mut constraint_mapping = HashMap::<ConstraintId, usize>::new();
+    let mut element_mapping_rev = HashMap::<usize, ElementId>::new();
+    let mut constraint_mapping_rev = HashMap::<usize, ConstraintId>::new();
 
-        for vertex in Vec::from_iter(available_vertices.iter().copied()) {
-            available_vertices.remove(&vertex);
+    for &vertex in vertices.iter() {
+        let element = &graph.elements[vertex.id as usize];
+        let v_idx = bmf.add_v(element.dof);
+        element_mapping.insert(vertex, v_idx);
+        element_mapping_rev.insert(v_idx, vertex);
+    }
 
-            let element = &graph.elements[vertex.id as usize];
-            subgraph.insert(vertex);
+    for &constraint_id in available_edges.iter() {
+        let constraint = &graph.constraints[constraint_id.id as usize];
+        if !constraint
+            .incident_elements
+            .as_slice()
+            .iter()
+            .all(|&element| element_mapping.contains_key(&element))
+        {
+            continue;
+        }
 
-            let mut additional_valency = 0;
+        // Add the edge with 0 valency; its flow is pushed later.
+        let c_idx = bmf.add_u(0);
+        constraint_mapping.insert(constraint_id, c_idx);
+        constraint_mapping_rev.insert(c_idx, constraint_id);
 
-            for edge in element
-                .incident_constraints
+        for &element in constraint.incident_elements.as_slice() {
+            let v_idx = *element_mapping.get(&element).unwrap();
+            bmf.add_uv(c_idx, v_idx);
+        }
+    }
+
+    // Build the subgraph G' one vertex at a time, pushing flows for all edges one-by-one that are
+    // adjacent to the just-added vertex and vertices already in G'.
+    let mut g = HashSet::<ElementId>::new();
+    for &vertex in vertices.iter() {
+        g.insert(vertex);
+        let element = &graph.elements[vertex.id as usize];
+
+        // Push flow for all edges that are incident to the element we just added and the subgraph
+        // of elements already added.
+        for &constraint_id in element.incident_constraints.iter() {
+            if !available_edges.contains(&constraint_id) {
+                continue;
+            }
+            let constraint = &graph.constraints[constraint_id.id as usize];
+            if !constraint
+                .incident_elements
+                .as_slice()
                 .iter()
-                .filter(|&edge| available_edges.contains(edge))
+                .all(|&element| g.contains(&element))
             {
-                let edge = &graph.constraints[edge.id as usize];
+                continue;
+            }
 
-                if edge
-                    .incident_elements
-                    .as_slice()
+            let c_idx = *constraint_mapping.get(&constraint_id).unwrap();
+            let old_capacity = bmf.increase_su_capacity(c_idx, constraint.valency);
+
+            // We first attempt to distribute the regular flow of all now-included constraints.
+            // This will almost alway succeed, unless there is an completely over-identified
+            // subgraph with respect to the global coordinate system. However, this is still useful
+            // to perform, as it allows us to iteratively build up the flow distribution that we
+            // can continue to build on in later iterations, instead of having to start from
+            // scratch each iteration. (We cannot easily reuse the flow distribution resulting from
+            // the next step, where we add flow to this individual edge, as the flow distribution
+            // resulting from that is no longer valid once the edge's flow is reset to its original
+            // value again.)
+            let mf = bmf.max_flow();
+            if mf < i32::from(constraint.valency - old_capacity) {
+                let min_cut = bmf.min_cut_partition();
+                let elements = min_cut
+                    .s_side_v
                     .iter()
-                    .all(|element| subgraph.contains(element))
-                {
-                    additional_valency += edge.valency;
+                    .map(|&v| *element_mapping_rev.get(&v).unwrap())
+                    .collect();
+                if !blocked_subgraphs.contains(&elements) {
+                    return elements;
                 }
             }
 
-            let dof_vertices = dof_vertices + element.dof;
-            let valency_edges = valency_edges + additional_valency;
-
-            if !blocked_subgraphs.contains(subgraph)
-                && subgraph.len() > 1
-                && valency_edges - dof_vertices > k
-            {
-                return true;
+            // If we could distribute the previous flow, try again, but subtract the
+            // degree-dependent constant K = -(D+1) from the constraint's capacity. In other words,
+            // add D + 1. This conceptually fixes the constraint with respect to a local coordinate
+            // system.
+            let mut bmf_clone = bmf.clone();
+            bmf_clone.increase_su_capacity(c_idx, D + 1);
+            let mf = bmf_clone.max_flow();
+            if mf < i32::from(D + 1) {
+                // Unable to dstribute all flow. This means part of the graph is rigid or
+                // over-rigid with respect to the global coordinate system.
+                let min_cut = bmf_clone.min_cut_partition();
+                let elements = min_cut
+                    .s_side_v
+                    .iter()
+                    .map(|&v| *element_mapping_rev.get(&v).unwrap())
+                    .collect();
+                if !blocked_subgraphs.contains(&elements) {
+                    return elements;
+                }
             }
-
-            if recurse::<D>(
-                graph,
-                blocked_subgraphs,
-                available_edges,
-                available_vertices,
-                subgraph,
-                dof_vertices,
-                valency_edges,
-            ) {
-                return true;
-            }
-
-            subgraph.remove(&vertex);
-            available_vertices.insert(vertex);
         }
-        false
     }
 
-    if recurse::<D>(
-        graph,
-        blocked_subgraphs,
-        available_edges,
-        &mut available_vertices,
-        &mut subgraph,
-        0,
-        0,
-    ) {
-        subgraph
-    } else {
-        // No subgraph found. This means all subgraphs are underconstrained.
-        HashSet::new()
+    vec![]
+}
+
+mod dinic {
+    use alloc::{collections::VecDeque, vec, vec::Vec};
+
+    #[derive(Clone, Copy)]
+    struct Edge {
+        to: usize,
+        rev: usize, // index of reverse edge in g[to]
+        cap: i32,   // residual capacity
+    }
+
+    /// A minimum cut of a [`BipartiteMaxFlow`] graph. This is equivalent to the max flow.
+    #[derive(Debug)]
+    pub(crate) struct MinCut {
+        /// The value of the minimum cut. This is equal to the max flow.
+        pub value: i32,
+        /// All vertices in U on the S side of the cut.
+        pub s_side_u: Vec<usize>,
+        /// All vertices in U on the T side of the cut.
+        pub t_side_u: Vec<usize>,
+        /// All vertices in U on the S side of the cut.
+        pub s_side_v: Vec<usize>,
+        pub t_side_v: Vec<usize>,
+        pub cut_s_to_u: Vec<usize>,
+        pub cut_v_to_t: Vec<usize>,
+    }
+
+    /// An S-T bipartite max flow graph.
+    ///
+    /// This contains a source vertex S, a target (or "sink") vertex T, and vertex sets U and V.
+    /// Vertices in U are only adjacent to S and vertices in V. Vertices in V are only adjacent to
+    /// T and vertices in U.
+    ///
+    /// Edges from S to U as well as edges from V to T have a variable integer flow capacity. Edges
+    /// from U to V have infinite capacity.
+    #[derive(Clone)]
+    pub(crate) struct BipartiteMaxFlow {
+        /// Adjaceny list of the residual flow graph (i.e., for each edge, its capacity and reverse
+        /// edge).
+        g: Vec<Vec<Edge>>,
+        /// The current Dinic level graph: for each node, its current distance from S.
+        level_of: Vec<i32>,
+        /// For each node, the next arc we'll be looking at. We only look at each edge once per
+        /// BFS.
+        next_arc_of: Vec<usize>,
+
+        /// Mapping from u and v vertex indices to node indices.
+        u_nodes: Vec<usize>,
+        v_nodes: Vec<usize>,
+
+        /// The index of the S->U edge for each vertex in U into the source vertex's list of edges, as in, self.g[Self::S][idx].
+        su_edges: Vec<usize>,
+        /// The index of the V->T edge for each vertex in V into the source vertex's list of edges, as in, self.g[v_node][idx].
+        ///
+        /// TODO: the first parameter is just `v_node = self.u_nodes[v]`, so could be dropped.
+        vt_edges: Vec<(usize, usize)>,
+
+        /// The original capacities of each S->U edge, for each vertex in U.
+        cap_su: Vec<i16>,
+        /// The original capacities of each V->T edge, for each vertex in V.
+        cap_vt: Vec<i16>,
+    }
+
+    impl BipartiteMaxFlow {
+        /// The node index of the source vertex.
+        const S: usize = 0;
+        /// The node index of the target (or "sink") vertex.
+        const T: usize = 1;
+        /// The "effectively infinite" value for the infinite-capacity edges.
+        const INF: i32 = i32::MAX;
+
+        pub(crate) fn new() -> Self {
+            let n = 2; // Initially, the graph only contains the source and target vertices.
+            Self {
+                g: vec![Vec::new(); n],
+                level_of: vec![0; n],
+                next_arc_of: vec![0; n],
+                u_nodes: Vec::new(),
+                v_nodes: Vec::new(),
+                su_edges: Vec::new(),
+                vt_edges: Vec::new(),
+                cap_su: Vec::new(),
+                cap_vt: Vec::new(),
+            }
+        }
+
+        fn push_node(&mut self) -> usize {
+            let id = self.g.len();
+            self.g.push(Vec::new());
+            self.level_of.push(0);
+            self.next_arc_of.push(0);
+            id
+        }
+
+        fn add_edge(&mut self, u: usize, v: usize, c: i32) -> (usize, usize) {
+            let rev_u = self.g[v].len();
+            let fwd_u = self.g[u].len();
+            self.g[u].push(Edge {
+                to: v,
+                rev: rev_u,
+                cap: c,
+            });
+            self.g[v].push(Edge {
+                to: u,
+                rev: fwd_u,
+                cap: 0,
+            });
+            (fwd_u, rev_u)
+        }
+
+        /// Add a new V-vertex with capacity to T. Returns its index in this [`BipartiteMaxFlow`].
+        pub(crate) fn add_v(&mut self, cap_vt: i16) -> usize {
+            let v_node = self.push_node();
+            let (idx, _) = self.add_edge(v_node, Self::T, cap_vt as i32);
+            self.v_nodes.push(v_node);
+            self.vt_edges.push((v_node, idx));
+            self.cap_vt.push(cap_vt);
+            self.v_nodes.len() - 1
+        }
+
+        /// Add a new U-vertex with capacity from S. Returns its index in this [`BipartiteMaxFlow`].
+        pub(crate) fn add_u(&mut self, cap_su: i16) -> usize {
+            let u_node = self.push_node();
+            let (idx, _) = self.add_edge(Self::S, u_node, cap_su as i32);
+            self.u_nodes.push(u_node);
+            self.su_edges.push(idx);
+            self.cap_su.push(cap_su);
+            self.u_nodes.len() - 1
+        }
+
+        /// Add a U -> V edge by their indices within this [`BipartiteMaxFlow`].
+        pub(crate) fn add_uv(&mut self, u_idx: usize, v_idx: usize) {
+            let u_node = self.u_nodes[u_idx];
+            let v_node = self.v_nodes[v_idx];
+            self.add_edge(u_node, v_node, Self::INF);
+        }
+
+        /// Increase the capacity of the source-to-u edge.
+        ///
+        /// `add` must be non-negative.
+        pub(crate) fn increase_su_capacity(&mut self, u_idx: usize, add: i16) -> i16 {
+            debug_assert!(add >= 0);
+            debug_assert!(u_idx < self.u_nodes.len());
+
+            // Update capacity on the Source-to-u edge.
+            let eidx = self.su_edges[u_idx];
+            self.g[Self::S][eidx].cap = self.g[Self::S][eidx].cap.saturating_add(i32::from(add));
+
+            let old_cap = self.cap_su[u_idx];
+            let new_cap = self.cap_su[u_idx] + add;
+            self.cap_su[u_idx] = new_cap;
+            old_cap
+        }
+
+        fn bfs(&mut self) -> bool {
+            self.level_of.fill(-1);
+            let mut q = VecDeque::new();
+            self.level_of[Self::S] = 0;
+            q.push_back(Self::S);
+            while let Some(v) = q.pop_front() {
+                for e in &self.g[v] {
+                    if e.cap > 0 && self.level_of[e.to] < 0 {
+                        self.level_of[e.to] = self.level_of[v] + 1;
+                        q.push_back(e.to);
+                    }
+                }
+            }
+            self.level_of[Self::T] >= 0
+        }
+
+        fn dfs(&mut self, v: usize, f: i32) -> i32 {
+            if v == Self::T {
+                return f;
+            }
+            while self.next_arc_of[v] < self.g[v].len() {
+                let arc = self.next_arc_of[v];
+                let (to, rev, cap) = {
+                    let e = &self.g[v][arc];
+                    (e.to, e.rev, e.cap)
+                };
+                if cap > 0 && self.level_of[v] < self.level_of[to] {
+                    let d = self.dfs(to, i32::min(f, cap));
+                    if d > 0 {
+                        self.g[v][arc].cap -= d;
+                        let rev_idx = rev;
+                        self.g[to][rev_idx].cap += d;
+                        return d;
+                    }
+                }
+                self.next_arc_of[v] += 1;
+            }
+            0
+        }
+
+        /// Incremental max-flow, reusing existing flow distribution and residual state.
+        ///
+        /// This calculates a maximum distribution of possible flow from S to T not exceeding any
+        /// of the edge capacities. Note this only needs to account for capacities of edges from S
+        /// to U and edges from V to T. Edges between U and V have infinity capacity.
+        ///
+        /// Returns how much additional flow was pushed.
+        pub(crate) fn max_flow(&mut self) -> i32 {
+            let mut flow_inc = 0;
+            while self.bfs() {
+                self.next_arc_of.fill(0);
+                loop {
+                    let pushed = self.dfs(Self::S, i32::MAX);
+                    if pushed == 0 {
+                        break;
+                    }
+                    flow_inc += pushed;
+                }
+            }
+            flow_inc
+        }
+
+        fn reachable_from_s(&self) -> Vec<bool> {
+            let mut seen = vec![false; self.g.len()];
+            let mut q = VecDeque::new();
+            seen[Self::S] = true;
+            q.push_back(Self::S);
+            while let Some(v) = q.pop_front() {
+                for e in &self.g[v] {
+                    if e.cap > 0 && !seen[e.to] {
+                        seen[e.to] = true;
+                        q.push_back(e.to);
+                    }
+                }
+            }
+            seen
+        }
+
+        /// After having performed a [`Self::max_flow`], find the equivalent minimum cut of this
+        /// graph.
+        pub(crate) fn min_cut_partition(&self) -> MinCut {
+            let seen = self.reachable_from_s();
+
+            let mut s_side_u = Vec::new();
+            let mut t_side_u = Vec::new();
+            for (ui, &node) in self.u_nodes.iter().enumerate() {
+                if seen[node] {
+                    s_side_u.push(ui);
+                } else {
+                    t_side_u.push(ui);
+                }
+            }
+
+            let mut s_side_v = Vec::new();
+            let mut t_side_v = Vec::new();
+            for (vi, &node) in self.v_nodes.iter().enumerate() {
+                if seen[node] {
+                    s_side_v.push(vi);
+                } else {
+                    t_side_v.push(vi);
+                }
+            }
+
+            let mut cut_s_to_u = Vec::new();
+            for (ui, &idx) in self.su_edges.iter().enumerate() {
+                let e = &self.g[Self::S][idx];
+                let to = e.to;
+                if seen[Self::S] && !seen[to] {
+                    cut_s_to_u.push(ui);
+                }
+            }
+            let mut cut_v_to_t = Vec::new();
+            for (vi, &(v_node, idx)) in self.vt_edges.iter().enumerate() {
+                let _e = &self.g[v_node][idx]; // to == T
+                if seen[v_node] && !seen[Self::T] {
+                    cut_v_to_t.push(vi);
+                }
+            }
+
+            let mut value = 0i32;
+            for &u in &cut_s_to_u {
+                value += self.cap_su[u] as i32;
+            }
+            for &v in &cut_v_to_t {
+                value += self.cap_vt[v] as i32;
+            }
+
+            MinCut {
+                value,
+                s_side_u,
+                t_side_u,
+                s_side_v,
+                t_side_v,
+                cut_s_to_u,
+                cut_v_to_t,
+            }
+        }
     }
 }
