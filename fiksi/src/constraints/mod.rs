@@ -93,7 +93,6 @@ pub(crate) mod constraint {
             );
 
             let constraint = &system.constraints[self.id as usize];
-            // An empty variable map.
             let variable_map = IdentityFixedVariableMap {
                 variable_values: &system.variables,
             };
@@ -152,7 +151,6 @@ pub(crate) mod constraint {
             let valency = self.tag.valency();
             let constraint = &system.constraints[self.id as usize];
 
-            // An empty variable map.
             let variable_map = IdentityFixedVariableMap {
                 variable_values: &system.variables,
             };

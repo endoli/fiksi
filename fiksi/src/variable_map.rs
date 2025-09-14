@@ -19,6 +19,11 @@ pub(crate) enum Variable {
     },
 }
 
+/// Map global system variable indices to free or fixed variables.
+///
+/// Intended for consumption by, e.g., a numeric optimizer. Having this as trait allows
+/// specialization, especially for some common cases that are essentially no-ops (see
+/// [`IdentityVariableMap`], which maps indices directly into a slice.
 pub(crate) trait VariableMap {
     /// Get the variable with the global `system_idx` out of the variable map.
     ///
@@ -31,6 +36,9 @@ pub(crate) trait VariableMap {
 }
 
 /// A [`VariableMap`] backed by an [`IndexSet`].
+///
+/// This maps global system variable indices into either the [`Self::free_variable_values`] slice
+/// or [`Self::variable_values`] slice, containing the free and fixed variables respectively.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct IndexSetVariableMap<'s> {
     pub(crate) free_variables: &'s IndexSet<u32>,
