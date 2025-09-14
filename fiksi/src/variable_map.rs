@@ -19,14 +19,34 @@ pub(crate) enum Variable {
     },
 }
 
+/// Map global system variable indices to free or fixed variables.
+///
+/// Intended for consumption by, e.g., a numeric optimizer. Having this as a trait allows
+/// specialization, especially for some common cases that are essentially no-ops (see
+/// [`IdentityVariableMap`], which maps indices directly into a slice.
+pub(crate) trait VariableMap {
+    /// Get the variable with the global `system_idx` out of the variable map.
+    ///
+    /// The result can be either a free or a fixed variable.
+    ///
+    /// # Panics
+    ///
+    /// This may panic when `system_idx` is out of the map's domain.
+    fn get_value(&self, system_idx: u32) -> Variable;
+}
+
+/// A [`VariableMap`] backed by an [`IndexSet`].
+///
+/// This maps global system variable indices into either the [`Self::free_variable_values`] slice
+/// or [`Self::variable_values`] slice, containing the free and fixed variables respectively.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct VariableMap<'s> {
+pub(crate) struct IndexSetVariableMap<'s> {
     pub(crate) free_variables: &'s IndexSet<u32>,
     pub(crate) variable_values: &'s [f64],
     pub(crate) free_variable_values: &'s [f64],
 }
 
-impl VariableMap<'_> {
+impl VariableMap for IndexSetVariableMap<'_> {
     /// Get the variable with the global `system_idx` out of the variable map.
     ///
     /// It can be either a free or a fixed variable.
@@ -34,7 +54,7 @@ impl VariableMap<'_> {
     /// # Panics
     ///
     /// Panics when `system_idx` is out of bounds.
-    pub(crate) fn get_variable(&self, system_idx: u32) -> Variable {
+    fn get_value(&self, system_idx: u32) -> Variable {
         if let Some(free_idx) = self.free_variables.get_index_of(&system_idx) {
             #[expect(
                 clippy::cast_possible_truncation,
@@ -48,6 +68,28 @@ impl VariableMap<'_> {
             Variable::Fixed {
                 value: self.variable_values[system_idx as usize],
             }
+        }
+    }
+}
+
+/// A [`VariableMap`], mapping indices directly to a slice.
+///
+/// All variables are considered free.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct IdentityVariableMap<'s> {
+    pub(crate) variable_values: &'s [f64],
+}
+
+impl VariableMap for IdentityVariableMap<'_> {
+    /// Get the variable with the global `system_idx` out of the variable map.
+    ///
+    /// # Panics
+    ///
+    /// Panics when `system_idx` is out of bounds.
+    fn get_value(&self, system_idx: u32) -> Variable {
+        Variable::Free {
+            value: self.variable_values[system_idx as usize],
+            idx: system_idx,
         }
     }
 }

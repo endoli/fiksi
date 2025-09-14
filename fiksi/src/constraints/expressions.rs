@@ -772,7 +772,7 @@ fn reslice<const N: usize, const M: usize>(slice: &[f64; M]) -> &[f64; N] {
 }
 
 impl Expression {
-    pub(crate) fn calculate_residual(&self, variable_map: VariableMap<'_>) -> f64 {
+    pub(crate) fn calculate_residual(&self, variable_map: impl VariableMap) -> f64 {
         // Buffer to get variable indices of this expression.
         let mut variable_indices = [0_u32; 8];
 
@@ -787,7 +787,7 @@ impl Expression {
             .iter()
             .enumerate()
         {
-            match variable_map.get_variable(variable_idx) {
+            match variable_map.get_value(variable_idx) {
                 Variable::Free { value, idx: _ } => {
                     variable_values[i] = value;
                 }
@@ -853,7 +853,7 @@ impl Expression {
     }
     pub(crate) fn calculate_residual_and_gradient(
         &self,
-        variable_map: VariableMap<'_>,
+        variable_map: impl VariableMap,
         gradient: &mut [f64],
     ) -> f64 {
         // Buffer to get variable indices of this expression.
@@ -871,7 +871,7 @@ impl Expression {
             .iter()
             .enumerate()
         {
-            match variable_map.get_variable(variable_idx) {
+            match variable_map.get_value(variable_idx) {
                 Variable::Free { value, idx } => {
                     variable_values[i] = value;
                     free_variable_indices[i] = Some(idx);

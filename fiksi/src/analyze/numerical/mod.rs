@@ -5,7 +5,7 @@ use alloc::{vec, vec::Vec};
 
 use nalgebra::DMatrix;
 
-use crate::{AnyConstraintHandle, System, VariableMap, collections::IndexSet};
+use crate::{AnyConstraintHandle, System, variable_map::IdentityVariableMap};
 
 const EPSILON: f64 = 1e-8;
 
@@ -122,14 +122,8 @@ pub(crate) fn find_overconstraints(system: &System) -> Vec<AnyConstraintHandle> 
     let mut jacobian = vec![0.; system.expressions.len() * system.variables.len()];
 
     // All variables are free.
-    #[expect(
-        clippy::cast_possible_truncation,
-        reason = "We don't allow this many variables."
-    )]
-    let variable_map = VariableMap {
-        free_variables: &IndexSet::from_iter(0..system.variables.len() as u32),
+    let variable_map = IdentityVariableMap {
         variable_values: &system.variables,
-        free_variable_values: &system.variables,
     };
     for (row, expression) in system.expressions.iter().enumerate() {
         let gradient =
