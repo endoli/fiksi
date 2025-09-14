@@ -21,7 +21,7 @@ pub(crate) enum Variable {
 
 /// Map global system variable indices to free or fixed variables.
 ///
-/// Intended for consumption by, e.g., a numeric optimizer. Having this as trait allows
+/// Intended for consumption by, e.g., a numeric optimizer. Having this as a trait allows
 /// specialization, especially for some common cases that are essentially no-ops (see
 /// [`IdentityVariableMap`], which maps indices directly into a slice.
 pub(crate) trait VariableMap {
