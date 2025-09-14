@@ -5,7 +5,7 @@ use alloc::{vec, vec::Vec};
 
 use nalgebra::DMatrix;
 
-use crate::{AnyConstraintHandle, System, variable_map::IdentityFreeVariableMap};
+use crate::{AnyConstraintHandle, System, variable_map::IdentityVariableMap};
 
 const EPSILON: f64 = 1e-8;
 
@@ -122,7 +122,7 @@ pub(crate) fn find_overconstraints(system: &System) -> Vec<AnyConstraintHandle> 
     let mut jacobian = vec![0.; system.expressions.len() * system.variables.len()];
 
     // All variables are free.
-    let variable_map = IdentityFreeVariableMap {
+    let variable_map = IdentityVariableMap {
         variable_values: &system.variables,
     };
     for (row, expression) in system.expressions.iter().enumerate() {

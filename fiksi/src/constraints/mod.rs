@@ -18,7 +18,7 @@ pub(crate) mod constraint {
     use crate::{
         System,
         utils::{self},
-        variable_map::IdentityFixedVariableMap,
+        variable_map::IdentityVariableMap,
     };
 
     use super::{Constraint, ConstraintTag};
@@ -93,7 +93,7 @@ pub(crate) mod constraint {
             );
 
             let constraint = &system.constraints[self.id as usize];
-            let variable_map = IdentityFixedVariableMap {
+            let variable_map = IdentityVariableMap {
                 variable_values: &system.variables,
             };
 
@@ -151,7 +151,7 @@ pub(crate) mod constraint {
             let valency = self.tag.valency();
             let constraint = &system.constraints[self.id as usize];
 
-            let variable_map = IdentityFixedVariableMap {
+            let variable_map = IdentityVariableMap {
                 variable_values: &system.variables,
             };
 

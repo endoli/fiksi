@@ -72,36 +72,24 @@ impl VariableMap for IndexSetVariableMap<'_> {
     }
 }
 
-/// A [`VariableMap`],  mapping indices directly to a slice.
+/// A [`VariableMap`], mapping indices directly to a slice.
 ///
-/// The const-generic parameter `FREE` is true if and only if the variables are considered free.
+/// All variables are considered free.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct IdentityVariableMap<'s, const FREE: bool> {
+pub(crate) struct IdentityVariableMap<'s> {
     pub(crate) variable_values: &'s [f64],
 }
 
-pub(crate) type IdentityFreeVariableMap<'s> = IdentityVariableMap<'s, true>;
-
-pub(crate) type IdentityFixedVariableMap<'s> = IdentityVariableMap<'s, false>;
-
-impl<const FREE: bool> VariableMap for IdentityVariableMap<'_, FREE> {
+impl VariableMap for IdentityVariableMap<'_> {
     /// Get the variable with the global `system_idx` out of the variable map.
-    ///
-    /// The variables are free if and only if the const-generic parameter `FREE` is true.
     ///
     /// # Panics
     ///
     /// Panics when `system_idx` is out of bounds.
     fn get_value(&self, system_idx: u32) -> Variable {
-        if FREE {
-            Variable::Free {
-                value: self.variable_values[system_idx as usize],
-                idx: system_idx,
-            }
-        } else {
-            Variable::Fixed {
-                value: self.variable_values[system_idx as usize],
-            }
+        Variable::Free {
+            value: self.variable_values[system_idx as usize],
+            idx: system_idx,
         }
     }
 }
