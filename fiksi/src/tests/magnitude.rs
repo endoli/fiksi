@@ -23,7 +23,7 @@ fn large_order_of_magnitude() {
     constraints::PointPointDistance::create(&mut s, p0, p2, 3. * FACTOR);
     constraints::PointPointDistance::create(&mut s, p1, p2, 4. * FACTOR);
 
-    s.solve(None, crate::SolvingOptions::default());
+    s.solve(crate::SolvingOptions::default());
 
     let sum_squared_residuals = sum_squares(
         s.get_constraint_handles()
@@ -61,7 +61,7 @@ fn metric_and_singular() {
     let line1 = elements::Line::create(&mut s, p2, p3);
     constraints::LineLineParallelism::create(&mut s, line0, line1);
 
-    s.solve(None, crate::SolvingOptions::default());
+    s.solve(crate::SolvingOptions::default());
 
     let sum_squared_residuals = sum_squares(
         s.get_constraint_handles()
@@ -91,7 +91,7 @@ fn near_degenerate_isosceles_triangle() {
     constraints::PointPointDistance::create(&mut s, p1, p2, 4. * FACTOR + 1.);
     constraints::PointPointDistance::create(&mut s, p0, p2, 1.);
 
-    s.solve(None, crate::SolvingOptions::default());
+    s.solve(crate::SolvingOptions::default());
 
     let sum_squared_residuals = sum_squares(
         s.get_constraint_handles()

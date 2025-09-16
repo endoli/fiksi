@@ -4,6 +4,8 @@
 #[cfg(not(feature = "std"))]
 use crate::floatfuncs::FloatFuncs;
 
+use kurbo::Vec2;
+
 use crate::{Variable, VariableMap};
 
 trait FloatExt {
@@ -175,6 +177,90 @@ impl Expression {
                 variables[..v.len()].copy_from_slice(&v);
                 &mut variables[..v.len()]
             }
+        }
+    }
+
+    #[must_use]
+    pub(crate) fn compute_residual_and_gradient<'b>(
+        &self,
+        variables: &[f64; 8],
+        gradient: &'b mut [f64; 8],
+    ) -> (f64, &'b mut [f64]) {
+        /// Helper function to copy the statically-sized gradients into the provided gradient
+        /// buffer.
+        fn copy_gradient<const N: usize>(
+            gradient: &'_ mut [f64; 8],
+            residual_and_gradient: (f64, [f64; N]),
+        ) -> (f64, &'_ mut [f64]) {
+            assert!(N <= 8, "N must be less than the provided buffer's size");
+            gradient[..N].copy_from_slice(&residual_and_gradient.1);
+            (residual_and_gradient.0, &mut gradient[0..N])
+        }
+
+        let variables = variables.as_slice();
+        match self {
+            Self::VariableVariableEquality(_) => copy_gradient(
+                gradient,
+                VariableVariableEquality::compute_residual_and_gradient_(
+                    variables.try_into().unwrap(),
+                ),
+            ),
+            Self::PointPointDistance(e) => copy_gradient(
+                gradient,
+                PointPointDistance::compute_residual_and_gradient_(
+                    variables[..4].try_into().unwrap(),
+                    e.distance,
+                ),
+            ),
+            Self::PointPointPointAngle(e) => copy_gradient(
+                gradient,
+                PointPointPointAngle::compute_residual_and_gradient_(
+                    variables.try_into().unwrap(),
+                    e.angle,
+                ),
+            ),
+            Self::PointLineIncidence(_) => copy_gradient(
+                gradient,
+                PointLineIncidence::compute_residual_and_gradient_(variables.try_into().unwrap()),
+            ),
+            Self::PointLineDistance(e) => copy_gradient(
+                gradient,
+                PointLineDistance::compute_residual_and_gradient_(
+                    variables.try_into().unwrap(),
+                    e.distance,
+                ),
+            ),
+            Self::PointCircleIncidence(_) => copy_gradient(
+                gradient,
+                PointCircleIncidence::compute_residual_and_gradient_(variables.try_into().unwrap()),
+            ),
+            Self::SegmentSegmentLengthEquality(_) => copy_gradient(
+                gradient,
+                SegmentSegmentLengthEquality::compute_residual_and_gradient_(
+                    variables.try_into().unwrap(),
+                ),
+            ),
+            Self::LineLineAngle(e) => copy_gradient(
+                gradient,
+                LineLineAngle::compute_residual_and_gradient_(
+                    variables.try_into().unwrap(),
+                    e.angle,
+                ),
+            ),
+            Self::LineLineParallelism(_) => copy_gradient(
+                gradient,
+                LineLineParallelism::compute_residual_and_gradient_(variables.try_into().unwrap()),
+            ),
+            Self::LineLinePerpendicularity(_) => copy_gradient(
+                gradient,
+                LineLinePerpendicularity::compute_residual_and_gradient_(
+                    variables.try_into().unwrap(),
+                ),
+            ),
+            Self::LineCircleTangency(_) => copy_gradient(
+                gradient,
+                LineCircleTangency::compute_residual_and_gradient_(variables.try_into().unwrap()),
+            ),
         }
     }
 }
@@ -982,6 +1068,74 @@ impl Expression {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Pose2D {
+    pub(crate) rotation: f64,
+    pub(crate) translation: Vec2,
+}
+
+impl Pose2D {
+    #[inline(always)]
+    pub(crate) const fn new() -> Self {
+        Self {
+            rotation: 0.,
+            translation: Vec2::ZERO,
+        }
+    }
+
+    #[inline(always)]
+    pub(crate) const fn from_array(pose: [f64; 3]) -> Self {
+        Self {
+            rotation: pose[0],
+            translation: Vec2::new(pose[1], pose[2]),
+        }
+    }
+
+    #[inline(always)]
+    pub(crate) const fn to_array(self) -> [f64; 3] {
+        [self.rotation, self.translation.x, self.translation.y]
+    }
+
+    #[inline]
+    pub(crate) fn transform_point(&self, point: kurbo::Point) -> kurbo::Point {
+        // These trig functions are quite costly. With inlining, they should be eliminated across
+        // calls, but we could also precompute and store on `pose` directly.
+        let (s, c) = self.rotation.sin_cos();
+        let kurbo::Point { x: u, y: v } = point;
+        let uc = u * c;
+        let us = u * s;
+        let vc = v * c;
+        let vs = v * s;
+
+        kurbo::Point {
+            x: self.translation.x + uc - vs,
+            y: self.translation.y + us + vc,
+        }
+    }
+
+    #[inline]
+    pub(crate) fn gradient_chain_rule_point(
+        &self,
+        point: kurbo::Point,
+        gradient: [f64; 2],
+    ) -> [f64; 3] {
+        // These trig functions are quite costly. With inlining, they should be eliminated across
+        // calls, but we could also precompute and store on `pose` directly.
+        let (s, c) = self.rotation.sin_cos();
+        let kurbo::Point { x: u, y: v } = point;
+        let uc = u * c;
+        let us = u * s;
+        let vc = v * c;
+        let vs = v * s;
+
+        [
+            (-us - vc) * gradient[0] + (uc - vs) * gradient[1],
+            gradient[0],
+            gradient[1],
+        ]
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use core::array;
@@ -1286,6 +1440,47 @@ mod tests {
                 (
                     variables.map(|d| (d - 0.5) * 1e-10),
                     delta.map(|d| (d - 0.5) * 1e-14),
+                )
+            },
+        );
+    }
+
+    #[test]
+    fn point_posed_point_distance_first_finite_difference() {
+        test_first_finite_difference(
+            |variables| {
+                let variables: [f64; 5] = *variables;
+                let pose2d = Pose2D::from_array(variables[0..3].try_into().unwrap());
+                let point_to_transform = kurbo::Point::new(0.5, -0.2);
+                let transformed_point = pose2d.transform_point(point_to_transform);
+                let (residual, pre_gradient) = PointPointDistance::compute_residual_and_gradient_(
+                    &[
+                        transformed_point.x,
+                        transformed_point.y,
+                        variables[3..][0],
+                        variables[3..][1],
+                    ],
+                    0.5e0,
+                );
+                let post_gradient = pose2d.gradient_chain_rule_point(
+                    point_to_transform,
+                    pre_gradient[..2].try_into().unwrap(),
+                );
+                (
+                    residual,
+                    [
+                        post_gradient[0],
+                        post_gradient[1],
+                        post_gradient[2],
+                        pre_gradient[2..][0],
+                        pre_gradient[2..][1],
+                    ],
+                )
+            },
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e0),
+                    delta.map(|d| (d - 0.5) * 1e-5),
                 )
             },
         );

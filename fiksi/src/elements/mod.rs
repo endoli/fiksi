@@ -211,7 +211,7 @@ pub(crate) mod element {
         }
     }
 
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub(crate) struct ElementId {
         /// The ID of the element within the system.
         pub(crate) id: u32,
