@@ -445,9 +445,6 @@ impl solve::Problem for (&'_ mut ClusteredSystem, &'_ System) {
         // Calculate the residuals and gradients of the expressions (of each
         // constraint) in this cluster.
         // TODO: make `VariableMap` a trait, so that we can reuse it here.
-        // TODO: if we solve for coincidence between two or more points that occur
-        // on a child cluster's frontier, we shouldn't need to also solve for
-        // constraints between those points.
         let mut variable_indices = [0; 8];
         let mut variables = [0.; 8];
         let mut gradient = [0.; 8];
