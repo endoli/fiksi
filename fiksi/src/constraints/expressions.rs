@@ -853,7 +853,7 @@ impl LineCircleTangency {
 
 /// Utility function to reslice an array to a smaller array.
 #[inline(always)]
-fn reslice<const N: usize, const M: usize>(slice: &[f64; M]) -> &[f64; N] {
+fn reslice<const M: usize, const N: usize>(slice: &[f64; M]) -> &[f64; N] {
     slice[..N].try_into().unwrap()
 }
 
