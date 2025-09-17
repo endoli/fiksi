@@ -276,6 +276,7 @@ impl ClusteredSystem {
 
         self.step_plus_frontier_elements
             .extend_from_slice(step.elements());
+
         {
             // When solving using a recursive assembly plan, elements we're now solving for may
             // occur on one or more existing cluster's frontiers. We need to solve for those
