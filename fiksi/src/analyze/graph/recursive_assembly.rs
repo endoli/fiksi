@@ -370,12 +370,15 @@ pub(crate) fn decompose<const D: i16>(
             }
         }
 
+        // If there are two or more vertices in the core, we contract all those core vertices into
+        // a single vertex to simplify the graph. We do that next. The following checks whether
+        // there indeed are two or more vertices in the core.
         if subgraph.len() - frontier.len() <= 1 {
-            // No simplification is possible, as the cluster's core is empty or consists of
-            // exactly one element, i.e., no elements are merged. This is expected, but mark
-            // this subgraph so we don't find it again.
+            // There are less than two vertices in the core. No contraction is possible, i.e., no
+            // elements are merged. This is expected, but mark this subgraph so we don't find it
+            // again.
             //
-            // TODO: perhaps when a simplification *is* made, remove old blocked clusters
+            // TODO: perhaps when a contraction *is* performed, remove old blocked clusters
             // containing any of the removed elements.
             blocked_clusters.push(subgraph.clone());
             continue;
