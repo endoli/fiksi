@@ -77,13 +77,12 @@ pub(crate) struct RecombinationStep {
     ///
     /// These constraints can link to elements that are part of this cluster's core or this
     /// cluster's frontier. Elements on this cluster's frontier can also be part of other clusters'
-    /// frontiers
+    /// frontiers.
     ///
-    /// TODO: perhaps distinguish between constraints that we solve for the first time, and
-    /// constraints that have already been solved in child clusters. For example, if this cluster
-    /// contains two or more points that occur on a child cluster's frontier, and we enforce the
-    /// points to remain in the same position as in the (rigidly-transformed) child cluster, we
-    /// shouldn't have to explicitly satisfy those constraints again.
+    /// This never contains constraints already solved in other clusters (regardless of whether the
+    /// constraint is incident to their cores or their frontiers); those constraints were solved
+    /// for previously in the partial order of steps. Those constraints will remain satisfied if
+    /// the resulting configuration of geometry is only ever rigidly transformed afterward.
     constraints: Vec<ConstraintId>,
 
     /// The elements involved in this step.
@@ -216,7 +215,9 @@ pub(crate) fn decompose<const D: i16>(
             let constraints: Vec<ConstraintId> = available_edges
                 .iter()
                 .copied()
-                .filter(|edge| edge.id < num_real_constraints)
+                .filter(|edge| {
+                    edge.id < num_real_constraints && !constraints_handled.contains(edge)
+                })
                 .collect();
             let fixes_elements: Vec<ElementId> = vertices
                 .iter()
@@ -248,7 +249,7 @@ pub(crate) fn decompose<const D: i16>(
 
         let mut real_elements = Vec::new();
 
-        // Find frontier vertices
+        // Find frontier vertices and the constraints we're solving for this step.
         for &vertex in &subgraph {
             let element = &graph.elements[vertex.id as usize];
 
