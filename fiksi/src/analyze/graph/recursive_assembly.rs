@@ -335,24 +335,29 @@ pub(crate) fn decompose<const D: i16>(
             }
 
             // If a vertex owned by a different cluster is in the core, that entire cluster is
-            // merged into this.
+            // merged into this. After this, all references to and from the old cluster are
+            // removed.
             let old_cluster_key = owning_cluster.insert(vertex, cluster_key).unwrap();
             if old_cluster_key != cluster_key {
-                if let Some(old_cluster_owned_elements) = owned_elements.remove(&old_cluster_key) {
-                    owned_elements
-                        .get_mut(&cluster_key)
-                        .unwrap()
-                        .extend(old_cluster_owned_elements.into_iter());
+                // Reparent all elements owned by the old cluster under the new cluster.
+                let old_cluster_owned_elements = owned_elements.remove(&old_cluster_key).unwrap();
+                for &vertex in &old_cluster_owned_elements {
+                    owning_cluster.insert(vertex, cluster_key);
                 }
-                if let Some(frontier_elements) = frontier_elements.remove(&old_cluster_key) {
-                    for element in frontier_elements {
+                owned_elements
+                    .get_mut(&cluster_key)
+                    .unwrap()
+                    .extend(old_cluster_owned_elements.into_iter());
+
+                // Remove the old cluster from all vertices' frontier bookkeeping.
+                let frontier_elements = frontier_elements.remove(&old_cluster_key).unwrap();
+                for element in frontier_elements {
+                    if let Some(on_frontiers) = on_frontiers.get_mut(&element) {
                         let idx = on_frontiers
-                            .get(&element)
-                            .unwrap()
                             .iter()
                             .position(|&c| c == old_cluster_key)
                             .unwrap();
-                        on_frontiers.get_mut(&element).unwrap().swap_remove(idx);
+                        on_frontiers.swap_remove(idx);
                     }
                 }
             }
