@@ -204,8 +204,6 @@ pub(crate) fn decompose<const D: i16>(
     let mut step_fixes_elements = Vec::new();
     for step in 0_u32.. {
         let cluster_key = ClusterKey(step);
-        let owned_elements_before = owned_elements.clone();
-        owned_elements.insert(cluster_key, Vec::new());
 
         // Find a minimal dense subgraph.
         let subgraph = dense::<D>(&graph, &blocked_clusters, &available_edges, &vertices);
@@ -245,7 +243,7 @@ pub(crate) fn decompose<const D: i16>(
                         .collect(),
                     free_elements: fixes_elements,
                     on_frontiers: on_frontiers.clone(),
-                    owned_elements: owned_elements_before,
+                    owned_elements: owned_elements.clone(),
                     frontier_elements: frontier_elements.clone(),
                 });
             }
@@ -270,7 +268,6 @@ pub(crate) fn decompose<const D: i16>(
                 vertices_handled.insert(vertex);
 
                 owning_cluster.insert(vertex, cluster_key);
-                owned_elements.get_mut(&cluster_key).unwrap().push(vertex);
             }
 
             let mut frontier_vertex = false;
@@ -309,11 +306,25 @@ pub(crate) fn decompose<const D: i16>(
             recombination_plan.steps.push(RecombinationStep {
                 constraints: core::mem::take(&mut step_constraints),
                 elements: real_elements,
-                free_elements: core::mem::take(&mut step_fixes_elements),
+                free_elements: step_fixes_elements.clone(),
                 on_frontiers: on_frontiers.clone(),
-                owned_elements: owned_elements_before,
+                owned_elements: owned_elements.clone(),
                 frontier_elements: frontier_elements.clone(),
             });
+        }
+
+        if !core.is_empty() || !step_fixes_elements.is_empty() {
+            // This cluster owns the elements that are fixed for the first time, but we also know
+            // it will end up owning some elements if its core is not empty (because in that case,
+            // either it will fix some elements in the core for the first time, or it will end up
+            // owning other clusters).
+            //
+            // By ensuring we create the cluster's entry in `owned_elements` here, we can safely
+            // assume the entry exists once we do cluster merging below.
+            //
+            // So, an entry is created here if an only if this cluster ends up owning some
+            // elements.
+            owned_elements.insert(cluster_key, core::mem::take(&mut step_fixes_elements));
         }
 
         // Keep track of which frontiers elements are now on.
