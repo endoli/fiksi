@@ -1,7 +1,7 @@
 // Copyright 2025 the Fiksi Authors
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use alloc::{vec, vec::Vec};
+use alloc::{collections::VecDeque, vec, vec::Vec};
 use hashbrown::{HashMap, HashSet};
 
 use crate::{
@@ -205,8 +205,8 @@ pub(crate) fn decompose<const D: i16>(
     for step in 0_u32.. {
         let cluster_key = ClusterKey(step);
 
-        // Find a minimal dense subgraph.
-        let subgraph = dense::<D>(&graph, &blocked_clusters, &available_edges, &vertices);
+        // Find a minimum dense subgraph.
+        let subgraph = dense_bfs::<D>(&graph, &blocked_clusters, &available_edges, &vertices);
 
         if subgraph.is_empty() {
             // No minimal dense subgraph was found. This means the remaining subgraphs are all
@@ -461,103 +461,162 @@ pub(crate) fn decompose<const D: i16>(
     recombination_plan
 }
 
-/// Find an arbitrary, minimal dense subgraph.
+/// Find an arbitrary, minimum dense subgraph.
 ///
-/// This searches for a minimal dense subgraph such that
+/// This searches for a minimum dense subgraph such that
 /// `(elements' degrees of freedom) - (constraints' valencies) < D + 1`. See also "Finding Solvable
 /// Subsets of Constraints Graph" (1997) by C. M. Hoffmann, A. Lomonosov, and M. Sitharam.
 ///
-/// The subgraph is minimal in the sense that it contains no proper subgraph upholding that
-/// condition. Trivial subgraphs of single elements are not considered.
+/// The subgraph is minimum in the sense that it is the smallest subgraph containing no proper
+/// subgraph upholding that condition. Trivial subgraphs of single elements are not considered.
 ///
-/// TODO: this currently does an exhaustive search, actually finding optimal *minimum* dense
-/// subgraphs, which is very slow. This should be replaced with a smarter algorithm, as it's not
-/// necessary to find optimal solutions.
-fn dense<const D: i16>(
+/// This does an exhaustive search, which is very slow for every moderately-sized graphs. This
+/// should be replaced with a smarter algorithm, as it's not necessary to find the optimum
+/// solution.
+fn dense_bfs<const D: i16>(
     graph: &Graph,
     blocked_subgraphs: &[HashSet<ElementId>],
     available_edges: &HashSet<ConstraintId>,
     vertices: &HashSet<ElementId>,
 ) -> HashSet<ElementId> {
-    let mut available_vertices = vertices.clone();
-    let mut subgraph = HashSet::new();
+    let k: i16 = const { -(D + 1) };
 
-    fn recurse<const D: i16>(
+    // Calculate the additional edge valency added to `next_subgraph` by including `new_vertex`.
+    fn additional_valency(
         graph: &Graph,
-        blocked_subgraphs: &[HashSet<ElementId>],
         available_edges: &HashSet<ConstraintId>,
-        available_vertices: &mut HashSet<ElementId>,
-        subgraph: &mut HashSet<ElementId>,
-        dof_vertices: i16,
-        valency_edges: i16,
-    ) -> bool {
-        let k = const { -(D + 1) };
-
-        for vertex in Vec::from_iter(available_vertices.iter().copied()) {
-            available_vertices.remove(&vertex);
-
-            let element = &graph.elements[vertex.id as usize];
-            subgraph.insert(vertex);
-
-            let mut additional_valency = 0;
-
-            for edge in element
-                .incident_constraints
+        next_subgraph: &HashSet<ElementId>,
+        new_vertex: ElementId,
+    ) -> i16 {
+        let element = &graph.elements[new_vertex.id as usize];
+        let mut add = 0;
+        for &edge_id in element
+            .incident_constraints
+            .iter()
+            .filter(|&e| available_edges.contains(e))
+        {
+            let edge = &graph.constraints[edge_id.id as usize];
+            if edge
+                .incident_elements
+                .as_slice()
                 .iter()
-                .filter(|&edge| available_edges.contains(edge))
+                .all(|u| next_subgraph.contains(u))
             {
-                let edge = &graph.constraints[edge.id as usize];
+                add += edge.valency;
+            }
+        }
+        add
+    }
 
-                if edge
-                    .incident_elements
-                    .as_slice()
-                    .iter()
-                    .all(|element| subgraph.contains(element))
-                {
-                    additional_valency += edge.valency;
+    // Add all vertices that are adjacent to `subgraph` through `from_vertex` into
+    // `adjacent_vertices`.
+    fn extend_adjacent_vertices(
+        adjacent_vertices: &mut HashSet<ElementId>,
+        graph: &Graph,
+        available_edges: &HashSet<ConstraintId>,
+        from_vertex: ElementId,
+        subgraph: &HashSet<ElementId>,
+        vertices: &HashSet<ElementId>,
+    ) {
+        let element = &graph.elements[from_vertex.id as usize];
+        for &edge_id in element
+            .incident_constraints
+            .iter()
+            .filter(|&e| available_edges.contains(e))
+        {
+            let edge = &graph.constraints[edge_id.id as usize];
+            for &incident_element in edge.incident_elements.as_slice() {
+                if vertices.contains(&incident_element) && !subgraph.contains(&incident_element) {
+                    adjacent_vertices.insert(incident_element);
                 }
             }
-
-            let dof_vertices = dof_vertices + element.dof;
-            let valency_edges = valency_edges + additional_valency;
-
-            if !blocked_subgraphs.contains(subgraph)
-                && subgraph.len() > 1
-                && valency_edges - dof_vertices > k
-            {
-                return true;
-            }
-
-            if recurse::<D>(
-                graph,
-                blocked_subgraphs,
-                available_edges,
-                available_vertices,
-                subgraph,
-                dof_vertices,
-                valency_edges,
-            ) {
-                return true;
-            }
-
-            subgraph.remove(&vertex);
-            available_vertices.insert(vertex);
         }
-        false
     }
 
-    if recurse::<D>(
-        graph,
-        blocked_subgraphs,
-        available_edges,
-        &mut available_vertices,
-        &mut subgraph,
-        0,
-        0,
-    ) {
-        subgraph
-    } else {
-        // No subgraph found. This means all subgraphs are underconstrained.
-        HashSet::new()
+    #[derive(Clone)]
+    struct SubgraphState {
+        /// The vertices in this subgraph.
+        subgraph: HashSet<ElementId>,
+
+        /// The degrees of freedom of this subgraph.
+        ///
+        /// This is the sum of the degrees of freedom of all vertices in the subgraph minus the sum
+        /// of the valency of its internal edges.
+        dof: i16,
+
+        /// The vertices that are adjacent to this subgraph (i.e., vertices that are connected by
+        /// an edge to at least one of the vertices in this subgraph, but that are not inside this
+        /// subgraph themselves).
+        adjacent_vertices: HashSet<ElementId>,
     }
+
+    let mut queue = VecDeque::new();
+
+    // Seed BFS with all singleton (size 1) subgraphs.
+    for &vertex in vertices.iter() {
+        let mut subgraph = HashSet::with_capacity(4);
+        subgraph.insert(vertex);
+
+        let mut adjacent_vertices = HashSet::with_capacity(8);
+        extend_adjacent_vertices(
+            &mut adjacent_vertices,
+            graph,
+            available_edges,
+            vertex,
+            &subgraph,
+            vertices,
+        );
+
+        queue.push_back(SubgraphState {
+            subgraph,
+            dof: graph.elements[vertex.id as usize].dof,
+            adjacent_vertices,
+        });
+    }
+
+    while let Some(SubgraphState {
+        subgraph: sub,
+        dof,
+        adjacent_vertices,
+    }) = queue.pop_front()
+    {
+        for &vertex in adjacent_vertices.iter() {
+            // Build next state.
+            let mut next_subgraph = sub.clone();
+            next_subgraph.insert(vertex);
+            debug_assert!(
+                next_subgraph.len() >= 2,
+                "We should never be considering trivial subgraphs of 1 element."
+            );
+
+            let valency = additional_valency(graph, available_edges, &next_subgraph, vertex);
+            let next_dof = dof + graph.elements[vertex.id as usize].dof - valency;
+
+            if !blocked_subgraphs.contains(&next_subgraph) && next_dof > k {
+                return next_subgraph;
+            }
+
+            // Find the adjacent vertices of `next_subgraph` by removing the vertex we just added,
+            // and adding the vertices adjacent to the vertex we just added.
+            let mut next_adjacent_vertices = adjacent_vertices.clone();
+            next_adjacent_vertices.remove(&vertex);
+            extend_adjacent_vertices(
+                &mut next_adjacent_vertices,
+                graph,
+                available_edges,
+                vertex,
+                &next_subgraph,
+                vertices,
+            );
+
+            queue.push_back(SubgraphState {
+                subgraph: next_subgraph,
+                dof: next_dof,
+                adjacent_vertices: next_adjacent_vertices,
+            });
+        }
+    }
+
+    // No subgraph found. This means all subgraphs are underconstrained.
+    HashSet::new()
 }
