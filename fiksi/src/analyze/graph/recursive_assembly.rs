@@ -373,8 +373,8 @@ pub(crate) fn decompose<const D: i16>(
         if subgraph.len() - frontier.len() <= 1 {
             // No simplification is possible, as the cluster's core is empty or consists of exactly
             // one element, i.e., no elements are merged. This is expected. We block this subgraph
-            // so we don't find it again. (Note we also block subgraphs if a simplication *is*
-            // made.)
+            // so we don't find it again. (Note we also block subgraphs if a simplification *is*
+            // made, but we block the simplified subgraph in that case.)
             //
             // TODO: perhaps when a simplification *is* made, remove old blocked clusters
             // containing any of the removed elements.
@@ -538,14 +538,14 @@ fn dense<const D: i16>(
             let old_capacity = bmf.increase_su_capacity(c_idx, constraint.valency);
 
             // We first attempt to distribute the regular flow of all now-included constraints.
-            // This will almost alway succeed, unless there is an completely over-identified
-            // subgraph with respect to the global coordinate system. However, this is still useful
-            // to perform, as it allows us to iteratively build up the flow distribution that we
-            // can continue to build on in later iterations, instead of having to start from
-            // scratch each iteration. (We cannot easily reuse the flow distribution resulting from
-            // the next step, where we add flow to this individual edge, as the flow distribution
-            // resulting from that is no longer valid once the edge's flow is reset to its original
-            // value again.)
+            // This will almost always succeed (i.e., will not find a dense subgraph), unless there
+            // is an completely over-identified subgraph with respect to the global coordinate
+            // system. However, this is still useful to perform, as it allows us to iteratively
+            // build up the flow distribution that we can continue to build on in later iterations,
+            // instead of having to start from scratch each iteration. (We cannot easily reuse the
+            // flow distribution resulting from the next step, where we add flow to this individual
+            // edge, as the flow distribution resulting from that is no longer valid once the
+            // edge's flow is reset to its original value again.)
             let mf = bmf.max_flow();
             if mf < i32::from(constraint.valency - old_capacity) {
                 let min_cut = bmf.min_cut_partition();
