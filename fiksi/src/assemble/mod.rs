@@ -8,6 +8,8 @@
     reason = "We cast indices from usize -> u32 a lot here, this should be fine for all except unreasonably large systems (more than ~2^30 elements or constraints). We may want to revisit how indices are represented."
 )]
 
+extern crate std;
+
 use alloc::{collections::BTreeSet, vec, vec::Vec};
 
 use hashbrown::HashMap;
@@ -163,6 +165,7 @@ pub(crate) fn solve(system: &mut System, opts: SolvingOptions) {
                     elements.iter().copied(),
                     constraints.iter().copied(),
                 );
+                std::dbg!(&decomp);
                 let mut clustered_system = ClusteredSystem::default();
                 let mut pose_and_element_variables = vec![];
                 for step in decomp.steps() {

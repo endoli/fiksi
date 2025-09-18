@@ -91,7 +91,11 @@ fn hinged_triangles() {
     constraints::PointPointDistance::create(&mut s, p0, p6, 1.); // 7
     constraints::PointPointDistance::create(&mut s, p5, p6, 1.); // 8
 
-    s.solve(crate::SolvingOptions::DEFAULT);
+    // s.solve(crate::SolvingOptions::DEFAULT);
+    s.solve(crate::SolvingOptions {
+        decomposer: Decomposer::RecursiveAssembly,
+        ..crate::SolvingOptions::default()
+    });
 
     let sum_squared_residuals =
         sum_squares(s.get_constraint_handles().map(|c| c.calculate_residual(&s)));

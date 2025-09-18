@@ -57,7 +57,11 @@ fn bench_hinged_triangles(c: &mut Criterion) {
                 // This also times the time required for resetting the system's elements to their
                 // initial values, but that shouldn't be too bad.
                 reset(&mut s);
-                s.solve(SolvingOptions::DEFAULT);
+                // s.solve(SolvingOptions::DEFAULT);
+                s.solve(crate::SolvingOptions {
+                    decomposer: fiksi::Decomposer::RecursiveAssembly,
+                    ..crate::SolvingOptions::default()
+                });
                 black_box(&mut s);
             });
         });

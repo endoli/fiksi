@@ -162,51 +162,63 @@ impl RecombinationStep {
 /// TODO: evaluate whether this also always works when vertices/edges are such that the graph is no
 /// longer a connected component.
 pub(crate) fn decompose<const D: i16>(
-    mut graph: Graph,
+    graph: Graph,
     vertices: impl Iterator<Item = ElementId>,
     edges: impl Iterator<Item = ConstraintId>,
 ) -> RecombinationPlan {
-    // These are the number of real constraints and elements in the system. More "merged"
-    // constraints and elements will be added as part of rigidity bookkeeping in this algorithm,
-    // but the entities they're made of don't need to be solved again.
-    //
-    // Currently, the constraint and elements IDs are just indices into the vectors, meaning that
-    // the IDs can be compared against these lengths to determine whether the constraint or element
-    // is "real," or is a merged entity used for bookkeeping.
-    let num_real_constraints = u32::try_from(graph.constraints.len()).unwrap();
-    let num_real_elements = u32::try_from(graph.elements.len()).unwrap();
+    let mut state = RecursiveAssemblyState {
+        // These are the number of real constraints and elements in the system. More "merged"
+        // constraints and elements will be added as part of rigidity bookkeeping in this algorithm,
+        // but the entities they're made of don't need to be solved again.
+        //
+        // Currently, the constraint and elements IDs are just indices into the vectors, meaning that
+        // the IDs can be compared against these lengths to determine whether the constraint or element
+        // is "real," or is a merged entity used for bookkeeping.
+        num_real_constraints: u32::try_from(graph.constraints.len()).unwrap(),
+        num_real_elements: u32::try_from(graph.elements.len()).unwrap(),
 
-    let mut vertices = HashSet::from_iter(vertices);
-    let mut available_edges = HashSet::from_iter(edges);
-    let mut constraints_handled = HashSet::new();
-    let mut vertices_handled = HashSet::new();
+        graph,
 
-    // Cluster bookkeeping.
-    // Current clusters' frontiers elements are part of.
-    let mut on_frontiers: HashMap<ElementId, Vec<ClusterKey>> = HashMap::new();
-    // Which elements a cluster "owns." The first cluster that encounters an element "owns" that
-    // element, until the cluster is merged into a parent cluster.
-    let mut owned_elements: HashMap<ClusterKey, Vec<ElementId>> = HashMap::new();
-    let mut owning_cluster: HashMap<ElementId, ClusterKey> = HashMap::new();
+        vertices: HashSet::from_iter(vertices),
+        available_edges: HashSet::from_iter(edges),
+        constraints_handled: HashSet::new(),
+        vertices_handled: HashSet::new(),
 
-    // All elements occurring on a cluster's frontier. When the cluster is merged into another
-    // cluster, these are to be removed.
-    let mut frontier_elements: HashMap<ClusterKey, Vec<ElementId>> = HashMap::new();
+        // Cluster bookkeeping.
+        // Current clusters' frontiers elements are part of.
+        on_frontiers: HashMap::new(),
+        // Which elements a cluster "owns." The first cluster that encounters an element "owns" that
+        // element, until the cluster is merged into a parent cluster.
+        owned_elements: HashMap::new(),
+        owning_cluster: HashMap::new(),
 
-    // Clusters we have "blocked." If a cluster is found, but that cluster does not have a core of
-    // two or more elements, it cannot be simplified. It is then possible we find the same cluster
-    // over and over. Blocking those clusters ensures we make progress.
-    let mut blocked_clusters: Vec<HashSet<ElementId>> = Vec::new();
+        // All elements occurring on a cluster's frontier. When the cluster is merged into another
+        // cluster, these are to be removed.
+        frontier_elements: HashMap::new(),
 
-    let mut recombination_plan = RecombinationPlan { steps: vec![] };
+        // Clusters we have "blocked." If a cluster is found, but that cluster does not have a core of
+        // two or more elements, it cannot be simplified. It is then possible we find the same cluster
+        // over and over. Blocking those clusters ensures we make progress.
+        blocked_clusters: Vec::new(),
 
-    let mut step_constraints = Vec::new();
-    let mut step_fixes_elements = Vec::new();
-    for step in 0_u32.. {
+        recombination_plan: RecombinationPlan { steps: vec![] },
+
+        step_constraints: Vec::new(),
+        step_fixes_elements: Vec::new(),
+    };
+
+    let mut step = 0_u32;
+    loop {
         let cluster_key = ClusterKey(step);
+        step += 1;
 
         // Find a minimum dense subgraph.
-        let subgraph = dense_bfs::<D>(&graph, &blocked_clusters, &available_edges, &vertices);
+        let subgraph = dense_bfs::<D>(
+            &state.graph,
+            &state.blocked_clusters,
+            &state.available_edges,
+            &state.vertices,
+        );
 
         if subgraph.is_empty() {
             // No minimal dense subgraph was found. This means the remaining subgraphs are all
@@ -218,38 +230,84 @@ pub(crate) fn decompose<const D: i16>(
             // elements to make the system well-constrained. That makes the system *structurally*
             // well-constrained, but those elements' values may still require updating for the
             // system to be satisfiable.
-            let constraints: Vec<ConstraintId> = available_edges
+            let constraints: Vec<ConstraintId> = state
+                .available_edges
                 .iter()
                 .copied()
                 .filter(|edge| {
-                    edge.id < num_real_constraints && !constraints_handled.contains(edge)
+                    edge.id < state.num_real_constraints
+                        && !state.constraints_handled.contains(edge)
                 })
                 .collect();
-            let fixes_elements: Vec<ElementId> = vertices
+            let fixes_elements: Vec<ElementId> = state
+                .vertices
                 .iter()
                 .copied()
                 .filter(|vertex| {
-                    vertex.id < num_real_elements && !vertices_handled.contains(vertex)
+                    vertex.id < state.num_real_elements && !state.vertices_handled.contains(vertex)
                 })
                 .collect();
 
             if !constraints.is_empty() {
-                recombination_plan.steps.push(RecombinationStep {
+                state.recombination_plan.steps.push(RecombinationStep {
                     constraints,
-                    elements: vertices
+                    elements: state
+                        .vertices
                         .iter()
                         .copied()
-                        .filter(|vertex| vertex.id < num_real_elements)
+                        .filter(|vertex| vertex.id < state.num_real_elements)
                         .collect(),
                     free_elements: fixes_elements,
-                    on_frontiers: on_frontiers.clone(),
-                    owned_elements: owned_elements.clone(),
-                    frontier_elements: frontier_elements.clone(),
+                    on_frontiers: state.on_frontiers.clone(),
+                    owned_elements: state.owned_elements.clone(),
+                    frontier_elements: state.frontier_elements.clone(),
                 });
             }
 
             break;
         }
+
+        state.contract_cluster::<D>(&subgraph, cluster_key);
+
+        // Find all sequential extensions starting at this cluster. These are all the single
+        // vertices we can add to the cluster, such that the remaining
+    }
+
+    state.recombination_plan
+}
+
+struct RecursiveAssemblyState {
+    graph: Graph,
+    num_real_elements: u32,
+    num_real_constraints: u32,
+
+    recombination_plan: RecombinationPlan,
+
+    vertices: HashSet<ElementId>,
+    available_edges: HashSet<ConstraintId>,
+
+    vertices_handled: HashSet<ElementId>,
+    constraints_handled: HashSet<ConstraintId>,
+
+    blocked_clusters: Vec<HashSet<ElementId>>,
+
+    step_fixes_elements: Vec<ElementId>,
+    step_constraints: Vec<ConstraintId>,
+
+    on_frontiers: HashMap<ElementId, Vec<ClusterKey>>,
+    frontier_elements: HashMap<ClusterKey, Vec<ElementId>>,
+    owning_cluster: HashMap<ElementId, ClusterKey>,
+    owned_elements: HashMap<ClusterKey, Vec<ElementId>>,
+}
+
+impl RecursiveAssemblyState {
+    fn contract_cluster<const D: i16>(
+        &mut self,
+        subgraph: &HashSet<ElementId>,
+        cluster_key: ClusterKey,
+    ) {
+        let num_real_elements = self.num_real_elements;
+        let num_real_constraints = self.num_real_constraints;
 
         let mut core = Vec::new();
         let mut frontier = HashSet::new();
@@ -257,35 +315,37 @@ pub(crate) fn decompose<const D: i16>(
         let mut real_elements = Vec::new();
 
         // Find frontier vertices and the constraints we're solving for this step.
-        for &vertex in &subgraph {
-            let element = &graph.elements[vertex.id as usize];
+        for &vertex in subgraph.iter() {
+            let element = &self.graph.elements[vertex.id as usize];
 
             if vertex.id < num_real_elements {
                 real_elements.push(vertex);
             }
-            if vertex.id < num_real_elements && !vertices_handled.contains(&vertex) {
-                step_fixes_elements.push(vertex);
-                vertices_handled.insert(vertex);
+            if vertex.id < num_real_elements && !self.vertices_handled.contains(&vertex) {
+                self.step_fixes_elements.push(vertex);
+                self.vertices_handled.insert(vertex);
 
-                owning_cluster.insert(vertex, cluster_key);
+                self.owning_cluster.insert(vertex, cluster_key);
             }
 
             let mut frontier_vertex = false;
             for edge_id in element
                 .incident_constraints
                 .iter()
-                .filter(|&edge| available_edges.contains(edge))
+                .filter(|&edge| self.available_edges.contains(edge))
             {
-                let edge = &graph.constraints[edge_id.id as usize];
+                let edge = &self.graph.constraints[edge_id.id as usize];
                 if edge
                     .incident_elements
                     .as_slice()
                     .iter()
                     .all(|element| subgraph.contains(element))
                 {
-                    if edge_id.id < num_real_constraints && !constraints_handled.contains(edge_id) {
-                        step_constraints.push(*edge_id);
-                        constraints_handled.insert(*edge_id);
+                    if edge_id.id < num_real_constraints
+                        && !self.constraints_handled.contains(edge_id)
+                    {
+                        self.step_constraints.push(*edge_id);
+                        self.constraints_handled.insert(*edge_id);
                     }
                 } else {
                     frontier_vertex = true;
@@ -294,26 +354,26 @@ pub(crate) fn decompose<const D: i16>(
 
             if !frontier_vertex {
                 // Remove all inner vertices.
-                vertices.remove(&vertex);
+                self.vertices.remove(&vertex);
                 core.push(vertex);
             } else {
                 frontier.insert(vertex);
             }
         }
 
-        if !step_constraints.is_empty() {
+        if !self.step_constraints.is_empty() {
             // Emit the step before we perform the cluster contraction.
-            recombination_plan.steps.push(RecombinationStep {
-                constraints: core::mem::take(&mut step_constraints),
+            self.recombination_plan.steps.push(RecombinationStep {
+                constraints: core::mem::take(&mut self.step_constraints),
                 elements: real_elements,
-                free_elements: step_fixes_elements.clone(),
-                on_frontiers: on_frontiers.clone(),
-                owned_elements: owned_elements.clone(),
-                frontier_elements: frontier_elements.clone(),
+                free_elements: self.step_fixes_elements.clone(),
+                on_frontiers: self.on_frontiers.clone(),
+                owned_elements: self.owned_elements.clone(),
+                frontier_elements: self.frontier_elements.clone(),
             });
         }
 
-        if !core.is_empty() || !step_fixes_elements.is_empty() {
+        if !core.is_empty() || !self.step_fixes_elements.is_empty() {
             // This cluster owns the elements that are fixed for the first time, but we also know
             // it will end up owning some elements if its core is not empty (because in that case,
             // either it will fix some elements in the core for the first time, or it will end up
@@ -324,23 +384,24 @@ pub(crate) fn decompose<const D: i16>(
             //
             // So, an entry is created here if an only if this cluster ends up owning some
             // elements.
-            owned_elements.insert(cluster_key, core::mem::take(&mut step_fixes_elements));
+            self.owned_elements
+                .insert(cluster_key, core::mem::take(&mut self.step_fixes_elements));
         }
 
         // Keep track of which frontiers elements are now on.
         for &vertex in &core {
             // TODO: remove constraints that are fully within the core
             if vertex.id < num_real_elements {
-                let element = &graph.elements[vertex.id as usize];
+                let element = &self.graph.elements[vertex.id as usize];
                 for edge_id in &element.incident_constraints {
-                    let constraint = &graph.constraints[edge_id.id as usize];
+                    let constraint = &self.graph.constraints[edge_id.id as usize];
                     if constraint
                         .incident_elements
                         .as_slice()
                         .iter()
                         .all(|element| core.contains(element))
                     {
-                        available_edges.remove(edge_id);
+                        self.available_edges.remove(edge_id);
                     }
                 }
             }
@@ -348,22 +409,23 @@ pub(crate) fn decompose<const D: i16>(
             // If a vertex owned by a different cluster is in the core, that entire cluster is
             // merged into this. After this, all references to and from the old cluster are
             // removed.
-            let old_cluster_key = owning_cluster.insert(vertex, cluster_key).unwrap();
+            let old_cluster_key = self.owning_cluster.insert(vertex, cluster_key).unwrap();
             if old_cluster_key != cluster_key {
                 // Reparent all elements owned by the old cluster under the new cluster.
-                let old_cluster_owned_elements = owned_elements.remove(&old_cluster_key).unwrap();
+                let old_cluster_owned_elements =
+                    self.owned_elements.remove(&old_cluster_key).unwrap();
                 for &vertex in &old_cluster_owned_elements {
-                    owning_cluster.insert(vertex, cluster_key);
+                    self.owning_cluster.insert(vertex, cluster_key);
                 }
-                owned_elements
+                self.owned_elements
                     .get_mut(&cluster_key)
                     .unwrap()
                     .extend(old_cluster_owned_elements.into_iter());
 
                 // Remove the old cluster from all vertices' frontier bookkeeping.
-                let frontier_elements = frontier_elements.remove(&old_cluster_key).unwrap();
+                let frontier_elements = self.frontier_elements.remove(&old_cluster_key).unwrap();
                 for element in frontier_elements {
-                    if let Some(on_frontiers) = on_frontiers.get_mut(&element) {
+                    if let Some(on_frontiers) = self.on_frontiers.get_mut(&element) {
                         let idx = on_frontiers
                             .iter()
                             .position(|&c| c == old_cluster_key)
@@ -373,13 +435,16 @@ pub(crate) fn decompose<const D: i16>(
                 }
             }
 
-            on_frontiers.remove(&vertex);
+            self.on_frontiers.remove(&vertex);
         }
         for &vertex in frontier.iter() {
-            on_frontiers.entry(vertex).or_default().push(cluster_key);
+            self.on_frontiers
+                .entry(vertex)
+                .or_default()
+                .push(cluster_key);
 
             if vertex.id < num_real_elements {
-                frontier_elements
+                self.frontier_elements
                     .entry(cluster_key)
                     .or_default()
                     .push(vertex);
@@ -396,19 +461,19 @@ pub(crate) fn decompose<const D: i16>(
             //
             // TODO: perhaps when a contraction *is* performed, remove old blocked clusters
             // containing any of the removed elements.
-            blocked_clusters.push(subgraph.clone());
-            continue;
+            self.blocked_clusters.push(subgraph.clone());
+            return;
         }
 
-        let core = graph.add_element(0);
-        owning_cluster.insert(core, cluster_key);
-        vertices.insert(core);
+        let core = self.graph.add_element(0);
+        self.owning_cluster.insert(core, cluster_key);
+        self.vertices.insert(core);
 
         let mut total_frontier_vertex_dof = 0;
         let mut total_incoming_edge_valency = 0;
         // Create edges from frontier vertices to the inner vertex cluster
         for &vertex in &frontier {
-            let element = &graph.elements[vertex.id as usize];
+            let element = &self.graph.elements[vertex.id as usize];
 
             total_frontier_vertex_dof += element.dof;
 
@@ -417,11 +482,11 @@ pub(crate) fn decompose<const D: i16>(
             let mut binary_edge_cluster_valency = 0;
 
             for edge_id in &element.incident_constraints {
-                if !available_edges.contains(edge_id) {
+                if !self.available_edges.contains(edge_id) {
                     continue;
                 }
 
-                let edge = &mut graph.constraints[edge_id.id as usize];
+                let edge = &mut self.graph.constraints[edge_id.id as usize];
                 let incident_elements = edge.incident_elements.as_slice();
 
                 if incident_elements
@@ -433,7 +498,7 @@ pub(crate) fn decompose<const D: i16>(
                         .merge_elements(|element| !frontier.contains(&element), core);
                     if new.len() == 2 {
                         binary_edge_cluster_valency += edge.valency;
-                        available_edges.remove(edge_id);
+                        self.available_edges.remove(edge_id);
                     } else {
                         edge.incident_elements = new;
                     }
@@ -441,24 +506,22 @@ pub(crate) fn decompose<const D: i16>(
             }
 
             if binary_edge_cluster_valency > 0 {
-                let cluster_edge = graph.add_constraint(
+                let cluster_edge = self.graph.add_constraint(
                     binary_edge_cluster_valency,
                     IncidentElements::from_array([vertex, core]),
                 );
-                available_edges.insert(cluster_edge);
+                self.available_edges.insert(cluster_edge);
                 total_incoming_edge_valency += binary_edge_cluster_valency;
             }
         }
 
         if total_incoming_edge_valency > 0 {
-            graph.elements[core.id as usize].dof =
+            self.graph.elements[core.id as usize].dof =
                 total_frontier_vertex_dof - total_incoming_edge_valency - D;
         } else {
-            vertices.remove(&core);
+            self.vertices.remove(&core);
         }
     }
-
-    recombination_plan
 }
 
 /// Find an arbitrary, minimum dense subgraph.
