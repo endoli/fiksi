@@ -634,9 +634,9 @@ mod dinic {
         u_nodes: Vec<usize>,
         v_nodes: Vec<usize>,
 
-        /// The index of the S->U edge for each vertex in U into the source vertex's list of edges, as in, self.g[Self::S][idx].
+        /// The index of the S->U edge for each vertex in U into the source vertex's list of edges, as in, `self.g[Self::S][idx]`.
         su_edges: Vec<usize>,
-        /// The index of the V->T edge for each vertex in V into the source vertex's list of edges, as in, self.g[v_node][idx].
+        /// The index of the V->T edge for each vertex in V into the source vertex's list of edges, as in, `self.g[v_node][idx]`.
         ///
         /// TODO: the first parameter is just `v_node = self.u_nodes[v]`, so could be dropped.
         vt_edges: Vec<(usize, usize)>,
@@ -725,8 +725,11 @@ mod dinic {
         ///
         /// `add` must be non-negative.
         pub(crate) fn increase_su_capacity(&mut self, u_idx: usize, add: i16) -> i16 {
-            debug_assert!(add >= 0);
-            debug_assert!(u_idx < self.u_nodes.len());
+            debug_assert!(add >= 0, "The added capacity must be non-negative.");
+            debug_assert!(
+                u_idx < self.u_nodes.len(),
+                "The U vertex index must be in bounds."
+            );
 
             // Update capacity on the Source-to-u edge.
             let eidx = self.su_edges[u_idx];
@@ -857,7 +860,7 @@ mod dinic {
                 }
             }
 
-            let mut value = 0i32;
+            let mut value: i32 = 0;
             for &u in &cut_s_to_u {
                 value += self.cap_su[u] as i32;
             }
