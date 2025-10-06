@@ -208,7 +208,7 @@ pub(crate) fn decompose<const D: i16>(
         // Find a minimum dense subgraph.
         let subgraph = dense_bfs::<D>(&graph, &blocked_clusters, &available_edges, &vertices);
 
-        if subgraph.is_empty() {
+        if subgraph.is_none() {
             // No minimal dense subgraph was found. This means the remaining subgraphs are all
             // underconstrained.
             //
@@ -250,6 +250,12 @@ pub(crate) fn decompose<const D: i16>(
 
             break;
         }
+
+        let subgraph = subgraph.unwrap();
+        debug_assert!(
+            !subgraph.is_empty(),
+            "if a subgraph is returned, it shouldn't be empty"
+        );
 
         let mut core = Vec::new();
         let mut frontier = HashSet::new();
@@ -470,6 +476,8 @@ pub(crate) fn decompose<const D: i16>(
 /// The subgraph is minimum in the sense that it is the smallest subgraph containing no proper
 /// subgraph upholding that condition. Trivial subgraphs of single elements are not considered.
 ///
+/// Returns `None` if no non-trivial dense subgraph exists.
+///
 /// This does an exhaustive search, which is very slow for every moderately-sized graphs. This
 /// should be replaced with a smarter algorithm, as it's not necessary to find the optimum
 /// solution.
@@ -478,7 +486,7 @@ fn dense_bfs<const D: i16>(
     blocked_subgraphs: &[HashSet<ElementId>],
     available_edges: &HashSet<ConstraintId>,
     vertices: &HashSet<ElementId>,
-) -> HashSet<ElementId> {
+) -> Option<HashSet<ElementId>> {
     let k: i16 = const { -(D + 1) };
 
     // Calculate the additional edge valency added to `next_subgraph` by including `new_vertex`.
@@ -593,7 +601,7 @@ fn dense_bfs<const D: i16>(
             let next_dof = dof + graph.elements[vertex.id as usize].dof - valency;
 
             if !blocked_subgraphs.contains(&next_subgraph) && next_dof > k {
-                return next_subgraph;
+                return Some(next_subgraph);
             }
 
             // Find the adjacent vertices of `next_subgraph` by removing the vertex we just added,
@@ -618,5 +626,5 @@ fn dense_bfs<const D: i16>(
     }
 
     // No subgraph found. This means all subgraphs are underconstrained.
-    HashSet::new()
+    None
 }
