@@ -299,8 +299,6 @@ pub(crate) fn decompose<const D: i16>(
             }
 
             if !frontier_vertex {
-                // Remove all inner vertices.
-                vertices.remove(&vertex);
                 core.push(vertex);
             } else {
                 frontier.insert(vertex);
@@ -406,6 +404,11 @@ pub(crate) fn decompose<const D: i16>(
             continue;
         }
 
+        // Contract the inner vertices into a single vertex.
+        for &vertex in &core {
+            // Remove all inner vertices.
+            vertices.remove(&vertex);
+        }
         let core = graph.add_element(0);
         owning_cluster.insert(core, cluster_key);
         vertices.insert(core);
