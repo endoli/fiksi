@@ -467,18 +467,18 @@ pub(crate) fn decompose<const D: i16>(
     recombination_plan
 }
 
-/// Find an arbitrary, minimum dense subgraph.
+/// Find a minimum dense subgraph, such that no other dense subgraph is smaller than it.
 ///
 /// This searches for a minimum dense subgraph such that
 /// `(elements' degrees of freedom) - (constraints' valencies) < D + 1`. See also "Finding Solvable
 /// Subsets of Constraints Graph" (1997) by C. M. Hoffmann, A. Lomonosov, and M. Sitharam.
 ///
-/// The subgraph is minimum in the sense that it is the smallest subgraph containing no proper
-/// subgraph upholding that condition. Trivial subgraphs of single elements are not considered.
+/// The subgraph is minimum in the sense that there is no smaller subgraph upholding that
+/// condition. Trivial subgraphs of single elements are not considered.
 ///
 /// Returns `None` if no non-trivial dense subgraph exists.
 ///
-/// This does an exhaustive search, which is very slow for every moderately-sized graphs. This
+/// This does an exhaustive search, which is very slow even for moderately-sized graphs. This
 /// should be replaced with a smarter algorithm, as it's not necessary to find the optimum
 /// solution.
 fn dense_bfs<const D: i16>(
