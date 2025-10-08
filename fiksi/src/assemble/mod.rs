@@ -33,29 +33,21 @@ pub(crate) fn solve(system: &mut System, opts: SolvingOptions) {
         let mut free_variables = BTreeSet::<u32>::new();
         for element_id in &elements {
             let element = &system.elements[element_id.id as usize];
-            match element {
-                EncodedElement::Length { idx } => {
-                    free_variables.extend(&[*idx]);
-                }
-                EncodedElement::Point { idx } => {
-                    free_variables.extend(&[*idx, *idx + 1]);
-                }
+            let variable_indices: &[u32] = match element {
+                EncodedElement::Length { idx } => &[*idx],
+                EncodedElement::Point { idx } => &[*idx, *idx + 1],
                 EncodedElement::Line {
                     point1_idx,
                     point2_idx,
-                } => {
-                    free_variables.extend(&[
-                        *point1_idx,
-                        *point1_idx + 1,
-                        *point2_idx,
-                        *point2_idx + 1,
-                    ]);
-                }
+                } => &[*point1_idx, *point1_idx + 1, *point2_idx, *point2_idx + 1],
                 EncodedElement::Circle {
                     center_idx,
                     radius_idx,
-                } => {
-                    free_variables.extend(&[*center_idx, *center_idx + 1, *radius_idx]);
+                } => &[*center_idx, *center_idx + 1, *radius_idx],
+            };
+            for &variable in variable_indices {
+                if !system.fixed_variables.contains(&variable) {
+                    free_variables.insert(variable);
                 }
             }
         }

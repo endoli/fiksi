@@ -68,6 +68,7 @@ fn ensure_libm_dependency_used() -> f32 {
 extern crate alloc;
 use alloc::{vec, vec::Vec};
 
+use hashbrown::HashSet;
 pub use kurbo;
 
 // Only enable the `manual` module when generating documentation or when testing. Though
@@ -259,6 +260,10 @@ pub struct System {
     /// Mapping from variables back to the primitive geometric element that it belongs to.
     variable_to_primitive: Vec<ElementId>,
 
+    /// The variables that are fixed (through [`ElementHandle::fix`]) and should not be updated
+    /// when solving.
+    fixed_variables: HashSet<u32>,
+
     /// Constraints between geometric elements.
     constraints: Vec<EncodedConstraint>,
     /// The expressions of the constraints, such as point-point distance.
@@ -283,6 +288,7 @@ impl System {
             elements: vec![],
             variables: vec![],
             variable_to_primitive: vec![],
+            fixed_variables: HashSet::new(),
             constraints: vec![],
             expressions: vec![],
             expression_to_constraint: vec![],

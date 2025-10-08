@@ -44,6 +44,46 @@ pub(crate) mod element {
             ElementId { id: self.id }
         }
 
+        /// Fix the value of this element.
+        ///
+        /// The value of this element will not be changed when solving. Constraints involving this
+        /// element can only be satisfied by updating the free elements of those constraints.
+        ///
+        /// This does nothing if the element was already fixed. All elements are initially free.
+        ///
+        /// When marking a compound element (like a [`Line`](super::Line)) fixed, all its primitive
+        /// elements are fixed. When marking a primitive element (like a [`Point`](super::Point))
+        /// fixed, if that primitive occurs in one or more compound elements, that part of the
+        /// compound elements are fixed.
+        ///
+        /// See also [`Self::free`].
+        pub fn fix(&self, system: &mut System) {
+            let encoded_element = &system.elements[self.id as usize];
+            system
+                .fixed_variables
+                .extend(T::variable_indices(encoded_element));
+        }
+
+        /// Free the value of this element.
+        ///
+        /// If this element was previously [fixed](Self::fix), this frees the element. The element
+        /// can then be updated for solving again.
+        ///
+        /// This does nothing if the element was already free. All elements are initially free.
+        ///
+        /// When marking a compound element (like a [`Line`](super::Line)) free, all its primitive
+        /// elements are freed. When marking a primitive element (like a [`Point`](super::Point))
+        /// free, if that primitive occurs in one or more compound elements, that part of the
+        /// compound elements are freed.
+        ///
+        /// See also [`Self::fix`].
+        pub fn free(&self, system: &mut System) {
+            let encoded_element = &system.elements[self.id as usize];
+            for variable in T::variable_indices(encoded_element) {
+                system.fixed_variables.remove(&variable);
+            }
+        }
+
         /// Get the value of the element.
         pub fn get_value(&self, system: &System) -> <T as Element>::Output {
             // TODO: return `Result` instead of panicking?
@@ -258,6 +298,13 @@ impl sealed::ElementInner for Length {
         };
         variables[idx as usize]
     }
+
+    fn variable_indices(encoded_element: &EncodedElement) -> impl Iterator<Item = u32> {
+        let &EncodedElement::Length { idx } = encoded_element else {
+            unreachable!()
+        };
+        core::iter::once(idx)
+    }
 }
 
 /// A point given by a 2D coordinate.
@@ -294,6 +341,13 @@ impl sealed::ElementInner for Point {
             x: variables[idx as usize],
             y: variables[idx as usize + 1],
         }
+    }
+
+    fn variable_indices(encoded_element: &EncodedElement) -> impl Iterator<Item = u32> {
+        let &EncodedElement::Point { idx } = encoded_element else {
+            unreachable!()
+        };
+        [idx, idx + 1].into_iter()
     }
 }
 
@@ -355,6 +409,17 @@ impl sealed::ElementInner for Line {
             },
         }
     }
+
+    fn variable_indices(encoded_element: &EncodedElement) -> impl Iterator<Item = u32> {
+        let &EncodedElement::Line {
+            point1_idx,
+            point2_idx,
+        } = encoded_element
+        else {
+            unreachable!()
+        };
+        [point1_idx, point1_idx + 1, point2_idx + 1, point2_idx + 1].into_iter()
+    }
 }
 
 /// A circle defined by a centerpoint and a radius.
@@ -413,6 +478,17 @@ impl sealed::ElementInner for Circle {
             radius: variables[radius_idx as usize],
         }
     }
+
+    fn variable_indices(encoded_element: &EncodedElement) -> impl Iterator<Item = u32> {
+        let &EncodedElement::Circle {
+            center_idx,
+            radius_idx,
+        } = encoded_element
+        else {
+            unreachable!()
+        };
+        [center_idx, center_idx + 1, radius_idx].into_iter()
+    }
 }
 
 /// The actual type of the element.
@@ -450,6 +526,7 @@ pub(crate) mod sealed {
             encoded_element: &EncodedElement,
             variables: &[f64],
         ) -> Self::Output;
+        fn variable_indices(encoded_element: &EncodedElement) -> impl Iterator<Item = u32>;
     }
 }
 
