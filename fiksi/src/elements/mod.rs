@@ -51,7 +51,7 @@ pub(crate) mod element {
         ///
         /// This does nothing if the element was already fixed. All elements are initially free.
         ///
-        /// When fixing a compound element (like a [`Line`](super::Line)) fixed, all its primitive
+        /// When fixing a compound element (like a [`Line`](super::Line)), all its primitive
         /// elements are fixed. When marking a primitive element (like a [`Point`](super::Point))
         /// fixed, if that primitive occurs in one or more compound elements, that part of the
         /// compound elements are fixed.
