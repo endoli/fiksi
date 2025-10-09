@@ -443,8 +443,9 @@ impl<G: BipartiteGraphAToB + BipartiteGraphBToA> VertexGraph for MatchedBipartit
 /// Find strongly connected components in a [`VertexGraph`].
 ///
 /// The strongly connected components are returned as a vec of vecs, where each inner vec is a
-/// strongly connected component. The vertices within a component are not in any particular order.
-/// The strongly connected components are in reverse-vertices within each
+/// strongly connected component. The strongly connected components are partially ordered according
+/// to the reverse-topogical order of the DAG of strongly connected components. The vertices within
+/// a component are not in any particular order.
 ///
 /// It is a logic error to call this with a graph that contains 2^32 or more vertices.
 fn find_strongly_connected_components<G: VertexGraph>(graph: &G) -> Vec<Vec<G::VertexId>> {
