@@ -51,12 +51,12 @@ pub(crate) mod element {
         ///
         /// This does nothing if the element was already fixed. All elements are initially free.
         ///
-        /// When marking a compound element (like a [`Line`](super::Line)) fixed, all its primitive
+        /// When fixing a compound element (like a [`Line`](super::Line)), all its primitive
         /// elements are fixed. When marking a primitive element (like a [`Point`](super::Point))
         /// fixed, if that primitive occurs in one or more compound elements, that part of the
         /// compound elements are fixed.
         ///
-        /// See also [`Self::free`].
+        /// See also [`Self::unfix`].
         pub fn fix(&self, system: &mut System) {
             let encoded_element = &system.elements[self.id as usize];
             system
@@ -64,20 +64,20 @@ pub(crate) mod element {
                 .extend(T::variable_indices(encoded_element));
         }
 
-        /// Free the value of this element.
+        /// Unfixes the value of this element.
         ///
-        /// If this element was previously [fixed](Self::fix), this frees the element. The element
-        /// can then be updated for solving again.
+        /// If this element was previously [fixed](Self::fix), this frees the element, allowing its
+        /// value to be changed when solving.
         ///
-        /// This does nothing if the element was already free. All elements are initially free.
+        /// This does nothing if the element is not fixed. All elements are initially free.
         ///
-        /// When marking a compound element (like a [`Line`](super::Line)) free, all its primitive
-        /// elements are freed. When marking a primitive element (like a [`Point`](super::Point))
-        /// free, if that primitive occurs in one or more compound elements, that part of the
-        /// compound elements are freed.
+        /// When unfixing a compound element (like a [`Line`](super::Line)), all its primitive
+        /// elements are unfixed. When unfixing a primitive element (like a
+        /// [`Point`](super::Point)), if that primitive occurs in one or more compound elements,
+        /// that part of the compound elements are unfixed.
         ///
         /// See also [`Self::fix`].
-        pub fn free(&self, system: &mut System) {
+        pub fn unfix(&self, system: &mut System) {
             let encoded_element = &system.elements[self.id as usize];
             for variable in T::variable_indices(encoded_element) {
                 system.fixed_variables.remove(&variable);
