@@ -20,6 +20,41 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
         "The number of variables as given by the `Problem` and the slice of variables passed in must match."
     );
 
+    // Levenberg-Marquardt requires solving (J^T J + λ I) δ = J^T r for δ, where r is the
+    // vector-valued residual function, J is the Jacobian of r, λ is the damping factor, I is the
+    // identity matrix, and δ is the update step of the variables.
+    //
+    // Here, these calculations are performed with finite precision using floating points. When
+    // following these normal equations, the numerical imprecision expected in δ (the "condition
+    // number" of (J^T J)) is the square of the condition number of J. In other words, the effect
+    // of order of magnitude differences is doubled.
+    //
+    // Instead of solving for the normal equations, we can equivalently solve for the augmented
+    // matrices:
+    // [  J        ]     [ r ]
+    // [ sqrt(λ) I ] δ = [ 0 ]
+    // using QR-decomposition, see e.g, Equation 3.2 of "The Levenberg-Marquardt algorithm:
+    // implementations and theory" by J. J. Moré (1997). (Given a matrix A and its QR-decomposition
+    // QR = A, the system A x = b can be solved for x as R x = Q^T b, where R is an
+    // upper-triangular matrix and thus x can be solved efficiently through back substitution.)
+    //
+    // This is slower per computation and therefore slower in the well-conditioned case, but it is
+    // numerically more stable as we don't form the square of the Jacobian. In numerically
+    // ill-conditioned cases, the lack of stability due to forming the square can lead to having to
+    // perform many more iterations to converge, as well as failure to converge at all.
+    //
+    // Further, note the Jacobian J changes once per actual step taken by Levenberg-Marquardt,
+    // whereas λ changes potentially many times per step inside the inner loop. To avoid
+    // decomposing J multiple times, we can instead decompose QR = J first and apply the orthogonal
+    // transformations to the residuals as well, i.e., z = Q^T r. Then, again using
+    // QR-decomposition, we can find the solution for the equivalent problem
+    // [  R        ]     [ z ]
+    // [ sqrt(λ) I ] δ = [ 0 ].
+    //
+    // Effectively, this performs a partial decomposition of the top part of [J; sqrt(λ)], also
+    // storing the effect of the partial orthogonal transformations on the right-hand side (i.e.,
+    // the residuals).
+
     let mut variables_scratch = variables.to_vec();
     let variables_scratch = variables_scratch.as_mut_slice();
 
@@ -43,7 +78,6 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
     );
 
     // The (augmented) residual matrix.
-    // let mut r = nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), 1);
     let mut z_aug = nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), 1);
 
     problem.calculate_residuals_and_jacobian(
@@ -67,114 +101,48 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
             }
         }
 
-        // {
-        //     let mut r = r_aug.rows_mut(0, jacobian_.nrows());
-        //     r.copy_from(&residuals);
-        //     r.neg_mut();
-        // }
-        // r_aug
-        //     .rows_mut(jacobian_.nrows(), jacobian_.ncols())
-        //     .fill(0.);
-
-        let qr = jacobian_.clone().col_piv_qr();
-        qr.q_tr_mul(&mut residuals);
-        let qr_r = qr.r();
+        // (It seems that with the current nalgebra API, it's not entirely straightforward to reuse
+        // the allocations for `jacobian_` or the inner `qr_r_aug`. The matrix is moved into
+        // `ColPivQR`, and moving it out again requires an expensive resizing operation that copies
+        // elements around.)
+        //
+        // We do a column-pivoting QR specifically, for its increased numerical stability. See also
+        // the note above about the use of QR decomposition for solving.
+        let partial_qr = jacobian_.clone().col_piv_qr();
+        // We negate the residuals here, as we want to solve for `(J^T J + λ I) δ = -J^T r`.
+        // By negating `r` here, we don't have to negate it each time below.
+        residuals.neg_mut();
+        partial_qr.q_tr_mul(&mut residuals);
+        // Note: we'd like to use qr.unpack_r() here, but there may be some UB in `nalgebra`:
+        // <https://github.com/endoli/fiksi/pull/91>.
+        let partial_r = partial_qr.r();
 
         // Inner loop to find a suitable damping factor allowing a step to be accepted.
         loop {
-            // // Levenberg-Marquardt requires solving (J^T J + λ I) δ = J^T r(x) for δ, where r is the
-            // // vector-valued residual function, J is the Jacobian of r, λ is the damping factor, I is
-            // // the identity matrix, and δ is the update step of the variables.
-            // //
-            // // Here, these calculations are performed with finite precision using floating points. The
-            // // numerical imprecision expected in δ (the "condition number" of (J^T J)) is the square of
-            // // the condition number of J. In other words, the effect of order of magnitude differences
-            // // is doubled.
-            // //
-            // // Instead of solving for the above expression, we can equivalently solve for the
-            // // augmented matrices:
-            // // [  J        ]     [ r ]
-            // // [ sqrt(λ) I ] δ = [ 0 ]
-            // // using QR-decomposition, see e.g, Equation 3.2 of "The Levenberg-Marquardt algorithm:
-            // // implementations and theory" by J. J. Moré (1997).
-            // //
-            // // This is slower per computation and therefore slower in the well-conditioned case, but it
-            // // is numerically more stable as we don't form the square of the Jacobian. In numerically
-            // // ill-conditioned cases, the lack of stability due to forming the square can lead to
-            // // having to perform many more iterations to converge, as well as failure to convergence at
-            // // all.
-            // //
-            // // (It seems that with the current nalgebra API, it's not entirely straightforward to
-            // // reuse the allocation for `j_aug`. It's moved into `ColPivQR`, and moving it out
-            // // again requires an expensive resizing operation that copies elements around.)
-            // // let mut j_aug =
-            // //     nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), jacobian_.ncols());
-
-            // // j_aug.rows_mut(0, jacobian_.nrows()).copy_from(&jacobian_);
-            // // Augment by the damping factor `lambda`.
-            // // for idx in 0..jacobian_.ncols() {
-            // //     j_aug[(jacobian_.nrows() + idx, idx)] += f64::sqrt(lambda);
-            // // }
-            // // The augmented residual matrix:
-            // // [ r ]
-            // // [ 0 ]
-            // {
-            //     let mut r = r_aug.rows_mut(0, jacobian_.nrows());
-            //     r.copy_from(&residuals);
-            //     r.neg_mut();
-            // }
-            // r_aug
-            //     .rows_mut(jacobian_.nrows(), jacobian_.ncols())
-            //     .fill(0.);
-
-            // // We do a column-pivoting QR specifically, for its increased numerical stability. See
-            // // also the note above about the use of QR decomposition for solving.
-            // let qr = j_aug.col_piv_qr();
-            // qr.q_tr_mul(&mut r_aug);
-
-            // let mut delta = r_aug.rows_mut(0, jacobian_.ncols());
-            // // Note: we'd like to use qr.unpack_r() here, but there may be some UB in `nalgebra`:
-            // // <https://github.com/endoli/fiksi/pull/91>.
-            // if !qr.r().solve_upper_triangular_mut(&mut delta) {
-            //     lambda *= 8.;
-            //     continue;
-            // };
-
-            // qr.p().inv_permute_rows(&mut delta);
-
-            let mut qr_r_aug =
+            // The stacked matrix `[R; sqrt(lambda) I]`, where `R` is the upper-triangular matrix
+            // from the decomposition `J = QR` we performed above.
+            let mut r_aug =
                 nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), jacobian_.ncols());
-            extern crate std;
-            // std::dbg!(jacobian_.shape());
-            // std::dbg!(qr_r.shape());
-            qr_r_aug
+            r_aug
                 .rows_mut(0, jacobian_.nrows().min(jacobian_.ncols()))
-                .copy_from(&qr_r);
+                .copy_from(&partial_r);
             for idx in 0..jacobian_.ncols() {
-                qr_r_aug[(jacobian_.nrows() + idx, idx)] += f64::sqrt(lambda);
+                r_aug[(jacobian_.nrows() + idx, idx)] += f64::sqrt(lambda);
             }
-            let t_qr = qr_r_aug.qr();
-            {
-                let mut z = z_aug.rows_mut(0, jacobian_.nrows());
-                z.copy_from(&residuals);
-                z.neg_mut();
-            }
+            let qr = r_aug.qr();
+            z_aug.rows_mut(0, jacobian_.nrows()).copy_from(&residuals);
             z_aug
                 .rows_mut(jacobian_.nrows(), jacobian_.ncols())
                 .fill(0.);
-            t_qr.q_tr_mul(&mut z_aug);
+            qr.q_tr_mul(&mut z_aug);
+
             let mut delta = z_aug.rows_mut(0, jacobian_.ncols());
-            // Note: we'd like to use qr.unpack_r() here, but there may be some UB in `nalgebra`:
-            // <https://github.com/endoli/fiksi/pull/91>.
-            if !t_qr.unpack_r().solve_upper_triangular_mut(&mut delta) {
+            if !qr.unpack_r().solve_upper_triangular_mut(&mut delta) {
                 lambda *= 8.;
                 continue;
             };
-            qr.p().inv_permute_rows(&mut delta);
-            // extern crate std;
-            // std::println!("{}", delta);
-            // std::println!("{}", t_delta);
-            // std::println!("===============");
+            partial_qr.p().inv_permute_rows(&mut delta);
+
             if delta.norm() < 1e-6 {
                 break 'steps;
             }
