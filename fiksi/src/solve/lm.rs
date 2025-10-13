@@ -137,7 +137,8 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
             qr.q_tr_mul(&mut z_aug);
 
             let mut delta = z_aug.rows_mut(0, jacobian_.ncols());
-            if !qr.unpack_r().solve_upper_triangular_mut(&mut delta) {
+            // Note: we'd like to use qr.unpack_r() here, but there may be some UB in `nalgebra`:
+            if !qr.r().solve_upper_triangular_mut(&mut delta) {
                 lambda *= 8.;
                 continue;
             };
