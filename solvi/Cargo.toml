@@ -1,0 +1,29 @@
+[package]
+name = "solvi"
+license.workspace = true
+edition.workspace = true
+description = "Sparse linear algebra in pure Rust"
+keywords = ["math", "sparse", "linear", "algebra", "matrix"]
+categories = ["science", "mathematics"]
+repository.workspace = true
+rust-version.workspace = true
+
+[package.metadata.docs.rs]
+all-features = true
+# There are no platform specific docs.
+default-target = "x86_64-unknown-linux-gnu"
+targets = []
+
+[features]
+default = ["std"]
+std = []
+libm = ["dep:libm"]
+
+[dependencies]
+
+[dependencies.libm]
+version = "0.2.15"
+optional = true
+
+[lints]
+workspace = true
