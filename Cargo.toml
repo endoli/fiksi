@@ -21,6 +21,7 @@ fiksi = { version = "0.1.0", path = "fiksi", default-features = false }
 fiksi_svg = { version = "0.1.0", path = "fiksi_svg", default-features = false }
 solvi = { version = "0.1.0", path = "solvi", default-features = false }
 
+bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 criterion = { version = "0.7.0", default-features = false }
 tracing = { version = "0.1.41", default-features = false, features = ["attributes", "log"] }
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
