@@ -528,14 +528,13 @@ impl CholeskyStructure {
                 if parent == usize::MAX {
                     root_of[j] = j;
                 } else {
-                    root_of[j] = parent;
+                    root_of[j] = root_of[parent];
                 }
             }
 
             let mut row_root = vec![0; m];
-            for i in 1..m {
-                let i = row_permutation[i];
-                if i >= m {
+            for i in 0..m {
+                if row_permutation[i] >= m {
                     // Fictitious row.
                     continue;
                 }
@@ -546,8 +545,8 @@ impl CholeskyStructure {
                     // Empty row in `A`.
                     continue;
                 }
-                if i < places_in_postorder[root_of[first_column]] {
-                    row_root[i] = i;
+                if row_permutation[i] < root_of[first_column] {
+                    row_root[i] = row_permutation[i];
                 } else {
                     row_root[i] = root_of[first_column];
                 }
