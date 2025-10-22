@@ -544,6 +544,12 @@ impl<T> SparseColMat<T> {
         Self { structure, values }
     }
 
+    /// Get the structure of this sparse column matrix.
+    #[inline(always)]
+    pub fn structure(&self) -> &SparseColMatStructure {
+        &self.structure
+    }
+
     /// Get a tuple of the values and the rows of those values in the given column `col`.
     ///
     /// Panics if out of bounds.
