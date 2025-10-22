@@ -547,6 +547,8 @@ impl<T> SparseColMat<T> {
     /// Get a tuple of the values and the rows of those values in the given column `col`.
     ///
     /// Panics if out of bounds.
+    ///
+    /// See also [`Self::index_column_mut`].
     #[inline]
     #[track_caller]
     pub fn index_column(&self, col: usize) -> (&[T], &[usize]) {
@@ -559,6 +561,27 @@ impl<T> SparseColMat<T> {
         let range = self.structure.column_pointers[col]..self.structure.column_pointers[col + 1];
         (
             &self.values[range.clone()],
+            &self.structure.row_indices[range],
+        )
+    }
+
+    /// Get a tuple of the mutable values and the rows of those values in the given column `col`.
+    ///
+    /// Panics if out of bounds.
+    ///
+    /// See also [`Self::index_column`].
+    #[inline]
+    #[track_caller]
+    pub fn index_column_mut(&mut self, col: usize) -> (&mut [T], &[usize]) {
+        if col + 1 >= self.structure.column_pointers.len() {
+            panic!(
+                "column index {col} out of range for matrix with {} columns",
+                self.ncols()
+            );
+        }
+        let range = self.structure.column_pointers[col]..self.structure.column_pointers[col + 1];
+        (
+            &mut self.values[range.clone()],
             &self.structure.row_indices[range],
         )
     }
