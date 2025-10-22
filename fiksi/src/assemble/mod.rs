@@ -11,6 +11,7 @@
 use alloc::{collections::BTreeSet, vec, vec::Vec};
 
 use hashbrown::HashMap;
+use solvi::TripletMat;
 
 use crate::{
     ClusterKey, Decomposer, ElementId, EncodedElement, Pose2D, RecombinationStep, Rng,
@@ -598,5 +599,14 @@ impl solve::Problem for (&'_ mut ClusteredSystem, &'_ System) {
                 r += 2;
             }
         }
+    }
+
+    fn calculate_residuals_and_sparse_jacobian(
+        &mut self,
+        _variables: &[f64],
+        _residuals: &mut [f64],
+        _jacobian: &mut TripletMat<f64>,
+    ) {
+        unimplemented!("This is not implemented")
     }
 }
