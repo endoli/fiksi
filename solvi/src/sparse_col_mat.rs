@@ -9,6 +9,8 @@ use crate::TripletMat;
 ///
 /// For a sparse column matrix with values, see [`SparseColMat`].
 ///
+/// # Structure
+///
 /// This encodes the shape of the matrix and the structural non-zero values. The structure is
 /// encoded in the [sparse column][csc] format, also known as CSC or CCS format. In this format,
 /// values are stored in column-major order in memory. Structural zeroes (sparsity) are not not
@@ -17,6 +19,35 @@ use crate::TripletMat;
 /// To know which cells values belong to, there are two additional arrays for bookkeeping: one
 /// encodes the rows of the matrix each value belongs to. The other encodes each column's starting
 /// index into the value and row arrays.
+///
+/// For example, a 4x3 matrix with the following sparsity pattern (`x` marks a stored value)
+///
+/// ```text
+///     1  2  3
+/// 0 | x
+/// 1 |       x
+/// 2 | x  x
+/// 3 |       x
+/// ```
+///
+/// would look as follows.
+///
+/// ```text
+/// row_indices:     [0, 2, 2, 1, 3]
+/// column_pointers: [0, 2, 3, 5]
+/// values (if any): [m00, m20, m22, m13, m34]
+///                   --------  ---  --------  slices per column
+/// ```
+///
+/// Column `j` owns the range `column_pointers[j]..column_pointers[j + 1]` in both `row_indices`
+/// (and any parallel values array, usually stored together in [`SparseColMat`]). The final pointer
+/// equals the number of structural entries.
+///
+/// If your matrices are large and sparse, this may be a good format. Because column values are
+/// contiguous, algorithms that walk columns (such as factorization) can stream through memory.
+/// Modifying the sparsity pattern is slow, as it requires shifting later row indices and values.
+/// Finding a specific entry `(i,j)` is slow, requiring to scan through the row indices for a
+/// specific column.
 ///
 /// [csc]: <https://en.wikipedia.org/w/index.php?title=Sparse_matrix&oldid=1300835532#Compressed_sparse_column_(CSC_or_CCS)>
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -80,10 +111,11 @@ impl SparseColMatStructure {
 
 /// A sparse column matrix.
 ///
-/// The sparsity pattern of the matrix is explicitly encoded through a [`SparseColMatStructure`].
-/// Only matrix cells included in this structure have a non-zero value, i.e., the values of all
-/// matrix cells not included are implicitly zero. This can be an efficient method for storing and
-/// performing operations on large matrices with relatively few non-zero values.
+/// The sparsity pattern of the matrix is explicitly encoded through a [`SparseColMatStructure`]
+/// (see its documentation for an explanation of the structure). Only matrix cells included in this
+/// structure have a non-zero value, i.e., the values of all matrix cells not included are
+/// implicitly zero. This can be an efficient method for storing and performing operations on large
+/// matrices with relatively few non-zero values.
 ///
 /// Note that structural values can still have an explicit zero value.
 ///
