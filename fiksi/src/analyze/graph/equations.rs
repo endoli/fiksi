@@ -406,7 +406,7 @@ mod hopcroft_karp {
 /// Interpret a bipartite graph with a matching that directs edges in a specific way.
 ///
 /// All edges are directed from set A to set B. Further, in two cases edges are bidirectional: if
-/// an edge between A and B is matched, it is bidirectional. If a vertex in A is unsaturated (non
+/// an edge between A and B is matched, it is bidirectional. If a vertex in A is unsaturated (none
 /// of its edges are matched), all its edges are bidirectional.
 ///
 /// This is a useful interpretation for, e.g., systems of equations, where variables are in set A
