@@ -7,7 +7,7 @@ use crate::CooMat;
 
 /// The structure of a sparse column matrix.
 ///
-/// This encodes the shape of the matrix and the structural non-zero values. The strucure is
+/// This encodes the shape of the matrix and the structural non-zero values. The structure is
 /// encoded in the [sparse column][csc] format, also known as CSC or CCS format. In this format,
 /// values are stored in column-major order in memory. Structural zeroes (sparsity) are not not
 /// stored.
@@ -84,7 +84,7 @@ impl SparseColMatStructure {
 /// See also [`SparseColMatStructure`].
 #[derive(Clone, Debug)]
 pub struct SparseColMat<T> {
-    /// The sparsity structure of this matrix, encoding for all the explictly stored values. Any
+    /// The sparsity structure of this matrix, encoding for all the explicitly stored values. Any
     /// values not stored explicitly are implicitly zero.
     pub(crate) structure: SparseColMatStructure,
 
