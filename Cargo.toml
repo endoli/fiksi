@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["fiksi", "fiksi_svg", "examples/fiksi_svg_tests", "examples/fiksi_toy"]
+members = ["fiksi", "fiksi_svg", "solvi", "examples/fiksi_svg_tests", "examples/fiksi_toy"]
 
 [workspace.package]
 # Fiksi version, also used by other packages which want to mimic Fiksi's version.
@@ -19,6 +19,7 @@ repository = "https://github.com/endoli/fiksi"
 [workspace.dependencies]
 fiksi = { version = "0.1.0", path = "fiksi", default-features = false }
 fiksi_svg = { version = "0.1.0", path = "fiksi_svg", default-features = false }
+solvi = { version = "0.1.0", path = "solvi", default-features = false }
 
 criterion = { version = "0.7.0", default-features = false }
 tracing = { version = "0.1.41", default-features = false, features = ["attributes", "log"] }
