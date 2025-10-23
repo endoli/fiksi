@@ -1972,6 +1972,7 @@ name = "solvi"
 version = "0.0.0"
 dependencies = [
  "libm",
+ "num-traits",
 ]
 
 [[package]]
