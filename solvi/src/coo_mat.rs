@@ -1,4 +1,4 @@
-// Copyright 2025 the Fiksi Authors
+// Copyright 2025 the Solvi Authors
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 use alloc::vec::Vec;

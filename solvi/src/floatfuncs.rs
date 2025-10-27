@@ -1,4 +1,4 @@
-// Copyright 2024 the Fiksi Authors
+// Copyright 2024 the Solvi Authors
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 //! Shims for math functions that ordinarily come from std.
