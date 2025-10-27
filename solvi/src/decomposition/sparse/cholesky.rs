@@ -5,7 +5,7 @@
 
 use alloc::{vec, vec::Vec};
 
-use crate::SparseColMatStructure;
+use crate::{SparseColMatStructure, utils};
 
 /// Returns the parent column each column depends on in the Cholesky factorization of `A` or
 /// `A^T A`.
@@ -78,9 +78,273 @@ pub fn elimination_tree<const SYMMETRIC: bool>(a: &SparseColMatStructure) -> Vec
     parents
 }
 
+/// Calculate the row and column counts of structural non-zero values in the `L^T`-factor of the
+/// Cholesky-decomposition `LL^T = A^T A` given the sparse matrix `A`.
+///
+/// (Equivalently, this calculates the structure of the `L`-factor of the Cholesky-decomposition
+/// `LL^T = AA^T`.)
+///
+/// This follows "Computing Row and Column Counts for Sparse QR and LU Factorization" (2001) by
+/// Gilbert et al.
+///
+/// This performs the count calculation, without forming `A^T A`, in time near-linear in the amount
+/// of non-zeros of `A`.
+///
+/// When `A` is of full rank, the structure of the `L^T`-factor is the same as the structure of the
+/// `R` factor in the QR-decomposition `QR = A^T A`, and `R` is equal to `L^T` except for possible
+/// sign differences: `LL^T = A^T A = (QR)^T (QR) = R^T Q^T Q R = R^T R`. (See "Predicting Fill for
+/// Sparse Orthogonal Factorization" (1986) by Coleman et al.)
+pub fn cholesky_l_factor_counts(
+    a: &SparseColMatStructure,
+    parents: &[usize],
+    postorder: &[usize],
+) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
+    let (m, n) = a.shape();
+    assert_eq!(n, parents.len(), "parents length must be n");
+    assert_eq!(n, postorder.len(), "postorder length must be n");
+
+    // Compute each columns' levels (distance to root) in the elimination tree.
+    let (levels, max_level) = utils::node_depth_levels(&parents);
+
+    // Create inverse post-order mapping (from each place in the postorder to the column at that
+    // place).
+    let mut places_in_postorder = vec![0usize; n]; // place_in_postorder[orig] = postorder index
+    for (place, &col) in postorder.iter().enumerate() {
+        places_in_postorder[col] = place;
+    }
+
+    // Compute the size of each column's subtree (i.e., the count of itself plus its descendants).
+    //
+    // In the post-order, every descendant is placed before its ancestors, so we can do a single
+    // forward pass adding the size of each column's subtree to it's parent's subtree size.
+    let mut subtree_size = vec![1usize; n];
+    for &j in postorder {
+        let parent = parents[j];
+        if parent != usize::MAX {
+            subtree_size[parent] += subtree_size[j];
+        }
+    }
+
+    // For each column j, the descendant column that is first in the post-order. For leaf nodes,
+    // this is j itself.
+    let mut first_descendants = vec![0usize; n];
+    for (place_in_postorder, &j) in postorder.iter().enumerate() {
+        let first_descendant_place_in_postorder = place_in_postorder + 1 - subtree_size[j];
+        first_descendants[j] = postorder[first_descendant_place_in_postorder];
+
+        #[cfg(debug_assertions)]
+        if subtree_size[j] == 1 {
+            assert_eq!(
+                first_descendants[j], j,
+                "For leaf nodes, its first descendant should be the node itself"
+            );
+        }
+    }
+
+    // For every row, the column index of that row's first nonzero entry (with columns in their
+    // post ordering).
+    let mut first_columns = vec![usize::MAX; m];
+    for &j in postorder {
+        let rows = a.index_column(j);
+        for &i in rows {
+            if first_columns[i] == usize::MAX {
+                first_columns[i] = j;
+            }
+        }
+    }
+
+    // The higher-adjacency set `hadj_f[j]`: this is the set of cliques in A^T A whose
+    // earliest-placed column in the postorder) is j.
+    let mut hadj_f: Vec<Vec<usize>> = vec![Vec::new(); n];
+    for (place_in_postorder, &j) in postorder.iter().enumerate() {
+        let rows = a.index_column(j);
+        for &i in rows {
+            let f = first_columns[i];
+            debug_assert_ne!(
+                f,
+                usize::MAX,
+                "As this row has a nonzero in `j` (and perhaps other columns as well), it should have a corresponding `first_column`"
+            );
+            if place_in_postorder > places_in_postorder[f] {
+                hadj_f[f].push(j);
+            }
+        }
+    }
+
+    let mut w = vec![0isize; n];
+    for j in 0..n {
+        if subtree_size[j] == 1 {
+            w[j] = 1; // columns that are leaves in the elimination tree start at 1
+        } else {
+            w[j] = 0; // non-leaves start at 0
+        }
+    }
+
+    // Column counts start at 1 (diagonal entry of L^T)
+    let mut col_counts = vec![1usize; n];
+
+    // For the skeleton test and previous leaf per "u"
+    let mut prev_nbr = vec![usize::MAX; n]; // 0 means "none yet"
+    let mut prev_f = vec![usize::MAX; n]; // previous leaf j seen for "u"
+
+    // Disjoint set union for Tarjan-like LCA over the elimination tree
+    let mut dsu_parent: Vec<usize> = (0..n).collect();
+
+    // A naive way to find the actual row indices is to collect them into a vec of vecs below.
+    //
+    // Below we collect the row indices into a flat vec. In debug builds, we also construct the
+    // simpler vec-of-vecs and check whether the two agree.
+    #[cfg(debug_assertions)]
+    let mut row_indices_naive: Vec<Vec<usize>> = vec![Vec::new(); n];
+
+    fn find(dsu: &mut [usize], x: usize) -> usize {
+        if dsu[x] != x {
+            dsu[x] = find(dsu, dsu[x]);
+        }
+        dsu[x]
+    }
+
+    // Loop over columns in elimination tree post-order (j = postorder[0], ..., postorder[n-1]),
+    // i.e., process childs before their parents.
+    for (j_place_in_postorder, &j) in postorder.iter().enumerate() {
+        if parents[j] != usize::MAX {
+            // j is not the root of a subtree
+            w[parents[j]] -= 1
+        }
+        // Process neighbors u in hadj_f[j]
+        let first_descendant_place_in_postorder = places_in_postorder[first_descendants[j]];
+        for &u in &hadj_f[j] {
+            // The following branch discards edges that do not affect the result, leaving only the
+            // "skeleton graph." This is the optimization as used in "An efficient algorithm to
+            // compute row and column counts for sparse Cholesky factorization" (1994) by Gilbert
+            // et al. and "A compact row storage scheme for Cholesky factors using elimination
+            // trees" (1986) by Liu.
+            //
+            // Add 1 to both sides (wrapping in the case of `prev_nbr`), as
+            // `prev_nbr[u] == usize::MAX` encodes "u seen for the first time."
+            if first_descendant_place_in_postorder + 1 > prev_nbr[u].wrapping_add(1) {
+                // j is a leaf of the row-subtree for u
+                w[j] += 1;
+                let p_leaf = prev_f[u];
+                if p_leaf != usize::MAX {
+                    let q = find(&mut dsu_parent, p_leaf);
+                    col_counts[u] += levels[j] - levels[q];
+                    w[q] -= 1;
+
+                    #[cfg(debug_assertions)]
+                    {
+                        let mut t = j;
+                        while t != q {
+                            row_indices_naive[u].push(t);
+                            t = parents[t];
+                        }
+                    }
+                } else {
+                    col_counts[u] += levels[j] - levels[u];
+
+                    #[cfg(debug_assertions)]
+                    {
+                        let mut t = j;
+                        while t != u {
+                            row_indices_naive[u].push(t);
+                            t = parents[t];
+                        }
+                    }
+                }
+                prev_f[u] = j;
+            }
+            // Record that neighbor j of u has been seen.
+            prev_nbr[u] = j_place_in_postorder;
+        }
+
+        // UNION(j, parent(j)) - link to parent after finishing j
+        let parent = parents[j];
+        if parent != usize::MAX {
+            dsu_parent[j] = parent;
+        }
+    }
+
+    // Accumulate tallies up the elimination tree.
+    let mut row_counts_signed: Vec<isize> = w.clone();
+    for j in 0..n {
+        let parent = parents[j];
+        if parent != usize::MAX {
+            row_counts_signed[parent] += row_counts_signed[j];
+        }
+    }
+
+    let row_counts = row_counts_signed
+        .into_iter()
+        .map(|row_count| {
+            debug_assert!(
+                row_count >= 0,
+                "row count should be non-negative after accumulation",
+            );
+            row_count as usize
+        })
+        .collect();
+
+    let row_indices = {
+        let num_non_zero = col_counts.iter().sum();
+        let mut row_indices = vec![0; num_non_zero];
+        let mut stack = Vec::with_capacity(max_level);
+
+        let mut marker = vec![0; m + n];
+        let mut start = 0;
+        for j in 0..n {
+            marker[j] = j + 1;
+            for &i in a.index_column(j) {
+                let mut k = first_columns[i];
+                while k != usize::MAX && k < j && marker[k] != j + 1 {
+                    stack.push(k);
+                    marker[k] = j + 1;
+                    k = parents[k];
+                }
+            }
+
+            debug_assert!(
+                stack.len() <= max_level,
+                "Stack should remain smaller than the maximum depth of the elimination tree"
+            );
+
+            let mut idx = start;
+            while let Some(k) = stack.pop() {
+                row_indices[idx] = k;
+                idx += 1;
+            }
+            // The row indices as we've collected them above are not in general in order. Sort
+            // them.
+            row_indices[start..idx].sort_unstable();
+            row_indices[idx] = j;
+
+            start += col_counts[j];
+        }
+
+        row_indices
+    };
+
+    #[cfg(debug_assertions)]
+    {
+        let mut idx = 0;
+        for j in 0..n {
+            row_indices_naive[j].sort_unstable();
+            for &row_idx in &row_indices_naive[j] {
+                assert_eq!(row_idx, row_indices[idx]);
+                idx += 1;
+            }
+            assert_eq!(j, row_indices[idx]);
+            idx += 1;
+        }
+    }
+
+    (row_counts, col_counts, row_indices)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    extern crate std;
 
     #[test]
     fn known_matrix() {
@@ -172,5 +436,27 @@ mod tests {
             &[1, 5, 5, 4, 5, 6, 7, 8, 9, 10, 11, usize::MAX],
             "The matrix should have the known tree structure as shown in Fig. 1 of the aforementioned paper by Timothy A. Davis.",
         );
+
+        let post = &utils::post_order(&parents);
+        cholesky_l_factor_counts(&a_structure, &parents, &post);
+    }
+
+    #[test]
+    fn dense_known_matrix() {
+        let a_structure = SparseColMatStructure {
+            nrows: 3,
+            ncols: 3,
+            row_indices: vec![0, 1, 2, 0, 1, 2, 0, 1, 2],
+            column_pointers: vec![0, 3, 6, 9],
+        };
+
+        let parents = elimination_tree::<false>(&a_structure);
+        let post = &utils::post_order(&parents);
+        let (row_counts, col_counts, row_indices) =
+            cholesky_l_factor_counts(&a_structure, &parents, &post);
+
+        assert_eq!(&row_counts, &[3, 2, 1]);
+        assert_eq!(&col_counts, &[1, 2, 3]);
+        assert_eq!(&row_indices, &[0, 0, 1, 0, 1, 2]);
     }
 }
