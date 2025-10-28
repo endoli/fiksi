@@ -418,7 +418,7 @@ impl sealed::ElementInner for Line {
         else {
             unreachable!()
         };
-        [point1_idx, point1_idx + 1, point2_idx + 1, point2_idx + 1].into_iter()
+        [point1_idx, point1_idx + 1, point2_idx, point2_idx + 1].into_iter()
     }
 }
 
