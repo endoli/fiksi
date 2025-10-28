@@ -23,7 +23,7 @@ libm = ["dep:libm", "kurbo/libm", "nalgebra/libm"]
 [dependencies]
 hashbrown = { version = "0.15.5", default-features = false, features = ["default-hasher"] }
 indexmap = { version = "2.10.0", default-features = false }
-kurbo = { version = "0.11.2", default-features = false }
+kurbo = { version = "0.12.0", default-features = false }
 
 # Temporarily included
 nalgebra = { version = "0.33.2", default-features = false, features = ["alloc"] }
