@@ -257,6 +257,10 @@ pub(crate) fn decompose<const D: i16>(
             "if a subgraph is returned, it shouldn't be empty"
         );
 
+        // All the elements in this subgraph are part of this cluster. Those elements are further
+        // partitioned into two groups: elements that are constrained to elements outside of this
+        // cluster are on the cluster's frontier. Elements that are constrained only to other
+        // elements within this clsuter are in the cluster's core.
         let mut core = Vec::new();
         let mut frontier = HashSet::new();
 
@@ -299,8 +303,6 @@ pub(crate) fn decompose<const D: i16>(
             }
 
             if !frontier_vertex {
-                // Remove all inner vertices.
-                vertices.remove(&vertex);
                 core.push(vertex);
             } else {
                 frontier.insert(vertex);
@@ -392,9 +394,16 @@ pub(crate) fn decompose<const D: i16>(
             }
         }
 
-        // If there are two or more vertices in the core, we contract all those core vertices into
-        // a single vertex to simplify the graph. We do that next. The following checks whether
-        // there indeed are two or more vertices in the core.
+        // To simplify the graph, all the vertices representing elements that are in this cluster's
+        // core are to be removed, and replaced by a single vertex representing the cluster's core.
+        // All edges representing constraints that are purely between vertices within the core are
+        // removed, and all edges between the cluster's core and frontier vertices are replaced
+        // with edges between the new core vertex and the frontier vertices. This is the
+        // contraction operator of the Modified Frontier Algorithm, see "Decomposition Plans for
+        // Geometric Constraint Problems, Part II: New Algorithms" (2001) by Hoffmann et al.
+        //
+        // When there's just a single vertex in the core, this does nothing, so the following
+        // checks whether there indeed are two or more vertices in the core.
         if subgraph.len() - frontier.len() <= 1 {
             // There are less than two vertices in the core. No contraction is possible, i.e., no
             // elements are merged. This is expected, but mark this subgraph so we don't find it
@@ -406,13 +415,19 @@ pub(crate) fn decompose<const D: i16>(
             continue;
         }
 
+        // 1. Perform the cluster core contraction described above by removing all core elements'
+        //    vertices and inserting a new vertex representing the core.
+        for &vertex in &core {
+            // Remove all inner vertices.
+            vertices.remove(&vertex);
+        }
         let core = graph.add_element(0);
         owning_cluster.insert(core, cluster_key);
         vertices.insert(core);
 
         let mut total_frontier_vertex_dof = 0;
         let mut total_incoming_edge_valency = 0;
-        // Create edges from frontier vertices to the inner vertex cluster
+        // 2. Create edges from frontier vertices to the inner vertex cluster
         for &vertex in &frontier {
             let element = &graph.elements[vertex.id as usize];
 
