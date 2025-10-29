@@ -3,7 +3,7 @@
 
 use alloc::{vec, vec::Vec};
 
-use crate::CooMat;
+use crate::TripletMat;
 
 /// The structure of a sparse column matrix.
 ///
@@ -151,11 +151,11 @@ impl<T> SparseColMat<T> {
 }
 
 impl<T: core::ops::AddAssign + Copy> SparseColMat<T> {
-    /// Construct a [`SparseColMat`] from a [`CooMat`].
+    /// Construct a [`SparseColMat`] from a [`TripletMat`].
     ///
     /// Values repeated at the same coordinate are summed. The resulting [`SparseColMat`] is not
     /// compressed and may contain numeric zeros.
-    pub fn from_coo_mat(a: &CooMat<T>) -> Self {
+    pub fn from_triplet_mat(a: &TripletMat<T>) -> Self {
         let nnz = a.values.len();
 
         let mut structure = SparseColMatStructure {
@@ -239,16 +239,16 @@ impl<T: num_traits::real::Real> SparseColMat<T> {
     /// Solving using `solvi`:
     ///
     /// ```rust
-    ///     use solvi::{CooMat, SparseColMat};
+    ///     use solvi::{TripletMat, SparseColMat};
     ///
     ///     let a = {
-    ///         let mut mat = CooMat::new(3, 3);
+    ///         let mut mat = TripletMat::new(3, 3);
     ///         mat.push_triplet(0, 0, 1.);
     ///         mat.push_triplet(0, 1, -2.);
     ///         mat.push_triplet(1, 1, 4.);
     ///         mat.push_triplet(1, 2, 1.);
     ///         mat.push_triplet(2, 2, 2.);
-    ///         SparseColMat::from_coo_mat(&mat)
+    ///         SparseColMat::from_triplet_mat(&mat)
     ///     };
     ///     let mut b = [2., 1., 4.];
     ///     a.solve_upper_triangular_mut(&mut b);
@@ -296,7 +296,7 @@ impl<T: num_traits::real::Real> SparseColMat<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CooMat, SparseColMat};
+    use crate::{SparseColMat, TripletMat};
 
     #[test]
     fn solve_upper_triangular() {
@@ -318,14 +318,14 @@ mod tests {
         // ```
         const X: [f64; 3] = [3. / 2., -1. / 4., 2.];
 
-        let mut mat = CooMat::new(3, 3);
+        let mut mat = TripletMat::new(3, 3);
         mat.push_triplet(0, 0, 1.);
         mat.push_triplet(0, 1, -2.);
         mat.push_triplet(1, 1, 4.);
         mat.push_triplet(1, 2, 1.);
         mat.push_triplet(2, 2, 2.);
 
-        let csc = SparseColMat::from_coo_mat(&mat);
+        let csc = SparseColMat::from_triplet_mat(&mat);
         let mut b = [2., 1., 4.];
         csc.solve_upper_triangular_mut(&mut b);
 
