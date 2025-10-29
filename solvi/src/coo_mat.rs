@@ -8,11 +8,14 @@ use crate::Triplet;
 /// A coordinate list matrix.
 ///
 /// This is effectively a specification of matrix size and a collection of [triplets](Triplet)
-/// representing the matrix entries. Matrix cells without a corresponding triplet are implicitly
-/// zero. Matrix cells with multiple triplets have as value the sum of the triplet values.
+/// representing the matrix entries. It is known as a [coordinate list (COO) matrix][coo]. Matrix
+/// cells without a corresponding triplet are implicitly zero. Matrix cells with multiple triplets
+/// have as value the sum of the triplet values.
 ///
 /// This format is useful for constructing matrices. It can be converted to different
 /// representations (like [`SparseColMat`][crate::SparseColMat]).
+///
+/// [coo]: https://en.wikipedia.org/w/index.php?title=Sparse_matrix&oldid=1300835532#Coordinate_list_(COO)
 #[derive(Clone, Debug)]
 pub struct CooMat<T> {
     pub(crate) nrows: usize,
