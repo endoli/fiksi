@@ -1,4 +1,4 @@
-// Copyright 2025 the Fiksi Authors
+// Copyright 2025 the Solvi Authors
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 //! Solvi provides sparse linear algebra routines.
@@ -35,10 +35,12 @@ fn ensure_libm_dependency_used() -> f32 {
     libm::sqrtf(4_f32)
 }
 
-#[cfg(test)]
-mod tests {
-    // CI will fail unless cargo nextest can execute at least one test per workspace.
-    // Delete this dummy test once we have an actual real test.
-    #[test]
-    fn dummy_test_until_we_have_a_real_test() {}
-}
+extern crate alloc;
+
+mod coo_mat;
+mod sparse_col_mat;
+mod triplet;
+
+pub use coo_mat::CooMat;
+pub use sparse_col_mat::{SparseColMat, SparseColMatStructure};
+pub use triplet::Triplet;
