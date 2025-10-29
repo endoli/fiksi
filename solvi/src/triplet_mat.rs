@@ -3,21 +3,32 @@
 
 use alloc::vec::Vec;
 
-use crate::Triplet;
+/// A three-tuple representing a value at a specified matrix coordinate.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Ord, PartialOrd, Hash)]
+pub struct Triplet<T> {
+    /// The matrix row this value is in.
+    pub row: usize,
 
-/// A coordinate list matrix.
+    /// The matrix column this value is in.
+    pub col: usize,
+
+    /// The value.
+    pub value: T,
+}
+
+/// A matrix represented by a collection of coordinates and values.
 ///
 /// This is effectively a specification of matrix size and a collection of [triplets](Triplet)
-/// representing the matrix entries. It is known as a [coordinate list (COO) matrix][coo]. Matrix
-/// cells without a corresponding triplet are implicitly zero. Matrix cells with multiple triplets
-/// have as value the sum of the triplet values.
+/// representing the matrix entries. It is also known as a [coordinate list (COO) matrix][coo].
+/// Matrix cells without a corresponding triplet are implicitly zero. Matrix cells with multiple
+/// triplets have as value the sum of the triplet values.
 ///
 /// This format is useful for constructing matrices. It can be converted to different
 /// representations (like [`SparseColMat`][crate::SparseColMat]).
 ///
 /// [coo]: https://en.wikipedia.org/w/index.php?title=Sparse_matrix&oldid=1300835532#Coordinate_list_(COO)
 #[derive(Clone, Debug)]
-pub struct CooMat<T> {
+pub struct TripletMat<T> {
     pub(crate) nrows: usize,
     pub(crate) ncols: usize,
     pub(crate) row_indices: Vec<usize>,
@@ -25,22 +36,22 @@ pub struct CooMat<T> {
     pub(crate) values: Vec<T>,
 }
 
-impl<T> CooMat<T> {
-    /// Construct a new [`CooMat`] with the given number of rows and columns.
+impl<T> TripletMat<T> {
+    /// Construct a new [`TripletMat`] with the given number of rows and columns.
     ///
-    /// Values can be added using [`CooMat::push_triplet`].
+    /// Values can be added using [`TripletMat::push_triplet`].
     #[inline(always)]
     pub fn new(nrows: usize, ncols: usize) -> Self {
         Self::with_capacity(nrows, ncols, 0)
     }
 
-    /// Construct a new [`CooMat`] with the given number of rows and columns, and with at least
+    /// Construct a new [`TripletMat`] with the given number of rows and columns, and with at least
     /// the specified `capacity`.
     ///
     /// The resulting matrix will be able to hold at least `capacity` [triplets][`Triplet`] without
     /// reallocating.
     ///
-    /// Values can be added using [`CooMat::push_triplet`].
+    /// Values can be added using [`TripletMat::push_triplet`].
     #[inline]
     pub fn with_capacity(nrows: usize, ncols: usize, capacity: usize) -> Self {
         Self {
@@ -54,7 +65,7 @@ impl<T> CooMat<T> {
 
     /// The shape of this matrix as `(rows, cols)`.
     ///
-    /// Also see [`CooMat::nrows`] and [`CooMat::ncols`].
+    /// Also see [`TripletMat::nrows`] and [`TripletMat::ncols`].
     #[inline(always)]
     pub fn shape(&self) -> (usize, usize) {
         (self.nrows, self.ncols)
@@ -64,7 +75,7 @@ impl<T> CooMat<T> {
     ///
     /// Note some (or all) rows may have no structural values at all.
     ///
-    /// Also see [`CooMat::shape`].
+    /// Also see [`TripletMat::shape`].
     #[inline(always)]
     pub fn nrows(&self) -> usize {
         self.nrows
@@ -74,7 +85,7 @@ impl<T> CooMat<T> {
     ///
     /// Note some (or all) columns may have no structural values at all.
     ///
-    /// Also see [`CooMat::shape`].
+    /// Also see [`TripletMat::shape`].
     #[inline(always)]
     pub fn ncols(&self) -> usize {
         self.ncols
@@ -144,7 +155,7 @@ impl<T> CooMat<T> {
     }
 }
 
-impl<T> core::iter::FromIterator<Triplet<T>> for CooMat<T> {
+impl<T> core::iter::FromIterator<Triplet<T>> for TripletMat<T> {
     fn from_iter<I: IntoIterator<Item = Triplet<T>>>(iter: I) -> Self {
         let iter = iter.into_iter();
         let (min_size, _) = iter.size_hint();
@@ -164,11 +175,11 @@ impl<T> core::iter::FromIterator<Triplet<T>> for CooMat<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::CooMat;
+    use crate::TripletMat;
 
     #[test]
     fn matrix_shape_expands_to_fit_triplets() {
-        let mut a = CooMat::new(0, 0);
+        let mut a = TripletMat::new(0, 0);
         assert_eq!(a.shape(), (0, 0));
 
         a.push_triplet(3, 5, 1.);
