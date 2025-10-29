@@ -260,7 +260,7 @@ pub(crate) fn decompose<const D: i16>(
         // All the elements in this subgraph are part of this cluster. Those elements are further
         // partitioned into two groups: elements that are constrained to elements outside of this
         // cluster are on the cluster's frontier. Elements that are constrained only to other
-        // elements within this clsuter are in the cluster's core.
+        // elements within this cluster are in the cluster's core.
         let mut core = Vec::new();
         let mut frontier = HashSet::new();
 
