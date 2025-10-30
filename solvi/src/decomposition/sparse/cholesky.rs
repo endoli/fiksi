@@ -265,15 +265,14 @@ pub fn cholesky_l_factor_counts(
     }
 
     // Accumulate tallies up the elimination tree.
-    let mut row_counts_signed: Vec<isize> = w.clone();
     for j in 0..n {
         let parent = parents[j];
         if parent != usize::MAX {
-            row_counts_signed[parent] += row_counts_signed[j];
+            w[parent] += w[j];
         }
     }
 
-    let row_counts = row_counts_signed
+    let row_counts = w
         .into_iter()
         .map(|row_count| {
             debug_assert!(
