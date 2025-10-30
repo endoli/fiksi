@@ -171,13 +171,28 @@ pub fn cholesky_l_factor_counts(
         }
     }
 
-    // Vertex weights
-    let mut w = vec![0_isize; n];
+    // Vertex weights: these are used to calculate the non-zero row counts in the L^T-factor.
+    //
+    // From Section 3.1 in "Computing Row and Column Counts for Sparse QR and LU Factorization", in
+    // the Cholesky-factor L for decomposing LL^T = B, with B a symmetric positive definite matrix,
+    // the non-zero count in column j is the number of "row subtrees" containing vertex j. Such a
+    // row subtree exists for every row i in factor L, where the i-th row subtree is the connected
+    // subgraph of the elimination tree of B containing the columns that have non-zeroes in row i,
+    // and every leaf in the i-th row subtree corresponds to a non-zero column in the i-th row of
+    // B).
+    //
+    // This is calculated efficiently following Section 3.1 in a single forward traversal of the
+    // elimination tree, keeping "vertex weight" counts for each j simultaneously, for a B such
+    // that L in LL^T = B has the same structure as the L in LL^T = A^T A.
+    //
+    // Note that we calculate it here for the L^T-factor, and not the L-factor. Hence the column
+    // and row counts are flipped.
+    let mut vertex_weights = vec![0_isize; n];
     for j in 0..n {
         if subtree_size[j] == 1 {
-            w[j] = 1; // columns that are leaves in the elimination tree start at 1
+            vertex_weights[j] = 1; // columns that are leaves in the elimination tree start at 1
         } else {
-            w[j] = 0; // non-leaves start at 0
+            vertex_weights[j] = 0; // non-leaves start at 0
         }
     }
 
@@ -210,7 +225,7 @@ pub fn cholesky_l_factor_counts(
     for (j_place_in_postorder, &j) in postorder.iter().enumerate() {
         if parents[j] != usize::MAX {
             // j is not the root of a subtree
-            w[parents[j]] -= 1;
+            vertex_weights[parents[j]] -= 1;
         }
         // Process neighbors u in hadj_f[j]
         let first_descendant_place_in_postorder = places_in_postorder[first_descendants[j]];
@@ -225,12 +240,12 @@ pub fn cholesky_l_factor_counts(
             // `prev_nbr[u] == usize::MAX` encodes "u seen for the first time."
             if first_descendant_place_in_postorder + 1 > prev_nbr[u].wrapping_add(1) {
                 // j is a leaf of the row-subtree for u
-                w[j] += 1;
+                vertex_weights[j] += 1;
                 let p_leaf = prev_f[u];
                 if p_leaf != usize::MAX {
                     let q = find(&mut dsu_parent, p_leaf);
                     col_counts[u] += levels[j] - levels[q];
-                    w[q] -= 1;
+                    vertex_weights[q] -= 1;
 
                     #[cfg(debug_assertions)]
                     {
@@ -269,11 +284,11 @@ pub fn cholesky_l_factor_counts(
     for j in 0..n {
         let parent = parents[j];
         if parent != usize::MAX {
-            w[parent] += w[j];
+            vertex_weights[parent] += vertex_weights[j];
         }
     }
 
-    let row_counts = w
+    let row_counts = vertex_weights
         .into_iter()
         .map(|row_count| {
             debug_assert!(
