@@ -108,7 +108,7 @@ pub fn cholesky_l_factor_counts(
 
     // Create inverse post-order mapping (from each place in the postorder to the column at that
     // place).
-    let mut places_in_postorder = vec![0usize; n]; // place_in_postorder[orig] = postorder index
+    let mut places_in_postorder = vec![0_usize; n]; // place_in_postorder[orig] = postorder index
     for (place, &col) in postorder.iter().enumerate() {
         places_in_postorder[col] = place;
     }
@@ -117,7 +117,7 @@ pub fn cholesky_l_factor_counts(
     //
     // In the post-order, every descendant is placed before its ancestors, so we can do a single
     // forward pass adding the size of each column's subtree to it's parent's subtree size.
-    let mut subtree_size = vec![1usize; n];
+    let mut subtree_size = vec![1_usize; n];
     for &j in postorder {
         let parent = parents[j];
         if parent != usize::MAX {
@@ -127,7 +127,7 @@ pub fn cholesky_l_factor_counts(
 
     // For each column j, the descendant column that is first in the post-order. For leaf nodes,
     // this is j itself.
-    let mut first_descendants = vec![0usize; n];
+    let mut first_descendants = vec![0_usize; n];
     for (place_in_postorder, &j) in postorder.iter().enumerate() {
         let first_descendant_place_in_postorder = place_in_postorder + 1 - subtree_size[j];
         first_descendants[j] = postorder[first_descendant_place_in_postorder];
@@ -171,7 +171,7 @@ pub fn cholesky_l_factor_counts(
         }
     }
 
-    let mut w = vec![0isize; n];
+    let mut w = vec![0_isize; n];
     for j in 0..n {
         if subtree_size[j] == 1 {
             w[j] = 1; // columns that are leaves in the elimination tree start at 1
@@ -181,7 +181,7 @@ pub fn cholesky_l_factor_counts(
     }
 
     // Column counts start at 1 (diagonal entry of L^T)
-    let mut col_counts = vec![1usize; n];
+    let mut col_counts = vec![1_usize; n];
 
     // For the skeleton test and previous leaf per "u"
     let mut prev_nbr = vec![usize::MAX; n]; // 0 means "none yet"
@@ -205,7 +205,7 @@ pub fn cholesky_l_factor_counts(
     }
 
     // Loop over columns in elimination tree post-order (j = postorder[0], ..., postorder[n-1]),
-    // i.e., process childs before their parents.
+    // i.e., process children before their parents.
     for (j_place_in_postorder, &j) in postorder.iter().enumerate() {
         if parents[j] != usize::MAX {
             // j is not the root of a subtree
