@@ -104,7 +104,7 @@ pub fn cholesky_l_factor_counts(
     assert_eq!(n, postorder.len(), "postorder length must be n");
 
     // Compute each columns' levels (distance to root) in the elimination tree.
-    let (levels, max_level) = utils::node_depth_levels(&parents);
+    let (levels, _) = utils::node_depth_levels(&parents);
 
     // Create inverse post-order mapping (from each place in the postorder to the column at that
     // place).
@@ -287,7 +287,7 @@ pub fn cholesky_l_factor_counts(
     let row_indices = {
         let num_non_zero = col_counts.iter().sum();
         let mut row_indices = vec![0; num_non_zero];
-        let mut stack = Vec::with_capacity(max_level);
+        let mut stack = Vec::with_capacity(n);
 
         let mut marker = vec![0; m + n];
         let mut start = 0;
@@ -303,8 +303,8 @@ pub fn cholesky_l_factor_counts(
             }
 
             debug_assert!(
-                stack.len() <= max_level,
-                "Stack should remain smaller than the maximum depth of the elimination tree"
+                stack.len() <= n,
+                "Stack should remain smaller than the number of columns",
             );
 
             let mut idx = start;
@@ -411,7 +411,8 @@ mod tests {
                 .collect(),
         };
 
-        // The column elimination tree of this matrix is as follows.
+        // The column elimination tree of this matrix is as follows (from Fig. 1 of "Multifrontal
+        // Multithreaded Rank-revealing Sparse QR Factorization" (2011) by Timothy A. Davis).
         //
         //    11
         //    |
@@ -438,7 +439,46 @@ mod tests {
         );
 
         let post = &utils::post_order(&parents);
-        cholesky_l_factor_counts(&a_structure, &parents, &post);
+        let (l_row_counts, l_col_counts, l_row_indices) =
+            cholesky_l_factor_counts(&a_structure, &parents, &post);
+        assert_eq!(&l_row_counts, &[5, 4, 5, 5, 7, 6, 5, 5, 4, 3, 2, 1]);
+        assert_eq!(&l_col_counts, &[1, 2, 1, 1, 2, 5, 5, 7, 6, 3, 10, 9]);
+
+        // The structure of the R-factor of the QR-decomposition is as follows (from Fig. 1 of
+        // "Multifrontal Multithreaded Rank-revealing Sparse QR Factorization" (2011) by Timothy A.
+        // Davis).
+        //
+        //      1  2  3  4  5  6  7  8  9  10 11 12
+        // 1  | x  x           x     x        x
+        // 2  |    x           x     x        x
+        // 3  |       x        x  x  x           x
+        // 4  |          x  x     x     x     x
+        // 5  |             x  x  x  x  x     x  x
+        // 6  |                x  x  x  x     x  x
+        // 7  |                   x  x  x     x  x
+        // 8  |                      x  x  x  x  x
+        // 9  |                         x  x  x  x
+        // 10 |                            x  x  x
+        // 11 |                               x  x
+        // 12 |                                  x
+        #[rustfmt::skip]
+        assert_eq!(
+            &l_row_indices,
+            &[
+                0,
+                0, 1,
+                2,
+                3,
+                3, 4,
+                0, 1, 2, 4, 5,
+                2, 3, 4, 5, 6,
+                0, 1, 2, 4, 5, 6, 7,
+                3, 4, 5, 6, 7, 8,
+                7, 8, 9,
+                0, 1, 3, 4, 5, 6, 7, 8, 9, 10,
+                2, 4, 5, 6, 7, 8, 9, 10, 11,
+            ]
+        );
     }
 
     #[test]
