@@ -4,3 +4,4 @@
 //! Sparse decomposition implementations.
 
 pub mod cholesky;
+pub mod qr;
