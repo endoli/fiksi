@@ -186,6 +186,32 @@ pub fn node_depth_levels(parents: &[usize]) -> (Vec<usize>, usize) {
     (levels, max_level)
 }
 
+/// Calculate the prefix sum of `values`.
+///
+/// This is also known as the cumulative sum.
+///
+/// Takes an input iterator, and returns an iterator of the same length where each value is the
+/// running total of the values of the input iterator.
+///
+/// # Example
+///
+/// ```
+/// assert_eq!(
+///     &Vec::from_iter(solvi::utils::prefix_sum([1,4,0,10])),
+///     &[1,5,5,15],
+/// );
+/// ```
+pub fn prefix_sum<T: core::ops::Add<Output = T> + core::default::Default + Copy>(
+    values: impl core::iter::IntoIterator<Item = T>,
+) -> impl core::iter::Iterator<Item = T> {
+    let mut sum = T::default();
+    let values = values.into_iter();
+    values.map(move |value| {
+        sum = sum + value;
+        sum
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
