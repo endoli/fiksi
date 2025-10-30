@@ -104,7 +104,7 @@ pub fn cholesky_l_factor_counts(
     assert_eq!(n, postorder.len(), "postorder length must be n");
 
     // Compute each columns' levels (distance to root) in the elimination tree.
-    let (levels, _) = utils::node_depth_levels(&parents);
+    let (levels, _) = utils::node_depth_levels(parents);
 
     // Create inverse post-order mapping (from each place in the postorder to the column at that
     // place).
@@ -171,6 +171,7 @@ pub fn cholesky_l_factor_counts(
         }
     }
 
+    // Vertex weights
     let mut w = vec![0_isize; n];
     for j in 0..n {
         if subtree_size[j] == 1 {
@@ -209,7 +210,7 @@ pub fn cholesky_l_factor_counts(
     for (j_place_in_postorder, &j) in postorder.iter().enumerate() {
         if parents[j] != usize::MAX {
             // j is not the root of a subtree
-            w[parents[j]] -= 1
+            w[parents[j]] -= 1;
         }
         // Process neighbors u in hadj_f[j]
         let first_descendant_place_in_postorder = places_in_postorder[first_descendants[j]];
@@ -325,13 +326,13 @@ pub fn cholesky_l_factor_counts(
     #[cfg(debug_assertions)]
     {
         let mut idx = 0;
-        for j in 0..n {
-            row_indices_naive[j].sort_unstable();
-            for &row_idx in &row_indices_naive[j] {
-                assert_eq!(row_idx, row_indices[idx]);
+        for (j, row_indices_naive) in row_indices_naive.iter_mut().enumerate() {
+            row_indices_naive.sort_unstable();
+            for &row_idx in row_indices_naive.iter() {
+                assert_eq!(row_idx, row_indices[idx], "row indices should match");
                 idx += 1;
             }
-            assert_eq!(j, row_indices[idx]);
+            assert_eq!(j, row_indices[idx], "row indices should match");
             idx += 1;
         }
     }
