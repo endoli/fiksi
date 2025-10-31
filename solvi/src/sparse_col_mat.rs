@@ -64,6 +64,10 @@ pub struct SparseColMatStructure {
 }
 
 impl SparseColMatStructure {
+    pub fn index_column_range(&self, col: usize) -> core::ops::Range<usize> {
+        self.column_pointers[col]..self.column_pointers[col + 1]
+    }
+
     /// Get a the rows in the given column `col`.
     ///
     /// Panics if out of bounds.
