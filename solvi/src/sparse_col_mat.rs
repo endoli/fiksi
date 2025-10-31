@@ -37,7 +37,14 @@ impl SparseColMatStructure {
     ///
     /// Panics if out of bounds.
     #[inline]
+    #[track_caller]
     pub fn index_column(&self, col: usize) -> &[usize] {
+        if col + 1 >= self.column_pointers.len() {
+            panic!(
+                "column index {col} out of range for matrix with {} columns",
+                self.ncols()
+            );
+        }
         let range = self.column_pointers[col]..self.column_pointers[col + 1];
         &self.row_indices[range]
     }
@@ -99,7 +106,14 @@ impl<T> SparseColMat<T> {
     ///
     /// Panics if out of bounds.
     #[inline]
+    #[track_caller]
     pub fn index_column(&self, col: usize) -> (&[T], &[usize]) {
+        if col + 1 >= self.structure.column_pointers.len() {
+            panic!(
+                "column index {col} out of range for matrix with {} columns",
+                self.ncols()
+            );
+        }
         let range = self.structure.column_pointers[col]..self.structure.column_pointers[col + 1];
         (
             &self.values[range.clone()],
