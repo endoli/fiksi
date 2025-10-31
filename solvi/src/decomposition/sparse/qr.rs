@@ -16,6 +16,13 @@ pub struct SymbolicQr {
     r_structure: SparseColMatStructure,
 }
 
+impl SymbolicQr {
+    /// The structure of the R-factor of this QR-decomposition.
+    pub fn r_structure(&self) -> &SparseColMatStructure {
+        &self.r_structure
+    }
+}
+
 /// Reusable QR-decomposition.
 #[derive(Clone, Debug)]
 pub struct Qr<'q, T> {
@@ -202,6 +209,9 @@ mod tests {
         let a = SparseColMat::from_coo_mat(&triplets);
 
         let sqr = SymbolicQr::build(&a.structure);
+        assert_eq!(sqr.r_structure().column_pointers, &[0, 1, 2, 4]);
+        assert_eq!(sqr.r_structure().row_indices, &[0, 1, 0, 2]);
+
         let mut qr = sqr.numeric();
         qr.factorize(&a);
         let r = qr.r();
@@ -242,6 +252,9 @@ mod tests {
         let a = SparseColMat::from_coo_mat(&triplets);
 
         let sqr = SymbolicQr::build(&a.structure);
+        assert_eq!(sqr.r_structure().column_pointers, &[0, 1, 3, 6]);
+        assert_eq!(sqr.r_structure().row_indices, &[0, 0, 1, 0, 1, 2]);
+
         let mut qr = sqr.numeric();
         qr.factorize(&a);
         let r = qr.r();
