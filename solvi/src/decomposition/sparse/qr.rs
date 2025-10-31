@@ -212,4 +212,51 @@ mod tests {
             assert!((value.abs() - expected_value).abs() < 1e-8);
         }
     }
+
+    #[test]
+    fn underdetermined() {
+        // The following sparse matrix
+        //      1  2  3
+        // 1  | 3  5  3
+        // 2  | 1  3  2
+        // 3  |
+        //
+        // Should get the following R-factor in the QR-decomposition (though with potential sign
+        // differences).
+        //
+        //                  1       2       3
+        //             1  | 1       9/5     11/10
+        // sqrt(10) *  2  |         2/5     3/10
+        //             3  |                 0
+        //
+        // Note that the last diagonal entry is 0. This is expected, as the QR-decomposition makes
+        // certain assumptions about both the structural and numeric rank of the input matrix.
+
+        let mut triplets = CooMat::<f64>::new(5, 3);
+        triplets.push_triplet(0, 0, 3.);
+        triplets.push_triplet(0, 1, 5.);
+        triplets.push_triplet(0, 2, 3.);
+        triplets.push_triplet(1, 0, 1.);
+        triplets.push_triplet(1, 1, 3.);
+        triplets.push_triplet(1, 2, 2.);
+        let a = SparseColMat::from_coo_mat(&triplets);
+
+        let sqr = SymbolicQr::build(&a.structure);
+        let mut qr = sqr.numeric();
+        qr.factorize(&a);
+        let r = qr.r();
+
+        let expected_values = [
+            f64::sqrt(10.),
+            9. / 5. * f64::sqrt(10.),
+            2. / 5. * f64::sqrt(10.),
+            11. / 10. * f64::sqrt(10.),
+            3. / 10. * f64::sqrt(10.),
+            0.,
+        ];
+
+        for (&value, expected_value) in r.values.iter().zip(expected_values) {
+            assert!((value.abs() - expected_value).abs() < 1e-8);
+        }
+    }
 }
