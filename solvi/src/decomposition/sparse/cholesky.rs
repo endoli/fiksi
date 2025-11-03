@@ -99,7 +99,6 @@ pub struct CholeskyCounts {
     col_counts: Vec<usize>,
 
     levels: Vec<usize>,
-    places_in_postorder: Vec<usize>,
     first_columns: Vec<usize>,
 }
 
@@ -328,7 +327,6 @@ impl CholeskyCounts {
             col_counts,
 
             levels,
-            places_in_postorder,
             first_columns,
         }
     }
@@ -369,7 +367,6 @@ impl CholeskyStructure {
         let CholeskyCounts {
             col_counts,
             levels,
-            places_in_postorder,
             first_columns,
             ..
         } = cholesky;
