@@ -480,6 +480,20 @@ impl CholeskyStructure {
                 while let Some(k) = stack.pop() {
                     row_indices[idx] = k;
                     idx += 1;
+
+                    // If the column `j` we're currently building factors for is the parent of a
+                    // previous column that has an entry in this column's L-factor here, that
+                    // previous column's rows that haven't yet been carried forward are carried
+                    // forward.
+                    if parents[k] == j {
+                        let (h_row_indices0, h_row_indicesj) = h_row_indices.split_at_mut(j);
+                        for &row in &*h_row_indices0[k] {
+                            if marker[row] < j + 1 {
+                                marker[row] = j + 1;
+                                h_row_indicesj[0].push(row);
+                            }
+                        }
+                    }
                 }
                 // The row indices as we've collected them above are not in general in order. Sort
                 // them.
