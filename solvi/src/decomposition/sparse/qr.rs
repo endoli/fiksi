@@ -43,20 +43,12 @@ impl SymbolicQr {
     pub fn build(a: &SparseColMatStructure) -> Self {
         let parents = cholesky::elimination_tree::<false>(a);
         let post = utils::post_order(&parents);
-        let (_, column_counts, row_indices) =
-            cholesky::cholesky_l_factor_counts(a, &parents, &post);
-        let column_pointers = Vec::from_iter(
-            core::iter::once(0).chain(utils::prefix_sum(column_counts.iter().copied())),
-        );
+        let counts = cholesky::CholeskyCounts::build(a, &parents, &post);
+        let structure = cholesky::CholeskyStructure::build(a, &parents, &post, &counts);
 
-        let r_structure = SparseColMatStructure {
-            nrows: a.ncols(),
-            ncols: a.ncols(),
-            row_indices,
-            column_pointers,
-        };
-
-        SymbolicQr { r_structure }
+        SymbolicQr {
+            r_structure: structure.l_structure,
+        }
     }
 
     /// Prepare for numeric factorization.
@@ -177,7 +169,7 @@ impl<T: num_traits::real::Real> Householder<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{CooMat, SparseColMat};
+    use crate::{SparseColMat, TripletMat};
 
     use super::SymbolicQr;
 
@@ -199,14 +191,14 @@ mod tests {
         // 2  |         1
         // 3  |                 sqrt(31)
         //
-        let mut triplets = CooMat::<f64>::new(5, 3);
+        let mut triplets = TripletMat::<f64>::new(5, 3);
         triplets.push_triplet(0, 0, 2.);
         triplets.push_triplet(0, 2, 5.);
         triplets.push_triplet(1, 2, 5.);
         triplets.push_triplet(2, 0, 1.);
         triplets.push_triplet(3, 1, 1.);
         triplets.push_triplet(4, 2, 1.);
-        let a = SparseColMat::from_coo_mat(&triplets);
+        let a = SparseColMat::from_triplet_mat(&triplets);
 
         let sqr = SymbolicQr::build(&a.structure);
         assert_eq!(sqr.r_structure().column_pointers, &[0, 1, 2, 4]);
@@ -242,14 +234,14 @@ mod tests {
         // Note that the last diagonal entry is 0. This is expected, as the QR-decomposition makes
         // certain assumptions about both the structural and numeric rank of the input matrix.
 
-        let mut triplets = CooMat::<f64>::new(5, 3);
+        let mut triplets = TripletMat::<f64>::new(5, 3);
         triplets.push_triplet(0, 0, 3.);
         triplets.push_triplet(0, 1, 5.);
         triplets.push_triplet(0, 2, 3.);
         triplets.push_triplet(1, 0, 1.);
         triplets.push_triplet(1, 1, 3.);
         triplets.push_triplet(1, 2, 2.);
-        let a = SparseColMat::from_coo_mat(&triplets);
+        let a = SparseColMat::from_triplet_mat(&triplets);
 
         let sqr = SymbolicQr::build(&a.structure);
         assert_eq!(sqr.r_structure().column_pointers, &[0, 1, 3, 6]);
