@@ -37,12 +37,10 @@ fn ensure_libm_dependency_used() -> f32 {
 
 extern crate alloc;
 
-mod coo_mat;
 pub mod decomposition;
 mod sparse_col_mat;
-mod triplet;
+mod triplet_mat;
 pub mod utils;
 
-pub use coo_mat::CooMat;
 pub use sparse_col_mat::{SparseColMat, SparseColMatStructure};
-pub use triplet::Triplet;
+pub use triplet_mat::{Triplet, TripletMat};
