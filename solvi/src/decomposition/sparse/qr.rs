@@ -3,10 +3,10 @@
 
 //! Sparse QR-decomposition implementations.
 //!
-//! This factors an `m`-by-`n` matrix A into `A = QR`, where the factor `Q` is an orthogonal matrix
-//! of size `m`-by-`m` and `R` is an upper-triangular matrix of size `m`-by-`n`, though as `R` is
-//! zero under the diagonal, it is often represented as an `n`-by-`n` matrix. This is known as
-//! [QR-decomposition][qr].
+//! QR-decomposition factors an `m`-by-`n` matrix A into `A = QR`, where the factor `Q` is an
+//! orthogonal matrix of size `m`-by-`m` and `R` is an upper-triangular matrix of size `m`-by-`n`,
+//! though as `R` is zero under the diagonal, it is often represented as an `n`-by-`n` matrix. This
+//! is known as [QR-decomposition][qr].
 //!
 //! As `Q` is an [orthogonal matrix][orthogonal], the transpose of `Q` is `Q`'s inverse:
 //! `Q^T = Q^-1`.
