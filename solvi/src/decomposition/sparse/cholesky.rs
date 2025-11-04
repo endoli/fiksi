@@ -99,7 +99,6 @@ pub struct CholeskyCounts {
     col_counts: Vec<usize>,
 
     levels: Vec<usize>,
-    places_in_postorder: Vec<usize>,
     first_columns: Vec<usize>,
 }
 
@@ -328,7 +327,6 @@ impl CholeskyCounts {
             col_counts,
 
             levels,
-            places_in_postorder,
             first_columns,
         }
     }
@@ -369,7 +367,6 @@ impl CholeskyStructure {
         let CholeskyCounts {
             col_counts,
             levels,
-            places_in_postorder,
             first_columns,
             ..
         } = cholesky;
@@ -528,14 +525,13 @@ impl CholeskyStructure {
                 if parent == usize::MAX {
                     root_of[j] = j;
                 } else {
-                    root_of[j] = parent;
+                    root_of[j] = root_of[parent];
                 }
             }
 
             let mut row_root = vec![0; m];
-            for i in 1..m {
-                let i = row_permutation[i];
-                if i >= m {
+            for i in 0..m {
+                if row_permutation[i] >= m {
                     // Fictitious row.
                     continue;
                 }
@@ -546,8 +542,8 @@ impl CholeskyStructure {
                     // Empty row in `A`.
                     continue;
                 }
-                if i < places_in_postorder[root_of[first_column]] {
-                    row_root[i] = i;
+                if row_permutation[i] < root_of[first_column] {
+                    row_root[i] = row_permutation[i];
                 } else {
                     row_root[i] = root_of[first_column];
                 }
@@ -757,5 +753,45 @@ mod tests {
         assert_eq!(&l_counts.row_counts, &[3, 2, 1]);
         assert_eq!(&l_counts.col_counts, &[1, 2, 3]);
         assert_eq!(&l_structure.row_indices, &[0, 0, 1, 0, 1, 2]);
+    }
+
+    #[test]
+    fn sparse_known_matrix() {
+        //       1   2   3   4   5   6
+        // 1  |  x   x   x   x
+        // 2  |          x   x   x   x
+        // 3  |                  x
+        // 4  |                      x
+        // 5  |  x
+        // 6  |      x
+        // 7  |          x
+        // 8  |              x
+        // 9  |                  x
+        // 10 |                      x
+        let a = SparseColMatStructure {
+            nrows: 10,
+            ncols: 6,
+            row_indices: vec![0, 4, 0, 5, 0, 1, 6, 0, 1, 7, 1, 2, 8, 1, 3, 9],
+            column_pointers: vec![0, 2, 4, 7, 10, 13, 16],
+        };
+        let parents = elimination_tree::<false>(&a);
+        let post = utils::post_order(&parents);
+
+        let l_counts = CholeskyCounts::build(&a, &parents, &post);
+        let CholeskyStructure { l_structure, .. } =
+            CholeskyStructure::build(&a, &parents, &post, &l_counts);
+
+        #[rustfmt::skip]
+        assert_eq!(
+            &l_structure.row_indices,
+            &[
+                0,
+                0, 1,
+                0, 1, 2,
+                0, 1, 2, 3,
+                2, 3, 4,
+                2, 3, 4, 5
+            ]
+        );
     }
 }
