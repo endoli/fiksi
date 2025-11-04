@@ -65,6 +65,7 @@ pub struct Qr<'q, T> {
     h_structure: &'q SparseColMatStructure,
     h_values: Vec<T>,
     h_betas: Vec<T>,
+    x: Vec<T>,
 }
 
 impl SymbolicQr {
@@ -102,6 +103,7 @@ impl SymbolicQr {
             h_structure: &self.h_structure,
             h_values: vec![T::zero(); self.h_structure.row_indices.len()],
             h_betas: vec![T::zero(); self.h_structure.ncols()],
+            x: vec![T::zero(); self.h_structure.nrows()],
         }
     }
 }
@@ -162,48 +164,43 @@ impl<'q, T: num_traits::real::Real + core::fmt::Debug> Qr<'q, T> {
     pub fn factorize(&mut self, a: &SparseColMat<T>) {
         self.r_values.fill(T::zero());
         self.h_values.fill(T::zero());
+        let (_, n) = a.shape();
 
-        {
-            let (m, n) = a.shape();
+        for j in 0..n {
+            self.x.fill(T::zero());
 
-            let mut x = vec![T::zero(); m];
-
-            for j in 0..n {
-                x.fill(T::zero());
-
-                let (values, rows) = a.index_column(j);
-                for (&val, &row) in values.iter().zip(rows) {
-                    x[self.row_permutation[row]] = val;
-                }
-
-                for (idx, &r_row) in self.r_structure.index_column(j).iter().enumerate() {
-                    if r_row == j {
-                        continue;
-                    }
-                    let h_range = self.h_structure.column_pointers[r_row]
-                        ..self.h_structure.column_pointers[r_row + 1];
-                    apply_householder(
-                        &mut x,
-                        self.h_betas[r_row],
-                        self.h_structure.index_column(r_row),
-                        &self.h_values[h_range],
-                    );
-                    self.r_values[self.r_structure.column_pointers[j] + idx] = x[r_row];
-                    x[r_row] = T::zero();
-                }
-
-                for (idx, &row) in self.h_structure.index_column(j).iter().enumerate() {
-                    self.h_values[self.h_structure.column_pointers[j] + idx] = x[row];
-                    x[row] = T::zero();
-                }
-
-                let (norm, beta) = calculate_householder(
-                    &mut self.h_values[self.h_structure.column_pointers[j]
-                        ..self.h_structure.column_pointers[j + 1]],
-                );
-                self.h_betas[j] = beta;
-                self.r_values[self.r_structure.column_pointers[j + 1] - 1] = norm;
+            let (values, rows) = a.index_column(j);
+            for (&val, &row) in values.iter().zip(rows) {
+                self.x[self.row_permutation[row]] = val;
             }
+
+            for (idx, &r_row) in self.r_structure.index_column(j).iter().enumerate() {
+                if r_row == j {
+                    continue;
+                }
+                let h_range = self.h_structure.column_pointers[r_row]
+                    ..self.h_structure.column_pointers[r_row + 1];
+                apply_householder(
+                    &mut self.x,
+                    self.h_betas[r_row],
+                    self.h_structure.index_column(r_row),
+                    &self.h_values[h_range],
+                );
+                self.r_values[self.r_structure.column_pointers[j] + idx] = self.x[r_row];
+                self.x[r_row] = T::zero();
+            }
+
+            for (idx, &row) in self.h_structure.index_column(j).iter().enumerate() {
+                self.h_values[self.h_structure.column_pointers[j] + idx] = self.x[row];
+                self.x[row] = T::zero();
+            }
+
+            let (norm, beta) = calculate_householder(
+                &mut self.h_values
+                    [self.h_structure.column_pointers[j]..self.h_structure.column_pointers[j + 1]],
+            );
+            self.h_betas[j] = beta;
+            self.r_values[self.r_structure.column_pointers[j + 1] - 1] = norm;
         }
     }
 
