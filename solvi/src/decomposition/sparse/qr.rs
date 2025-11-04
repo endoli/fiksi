@@ -20,7 +20,8 @@
 //! =>  R x = Q^T b.
 //! ```
 //!
-//! As `R` is upper-triangular, this can be solved using back-substitution.
+//! As `R` is upper-triangular, this can be solved using back-substitution through
+//! [`SparseColMat::solve_upper_triangular_mut`].
 //!
 //! [qr]: https://en.wikipedia.org/wiki/QR_decomposition
 //! [orthogonal]: https://en.wikipedia.org/wiki/Orthogonal_matrix
