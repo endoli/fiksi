@@ -2,6 +2,28 @@
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
 //! Sparse QR-decomposition implementations.
+//!
+//! This factors an `m`-by-`n` matrix A into `A = QR`, where the factor `Q` is an orthogonal matrix
+//! of size `m`-by-`m` and `R` is an upper-triangular matrix of size `m`-by-`n`, though as `R` is
+//! zero under the diagonal, it is often represented as an `n`-by-`n` matrix. This is known as
+//! [QR-decomposition][qr].
+//!
+//! As `Q` is an [orthogonal matrix][orthogonal], the transpose of `Q` is `Q`'s inverse:
+//! `Q^T = Q^-1`.
+//!
+//! This decomposition is useful for linear systems `A x = b` to be solved for `x`.
+//! Algebraically,
+//!
+//! ```text
+//!     A x = b
+//! => QR x = b
+//! =>  R x = Q^T b.
+//! ```
+//!
+//! As `R` is upper-triangular, this can be solved using back-substitution.
+//!
+//! [qr]: https://en.wikipedia.org/wiki/QR_decomposition
+//! [orthogonal]: https://en.wikipedia.org/wiki/Orthogonal_matrix
 
 use alloc::{vec, vec::Vec};
 
@@ -29,7 +51,12 @@ impl SymbolicQr {
     }
 }
 
-/// Reusable QR-decomposition.
+/// A reusable struct to perform repeated numeric QR factorizations on matrices with the same
+/// sparsity structure.
+///
+/// First build a [`SymbolicQr`] using the [`SparseColMatStructure`] of the matrices you'll be
+/// factorizing, and build this numeric QR struct for a specific type using [`SymbolicQr::build`].
+/// Factorize for a concrete [`SparseColMat`] using [`Self::factorize`].
 #[derive(Clone, Debug)]
 pub struct Qr<'q, T> {
     row_permutation: &'q [usize],
@@ -180,7 +207,9 @@ impl<'q, T: num_traits::real::Real + core::fmt::Debug> Qr<'q, T> {
         }
     }
 
-    pub fn q_tr_mul(&self, b: &mut [T]) {
+    /// Calculate `Q^T b` in-place where the mutable slice `b` is an `m`-dimensional vector,
+    /// overwriting `b`.
+    pub fn q_tr_mul_mut(&self, b: &mut [T]) {
         let mut y = vec![T::zero(); b.len()];
         for i in 0..self.h_structure.nrows() {
             y[self.row_permutation[i]] = b[i];
@@ -477,7 +506,7 @@ mod tests {
             );
         }
 
-        qr.q_tr_mul(&mut b_aug);
+        qr.q_tr_mul_mut(&mut b_aug);
 
         qr.r().solve_upper_triangular_mut(&mut b_aug[..12]);
 
