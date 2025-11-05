@@ -374,6 +374,127 @@ impl SparseColMatStructure {
     pub fn ncols(&self) -> usize {
         self.ncols
     }
+
+    /// Create the transposed structure of `self`.
+    ///
+    /// If an only if an element `A_ij` in the original matrix `A` is set, the transposed `A^T_ji`
+    /// is set.
+    ///
+    /// # Examples
+    ///
+    /// The following matrix
+    ///
+    /// ```rust
+    /// use solvi::SparseColMatStructure;
+    ///
+    /// // The following matrix
+    /// //
+    /// //     1  2  3  4
+    /// // 1 | x  x     x
+    /// // 2 |    x
+    /// // 3 |       x
+    /// //
+    /// // has the following transpose.
+    /// //
+    /// //     1  2  3
+    /// // 1 | x
+    /// // 2 | x  x
+    /// // 3 |       x
+    /// // 4 | x
+    ///
+    ///
+    /// let a = SparseColMatStructure::try_from_data(3, 4, vec![0, 0, 1, 2, 0], vec![0, 1, 3, 4, 5]).unwrap();
+    ///
+    /// let a_transposed = a.transpose();
+    /// assert_eq!(a_transposed.shape(), (4, 3));
+    /// assert_eq!(a_transposed.index_column(0), &[0, 1, 3]);
+    /// assert_eq!(a_transposed.index_column(1), &[1]);
+    /// assert_eq!(a_transposed.index_column(2), &[2]);
+    /// ```
+    #[inline]
+    pub fn transpose(&self) -> SparseColMatStructure {
+        // TODO: because `Self::transpose_with_values` currently goes through `TripletMat` for
+        // expedience, which requires some bounds to operate, we create a zero-sized type here with
+        // the required trait impls.
+        #[derive(Clone, Copy)]
+        struct Dummy {}
+
+        impl core::ops::AddAssign for Dummy {
+            #[inline(always)]
+            fn add_assign(&mut self, _rhs: Self) {}
+        }
+
+        self.transpose_with_values(core::iter::repeat(Dummy {}))
+            .structure
+    }
+
+    /// Transpose the matrix with the given parallel `values` iterating over the matrix values in
+    /// the same order as the structure's row indices slice.
+    ///
+    /// The iterator `values` must yield at least as many values as there are structure non-zeroes
+    /// in `self`.
+    #[inline(always)]
+    fn transpose_with_values<T: Copy + core::ops::AddAssign>(
+        &self,
+        values: impl IntoIterator<Item = T>,
+    ) -> SparseColMat<T> {
+        let mut values = values.into_iter();
+
+        let mut triplet_mat = TripletMat::new(self.nrows, self.ncols);
+        for j in 0..self.ncols {
+            for &i in self.index_column(j) {
+                triplet_mat.push_triplet(i, j, values.next().unwrap());
+            }
+        }
+        let mat = SparseColMat::from_triplet_mat(&triplet_mat.transpose());
+        mat
+    }
+
+    /// Permute the columns of `self`.
+    #[inline]
+    pub fn permute_columns(&self, column_permutation: &[usize]) -> SparseColMatStructure {
+        // Create the values vector. Note this does not actually allocate, as `()` is a zero-sized
+        // type.
+        let values = vec![(); self.row_indices.len()];
+        self.permute_columns_with_values(column_permutation, &values)
+            .structure
+    }
+
+    /// Permute the columns of `self`, along with the given parallel `values` slice.
+    ///
+    /// `values` must contain at least as many entries as the amount of row indices.
+    #[inline(always)]
+    fn permute_columns_with_values<T: Copy>(
+        &self,
+        column_permutation: &[usize],
+        values: &[T],
+    ) -> SparseColMat<T> {
+        let a_values = values;
+
+        assert!(a_values.len() >= self.row_indices.len());
+
+        let mut row_indices = Vec::with_capacity(self.row_indices.len());
+        let mut column_pointers = Vec::with_capacity(column_permutation.len() + 1);
+        let mut values = Vec::with_capacity(self.row_indices.len());
+        column_pointers.push(0);
+
+        for (idx, &j) in column_permutation.iter().enumerate() {
+            let a_row_indices = self.index_column(j);
+            column_pointers.push(column_pointers[idx] + a_row_indices.len());
+            row_indices.extend_from_slice(a_row_indices);
+            values.extend_from_slice(a_values);
+        }
+
+        SparseColMat {
+            structure: SparseColMatStructure {
+                nrows: self.nrows,
+                ncols: column_permutation.len(),
+                row_indices,
+                column_pointers,
+            },
+            values,
+        }
+    }
 }
 
 /// A sparse column matrix.
@@ -465,6 +586,64 @@ impl<T> SparseColMat<T> {
     #[inline(always)]
     pub fn ncols(&self) -> usize {
         self.structure.ncols()
+    }
+}
+
+impl<T: Copy> SparseColMat<T> {
+    /// Permute the columns of `self`.
+    #[inline]
+    pub fn permute_columns(&self, column_permutation: &[usize]) -> SparseColMat<T> {
+        self.structure
+            .permute_columns_with_values(column_permutation, &self.values)
+    }
+}
+
+impl<T: core::ops::AddAssign + Copy> SparseColMat<T> {
+    /// Create the transposed matrix of `self`.
+    ///
+    /// If an only if an element `A_ij` in the original matrix `A` is set, the transposed `A^T_ji`
+    /// is set.
+    ///
+    /// # Examples
+    ///
+    /// The following matrix
+    ///
+    /// ```rust
+    /// use solvi::{SparseColMat, SparseColMatStructure};
+    ///
+    /// // The following matrix
+    /// //
+    /// //     1  2  3  4
+    /// // 1 | 3  1     4
+    /// // 2 |    1
+    /// // 3 |       5
+    /// //
+    /// // has the following transpose.
+    /// //
+    /// //     1  2  3
+    /// // 1 | 3
+    /// // 2 | 1  1
+    /// // 3 |       5
+    /// // 4 | 4
+    ///
+    ///
+    /// let structure = SparseColMatStructure::try_from_data(3, 4, vec![0, 0, 1, 2, 0], vec![0, 1, 3, 4, 5]).unwrap();
+    /// let a = SparseColMat::from_structure_and_values(structure, vec![3., 1., 1., 5., 4.]);
+    ///
+    /// let a_transposed = a.transpose();
+    /// assert_eq!(a_transposed.shape(), (4, 3));
+    /// assert_eq!(a_transposed.index_column(0), ([3., 1., 4.].as_slice(), [0, 1, 3].as_slice()));
+    /// assert_eq!(a_transposed.index_column(1), ([1.].as_slice(), [1].as_slice()));
+    /// assert_eq!(a_transposed.index_column(2), ([5.].as_slice(), [2].as_slice()));
+    /// ```
+    ///
+    // TODO: because `Self::transpose_with_values` currently goes through `TripletMat` for
+    // expedience, which requires some bounds to operate. The `AddAssign` bound technically could
+    // be dropped, as we know each entry `A_ij` is unique.
+    #[inline]
+    pub fn transpose(&self) -> SparseColMat<T> {
+        self.structure
+            .transpose_with_values(self.values.iter().cloned())
     }
 }
 
