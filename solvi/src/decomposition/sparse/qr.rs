@@ -21,7 +21,9 @@
 //! ```
 //!
 //! As `R` is upper-triangular, this can be solved using back-substitution through
-//! [`SparseColMat::solve_upper_triangular_mut`].
+//! [`SparseColMat::solve_upper_triangular_mut`]. For over-determined systems, i.e., `m > n`,
+//! the first `n` columns of `Q` can be used (as `Q1^T`), and `R x = Q1^T b` minimizes the sum of
+//! squared errors `||A x - b||`.
 //!
 //! [qr]: https://en.wikipedia.org/wiki/QR_decomposition
 //! [orthogonal]: https://en.wikipedia.org/wiki/Orthogonal_matrix
@@ -61,8 +63,10 @@ impl SymbolicQr {
 #[derive(Clone, Debug)]
 pub struct Qr<'q, T> {
     row_permutation: &'q [usize],
-    r_structure: &'q SparseColMatStructure,
-    r_values: Vec<T>,
+    // TODO: as we don't have a concept of `SparseColMatRef`s and such yet, we temporarily take an
+    // owned `SparseColMatStructure` here (through an owned `SparseColMat`), so we can solve using
+    // the QR-decomposition without cloning.
+    r: SparseColMat<T>,
     h_structure: &'q SparseColMatStructure,
     h_values: Vec<T>,
     h_betas: Vec<T>,
@@ -99,8 +103,10 @@ impl SymbolicQr {
     pub fn numeric<'q, T: num_traits::real::Real>(&'q self) -> Qr<'q, T> {
         Qr {
             row_permutation: &self.row_permutation,
-            r_structure: &self.r_structure,
-            r_values: vec![T::zero(); self.r_structure.row_indices.len()],
+            r: SparseColMat {
+                structure: self.r_structure.clone(),
+                values: vec![T::zero(); self.r_structure.row_indices.len()],
+            },
             h_structure: &self.h_structure,
             h_values: vec![T::zero(); self.h_structure.row_indices.len()],
             h_betas: vec![T::zero(); self.h_structure.ncols()],
@@ -125,6 +131,8 @@ fn apply_householder<T: num_traits::real::Real>(
     }
 }
 
+/// Sparsely caclulate a Householder reflector `(I - tau v v^T) y` in place (given sparse `y` in
+/// `householder_v`, replacing it with the values for `v`).
 fn calculate_householder<T: num_traits::real::Real>(householder_v: &mut [T]) -> (T, T) {
     let beta;
     let norm;
@@ -163,7 +171,7 @@ impl<'q, T: num_traits::real::Real + core::fmt::Debug> Qr<'q, T> {
     ///
     /// This finds the R-factor.
     pub fn factorize(&mut self, a: &SparseColMat<T>) {
-        self.r_values.fill(T::zero());
+        self.r.values.fill(T::zero());
         self.h_values.fill(T::zero());
         let (_, n) = a.shape();
 
@@ -175,7 +183,7 @@ impl<'q, T: num_traits::real::Real + core::fmt::Debug> Qr<'q, T> {
                 self.x[self.row_permutation[row]] = val;
             }
 
-            for (idx, &r_row) in self.r_structure.index_column(j).iter().enumerate() {
+            for (idx, &r_row) in self.r.structure.index_column(j).iter().enumerate() {
                 if r_row == j {
                     continue;
                 }
@@ -187,7 +195,7 @@ impl<'q, T: num_traits::real::Real + core::fmt::Debug> Qr<'q, T> {
                     self.h_structure.index_column(r_row),
                     &self.h_values[h_range],
                 );
-                self.r_values[self.r_structure.column_pointers[j] + idx] = self.x[r_row];
+                self.r.values[self.r.structure.column_pointers[j] + idx] = self.x[r_row];
                 self.x[r_row] = T::zero();
             }
 
@@ -201,13 +209,22 @@ impl<'q, T: num_traits::real::Real + core::fmt::Debug> Qr<'q, T> {
                     [self.h_structure.column_pointers[j]..self.h_structure.column_pointers[j + 1]],
             );
             self.h_betas[j] = beta;
-            self.r_values[self.r_structure.column_pointers[j + 1] - 1] = norm;
+            self.r.values[self.r.structure.column_pointers[j + 1] - 1] = norm;
         }
     }
 
     /// Calculate `Q^T b` in-place where the mutable slice `b` is an `m`-dimensional vector,
     /// overwriting `b`.
+    #[inline]
+    #[track_caller]
     pub fn q_tr_mul_mut(&self, b: &mut [T]) {
+        assert_eq!(
+            b.len(),
+            self.h_structure.nrows(),
+            "The slice must be of length {}, but was {}",
+            self.h_structure.nrows(),
+            b.len(),
+        );
         let mut y = vec![T::zero(); b.len()];
         for i in 0..self.h_structure.nrows() {
             y[self.row_permutation[i]] = b[i];
@@ -220,45 +237,20 @@ impl<'q, T: num_traits::real::Real + core::fmt::Debug> Qr<'q, T> {
         b.copy_from_slice(y.as_slice());
     }
 
+    /// Solve `QR x = b` in place for `x`, overwriting `b`.
+    #[inline]
+    #[track_caller]
+    pub fn solve_mut(&self, b: &mut [T]) -> bool {
+        self.q_tr_mul_mut(b);
+        self.r.solve_upper_triangular_mut(&mut b[..self.r.nrows()])
+    }
+
     /// Get a clone of the R-factor of the QR-decomposition.
     ///
     /// Use [`Qr::factorize`] first.
+    #[inline]
     pub fn r(&self) -> SparseColMat<T> {
-        SparseColMat {
-            structure: self.r_structure.clone(),
-            values: self.r_values.clone(),
-        }
-    }
-}
-
-/// Dense, compact Householder for column k.
-///
-// This represents (I - tau v v^T) y, with v = [0; 1; tail] where the kth
-// Householder has k zeros, a leading 1, and then the Householder matrix tail.
-#[derive(Debug, Clone)]
-pub(crate) struct Householder<T> {
-    pub k: usize,
-    pub tau: T,
-    pub tail: Vec<T>, // length m-k-1
-}
-
-impl<T: num_traits::real::Real> Householder<T> {
-    /// Column-wise calculation of (I - tau v v^T) y.
-    fn apply(&self, y: &mut [T]) {
-        if T::is_zero(&self.tau) {
-            return;
-        }
-        let mut dot = y[self.k]; // v^T y starts at head (1 * y[k])
-        for (t, &yk) in self.tail.iter().zip(y[self.k + 1..].iter()) {
-            dot = dot + *t * yk;
-        }
-        if T::is_zero(&dot) {
-            return;
-        }
-        y[self.k] = y[self.k] - self.tau * dot;
-        for (yk, &t) in y[self.k + 1..].iter_mut().zip(self.tail.iter()) {
-            *yk = *yk - self.tau * dot * t;
-        }
+        self.r.clone()
     }
 }
 
@@ -498,9 +490,9 @@ mod tests {
 
         for (i, expected) in expected_r_values.iter().enumerate() {
             assert!(
-                (qr.r_values[i].abs() - expected.abs()).abs() < 1e-8,
+                (qr.r.values[i].abs() - expected.abs()).abs() < 1e-8,
                 "Expected R's {i}th non-zero value to be {expected}. Got: {}. (Signs are allowed to differ.)",
-                qr.r_values[i]
+                qr.r.values[i]
             );
         }
 
