@@ -293,6 +293,26 @@ impl SparseColMatStructure {
         })
     }
 
+    /// Create a sparse column matrix structure that is completely empty.
+    pub const fn empty(nrows: usize, ncols: usize) -> Self {
+        Self {
+            nrows,
+            ncols,
+            row_indices: Vec::new(),
+            column_pointers: Vec::new(),
+        }
+    }
+
+    /// Create a sparse column matrix structure representation of the square `n x n` identity matrix.
+    pub fn identity(n: usize) -> Self {
+        Self {
+            nrows: n,
+            ncols: n,
+            row_indices: Vec::from_iter(0..n),
+            column_pointers: Vec::from_iter(0..=n),
+        }
+    }
+
     /// Get the index range of a column.
     ///
     /// This is useful for, e.g., indexing into a sparse matrix value array stored in parallel to
