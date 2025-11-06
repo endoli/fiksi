@@ -36,7 +36,7 @@ use crate::{
     utils,
 };
 
-/// Symbolic QR-decomposition built in preperation for efficient numeric decomposition.
+/// Symbolic QR-decomposition built in preparation for efficient numeric decomposition.
 ///
 /// Build this using [`SymbolicQr::build`], and use the result to perform numerical decomposition
 /// using [`SymbolicQr::numeric`] followed by [`Qr::factorize`].
@@ -76,8 +76,7 @@ pub struct Qr<'q, T> {
 impl SymbolicQr {
     /// Perform symbolic QR-decomposition using the sparsity structure of matrix `a`.
     ///
-    /// This finds the structure of the R-factor of the QR-decomposition (see
-    /// [`cholesky_l_factor_counts`](crate::decomposition::sparse::cholesky::cholesky_l_factor_counts)
+    /// This finds the structure of the R-factor of the QR-decomposition (see [`CholeskyStructure`]
     /// for the method used here).
     ///
     /// Actual numeric factorization can then be performed, after building the factorization for a
@@ -131,7 +130,7 @@ fn apply_householder<T: num_traits::real::Real>(
     }
 }
 
-/// Sparsely caclulate a Householder reflector `(I - tau v v^T) y` in place (given sparse `y` in
+/// Sparsely calculate a Householder reflector `(I - tau v v^T) y` in place (given sparse `y` in
 /// `householder_v`, replacing it with the values for `v`).
 fn calculate_householder<T: num_traits::real::Real>(householder_v: &mut [T]) -> (T, T) {
     let beta;
@@ -357,6 +356,10 @@ mod tests {
 
     #[test]
     fn big_underdetermined_damped() {
+        #[expect(
+            clippy::approx_constant,
+            reason = "Matrix values copied from `fiksi` debug output",
+        )]
         let a = SparseColMat::<f64> {
             structure: crate::SparseColMatStructure {
                 nrows: 21,
