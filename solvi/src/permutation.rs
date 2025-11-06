@@ -46,7 +46,7 @@ impl PermutationSequence {
         for mut i in permutation.iter().copied() {
             while !seen[i] {
                 stack.push(i);
-                seen.set(i.into(), true);
+                seen.set(i, true);
                 i = permutation[i];
             }
 
