@@ -358,7 +358,7 @@ mod tests {
     fn big_underdetermined_damped() {
         #[expect(
             clippy::approx_constant,
-            reason = "Matrix values copied from `fiksi` debug output",
+            reason = "Matrix values copied from `fiksi` debug output"
         )]
         let a = SparseColMat::<f64> {
             structure: crate::SparseColMatStructure {
