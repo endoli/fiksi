@@ -150,10 +150,6 @@ pub fn colamd(
             .expect("overflowed"),
         "`p` must be of length `n_col+1` (containing one column pointer to the start of each column, plus a pointer at the end",
     );
-    let a_len: i32 = row_indices.len().try_into().expect("overflowed");
-    let a_i = row_indices.as_mut_ptr();
-    let p = column_pointers.as_mut_ptr();
-    let stats = stats.as_mut_ptr();
 
     let mut knobs = options.map(Options::as_knobs_array);
     let knobs = knobs
@@ -161,7 +157,7 @@ pub fn colamd(
         .map(|k| k.as_mut_ptr())
         .unwrap_or(core::ptr::null_mut());
 
-    unsafe { colamd::colamd(nrows, ncols, a_len, a_i, p, knobs, stats) }
+    unsafe { colamd::colamd(nrows, ncols, row_indices, column_pointers, knobs, stats) }
 }
 
 #[doc(hidden)]
@@ -194,7 +190,6 @@ pub fn symamd(
     let a_i = row_indices.as_mut_ptr();
     let p = column_pointers.as_mut_ptr();
     let permutation = permutation.as_mut_ptr();
-    let stats = stats.as_mut_ptr();
 
     let mut knobs = options.map(Options::as_knobs_array);
     let knobs = knobs
