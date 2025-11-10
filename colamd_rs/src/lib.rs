@@ -41,7 +41,10 @@
 #![cfg_attr(target_pointer_width = "64", warn(clippy::trivially_copy_pass_by_ref))]
 // END LINEBENDER LINT SET
 #![cfg_attr(docsrs, feature(doc_cfg))]
-#![no_std]
+#![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
+
+#[cfg(not(feature = "std"))]
+mod floatfuncs;
 
 extern crate alloc;
 
