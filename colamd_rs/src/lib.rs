@@ -98,8 +98,8 @@ impl core::default::Default for Options {
 ///
 /// Returns 0 if any input argument is negative. The use of this routine is optional. It is not
 /// needed for `symamd`, which dynamically allocates its own memory.
-pub fn colamd_recommended(nnz: i64, n_row: i64, n_col: i64) -> usize {
-    unsafe { colamd::colamd_l_recommended(nnz, n_row, n_col) }
+pub fn colamd_recommended(nnz: i32, n_row: i32, n_col: i32) -> usize {
+    unsafe { colamd::colamd_recommended(nnz, n_row, n_col) }
 }
 
 /// Computes a column ordering for `A` such that the Cholesky decomposition of `A^T A` has less
@@ -141,12 +141,12 @@ pub fn colamd_recommended(nnz: i64, n_row: i64, n_col: i64) -> usize {
 /// assert_eq!(column_pointers, &[1, 0, 2, 3, -1]);
 /// ```
 pub fn colamd(
-    nrows: i64,
-    ncols: i64,
-    row_indices: &mut [i64],
-    column_pointers: &mut [i64],
+    nrows: i32,
+    ncols: i32,
+    row_indices: &mut [i32],
+    column_pointers: &mut [i32],
     options: Option<Options>,
-    stats: &mut [i64; 20],
+    stats: &mut [i32; 20],
 ) -> i32 {
     assert_eq!(
         column_pointers.len(),
@@ -156,7 +156,7 @@ pub fn colamd(
             .expect("overflowed"),
         "`p` must be of length `n_col+1` (containing one column pointer to the start of each column, plus a pointer at the end",
     );
-    let a_len: i64 = row_indices.len().try_into().expect("overflowed");
+    let a_len: i32 = row_indices.len().try_into().expect("overflowed");
     let a_i = row_indices.as_mut_ptr();
     let p = column_pointers.as_mut_ptr();
     let stats = stats.as_mut_ptr();
@@ -167,18 +167,18 @@ pub fn colamd(
         .map(|k| k.as_mut_ptr())
         .unwrap_or(core::ptr::null_mut());
 
-    unsafe { colamd::colamd_l(nrows, ncols, a_len, a_i, p, knobs, stats) }
+    unsafe { colamd::colamd(nrows, ncols, a_len, a_i, p, knobs, stats) }
 }
 
 #[doc(hidden)]
 #[expect(unused, reason = "check signatures anyway")]
 pub fn symamd(
-    n: i64,
-    row_indices: &mut [i64],
-    column_pointers: &mut [i64],
-    permutation: &mut [i64],
+    n: i32,
+    row_indices: &mut [i32],
+    column_pointers: &mut [i32],
+    permutation: &mut [i32],
     options: Option<Options>,
-    stats: &mut [i64; 20],
+    stats: &mut [i32; 20],
 ) -> i32 {
     unimplemented!(
         "the implementation requires ANSI C `calloc` and `free`, rather than providing that, it should just be rewritten"
@@ -209,7 +209,7 @@ pub fn symamd(
         .unwrap_or(core::ptr::null_mut());
 
     unsafe {
-        colamd::symamd_l(
+        colamd::symamd(
             n,
             a_i,
             p,
