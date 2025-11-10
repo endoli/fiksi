@@ -38,9 +38,11 @@ fn ensure_libm_dependency_used() -> f32 {
 extern crate alloc;
 
 pub mod decomposition;
+mod permutation;
 mod sparse_col_mat;
 mod triplet_mat;
 pub mod utils;
 
+pub use permutation::PermutationSequence;
 pub use sparse_col_mat::{SparseColMat, SparseColMatStructure};
 pub use triplet_mat::{Triplet, TripletMat};
