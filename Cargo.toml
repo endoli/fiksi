@@ -1,6 +1,14 @@
 [workspace]
 resolver = "2"
-members = ["fiksi", "fiksi_svg", "solvi", "examples/fiksi_svg_tests", "examples/fiksi_toy"]
+members = [
+    "fiksi",
+    "fiksi_svg",
+    "colamd_rs",
+    "solvi",
+
+    "examples/fiksi_svg_tests",
+    "examples/fiksi_toy",
+]
 
 [workspace.package]
 # Fiksi version, also used by other packages which want to mimic Fiksi's version.
@@ -17,6 +25,7 @@ license = "Apache-2.0 OR MIT"
 repository = "https://github.com/endoli/fiksi"
 
 [workspace.dependencies]
+colamd_rs = { version = "0.1.0", path = "colamd_rs", default-features = false }
 fiksi = { version = "0.1.0", path = "fiksi", default-features = false }
 fiksi_svg = { version = "0.1.0", path = "fiksi_svg", default-features = false }
 solvi = { version = "0.1.0", path = "solvi", default-features = false }
