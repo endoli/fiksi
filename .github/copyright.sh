@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # If there are new files with headers that can't match the conditions here,
 # then the files can be ignored by an additional glob argument via the -g flag.
