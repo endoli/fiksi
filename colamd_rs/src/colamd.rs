@@ -218,11 +218,7 @@ pub unsafe extern "C" fn colamd_set_defaults(mut knobs: *mut core::ffi::c_double
     *knobs.offset(COLAMD_AGGRESSIVE as isize) = TRUE as core::ffi::c_double;
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "we'll be dropping the allocation arguments later"
-)]
-pub unsafe fn symamd(
+pub fn symamd(
     n: i32,
     a: &[i32],
     p: &[i32],
@@ -271,7 +267,9 @@ pub unsafe fn symamd(
     // === If no knobs, set default knobs ===================================
 
     let knobs = knobs.unwrap_or_else(|| {
-        colamd_set_defaults(default_knobs.as_mut_ptr());
+        unsafe {
+            colamd_set_defaults(default_knobs.as_mut_ptr());
+        }
         &default_knobs
     });
 
@@ -418,7 +416,9 @@ pub unsafe fn symamd(
     cknobs[COLAMD_DENSE_COL as usize] = knobs[COLAMD_DENSE_ROW as usize];
 
     // === Order the columns of M ===========================================
-    colamd(n_row, n, &mut m, perm, cknobs.as_mut_ptr(), stats);
+    unsafe {
+        colamd(n_row, n, &mut m, perm, cknobs.as_mut_ptr(), stats);
+    }
 
     // Note that the output permutation is now in perm
 
