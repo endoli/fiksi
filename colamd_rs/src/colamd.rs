@@ -16,7 +16,6 @@
     clippy::assign_op_pattern,
     clippy::needless_return,
     clippy::nonminimal_bool,
-    clippy::ptr_offset_with_cast,
     clippy::single_match,
     clippy::toplevel_ref_arg,
     clippy::unnecessary_unwrap,
@@ -213,6 +212,10 @@ pub unsafe extern "C" fn colamd_set_defaults(mut knobs: *mut core::ffi::c_double
     *knobs.offset(COLAMD_AGGRESSIVE as isize) = TRUE as core::ffi::c_double;
 }
 
+#[expect(
+    clippy::too_many_arguments,
+    reason = "we'll be dropping the allocation arguments later"
+)]
 pub unsafe fn symamd(
     mut n: int32_t,
     mut A: *mut int32_t,
