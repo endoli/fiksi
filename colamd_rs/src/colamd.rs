@@ -26,11 +26,15 @@
 
 use alloc::vec;
 
-#[cfg(not(feature = "std"))]
-use crate::floatfuncs::FloatFuncs;
-
 fn sqrt(x: f64) -> f64 {
-    x.sqrt()
+    #[cfg(feature = "std")]
+    {
+        x.sqrt()
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        libm::sqrt(x)
+    }
 }
 
 fn SuiteSparse_config_printf_func_get()
