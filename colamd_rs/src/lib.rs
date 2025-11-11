@@ -194,18 +194,7 @@ pub fn symamd(
 
     let mut knobs = options.map(Options::as_knobs_array).as_ref();
 
-    unsafe {
-        colamd::symamd(
-            n,
-            row_indices,
-            column_pointers,
-            permutation,
-            knobs,
-            stats,
-            None, // wants `calloc`
-            None, // wants `free`
-        )
-    }
+    unsafe { colamd::symamd(n, row_indices, column_pointers, permutation, knobs, stats) }
 }
 
 #[cfg(test)]
