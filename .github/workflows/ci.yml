@@ -309,6 +309,10 @@ jobs:
       # We'll just run the default features for now.
       - name: cargo miri
         run: cargo miri test --workspace --locked --target s390x-unknown-linux-gnu --no-fail-fast
+        env:
+          # Stacked borrow checks are temporarily disabled to satisfy https://github.com/endoli/fiksi/pull/128
+          # (they may be false positives)
+          MIRIFLAGS: "-Zmiri-disable-stacked-borrows"
 
   doc:
     name: cargo doc

@@ -1,0 +1,1740 @@
+// COLAMD, Copyright (c) 1998-2024, Timothy A. Davis and Stefan Larimore,
+// All Rights Reserved.
+// Copyright 2025 the Solvi Authors
+// SPDX-License-Identifier: BSD-3-Clause
+
+#![expect(
+    dead_code,
+    non_camel_case_types,
+    non_snake_case,
+    non_upper_case_globals,
+    unused_assignments,
+    unused_mut,
+    unused_unsafe,
+    unsafe_op_in_unsafe_fn,
+    trivial_numeric_casts,
+    clippy::assign_op_pattern,
+    clippy::needless_return,
+    clippy::nonminimal_bool,
+    clippy::ptr_offset_with_cast,
+    clippy::single_match,
+    clippy::toplevel_ref_arg,
+    clippy::unnecessary_unwrap,
+    clippy::unnecessary_literal_unwrap,
+    clippy::zero_ptr,
+    reason = "transpiled using c2rust"
+)]
+
+unsafe extern "C" {
+    fn sqrt(__x: core::ffi::c_double) -> core::ffi::c_double;
+}
+
+fn SuiteSparse_config_printf_func_get()
+-> Option<unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int> {
+    unimplemented!()
+}
+
+pub type size_t = usize;
+pub type __int32_t = i32;
+pub type __uint32_t = u32;
+pub type int32_t = __int32_t;
+pub type uint32_t = __uint32_t;
+pub type Colamd_Row = Colamd_Row_struct;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Colamd_Row_struct {
+    pub start: int32_t,
+    pub length: int32_t,
+    pub shared1: C2RustUnnamed_0,
+    pub shared2: C2RustUnnamed,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed {
+    pub mark: int32_t,
+    pub first_column: int32_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_0 {
+    pub degree: int32_t,
+    pub p: int32_t,
+}
+pub type Colamd_Col = Colamd_Col_struct;
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub struct Colamd_Col_struct {
+    pub start: int32_t,
+    pub length: int32_t,
+    pub shared1: C2RustUnnamed_4,
+    pub shared2: C2RustUnnamed_3,
+    pub shared3: C2RustUnnamed_2,
+    pub shared4: C2RustUnnamed_1,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_1 {
+    pub degree_next: int32_t,
+    pub hash_next: int32_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_2 {
+    pub headhash: int32_t,
+    pub hash: int32_t,
+    pub prev: int32_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_3 {
+    pub score: int32_t,
+    pub order: int32_t,
+}
+#[derive(Copy, Clone)]
+#[repr(C)]
+pub union C2RustUnnamed_4 {
+    pub thickness: int32_t,
+    pub parent: int32_t,
+}
+pub const __INT_MAX__: core::ffi::c_int = unsafe { 2147483647 as core::ffi::c_int };
+pub const NULL: core::ffi::c_int = unsafe { 0 as core::ffi::c_int };
+pub const COLAMD_KNOBS: core::ffi::c_int = unsafe { 20 as core::ffi::c_int };
+pub const COLAMD_STATS: core::ffi::c_int = unsafe { 20 as core::ffi::c_int };
+pub const COLAMD_DENSE_ROW: core::ffi::c_int = unsafe { 0 as core::ffi::c_int };
+pub const COLAMD_DENSE_COL: core::ffi::c_int = unsafe { 1 as core::ffi::c_int };
+pub const COLAMD_AGGRESSIVE: core::ffi::c_int = unsafe { 2 as core::ffi::c_int };
+pub const COLAMD_DEFRAG_COUNT: core::ffi::c_int = unsafe { 2 as core::ffi::c_int };
+pub const COLAMD_STATUS: core::ffi::c_int = unsafe { 3 as core::ffi::c_int };
+pub const COLAMD_INFO1: core::ffi::c_int = unsafe { 4 as core::ffi::c_int };
+pub const COLAMD_INFO2: core::ffi::c_int = unsafe { 5 as core::ffi::c_int };
+pub const COLAMD_INFO3: core::ffi::c_int = unsafe { 6 as core::ffi::c_int };
+pub const COLAMD_OK: core::ffi::c_int = unsafe { 0 as core::ffi::c_int };
+pub const COLAMD_OK_BUT_JUMBLED: core::ffi::c_int = unsafe { 1 as core::ffi::c_int };
+pub const COLAMD_ERROR_A_not_present: core::ffi::c_int = unsafe { -(1 as core::ffi::c_int) };
+pub const COLAMD_ERROR_p_not_present: core::ffi::c_int = unsafe { -(2 as core::ffi::c_int) };
+pub const COLAMD_ERROR_nrow_negative: core::ffi::c_int = unsafe { -(3 as core::ffi::c_int) };
+pub const COLAMD_ERROR_ncol_negative: core::ffi::c_int = unsafe { -(4 as core::ffi::c_int) };
+pub const COLAMD_ERROR_nnz_negative: core::ffi::c_int = unsafe { -(5 as core::ffi::c_int) };
+pub const COLAMD_ERROR_p0_nonzero: core::ffi::c_int = unsafe { -(6 as core::ffi::c_int) };
+pub const COLAMD_ERROR_A_too_small: core::ffi::c_int = unsafe { -(7 as core::ffi::c_int) };
+pub const COLAMD_ERROR_col_length_negative: core::ffi::c_int = unsafe { -(8 as core::ffi::c_int) };
+pub const COLAMD_ERROR_row_index_out_of_bounds: core::ffi::c_int =
+    unsafe { -(9 as core::ffi::c_int) };
+pub const COLAMD_ERROR_out_of_memory: core::ffi::c_int = unsafe { -(10 as core::ffi::c_int) };
+pub const INT_MAX: core::ffi::c_int = unsafe { __INT_MAX__ };
+pub const COLAMD_recommended: unsafe extern "C" fn(int32_t, int32_t, int32_t) -> size_t =
+    unsafe { colamd_recommended };
+pub const COLAMD_set_defaults: unsafe extern "C" fn(*mut core::ffi::c_double) -> () =
+    unsafe { colamd_set_defaults };
+pub const COLAMD_MAIN: unsafe extern "C" fn(
+    int32_t,
+    int32_t,
+    int32_t,
+    *mut int32_t,
+    *mut int32_t,
+    *mut core::ffi::c_double,
+    *mut int32_t,
+) -> core::ffi::c_int = unsafe { colamd };
+pub const TRUE: core::ffi::c_int = unsafe { 1 as core::ffi::c_int };
+pub const FALSE: core::ffi::c_int = unsafe { 0 as core::ffi::c_int };
+pub const EMPTY: core::ffi::c_int = unsafe { -(1 as core::ffi::c_int) };
+pub const ALIVE: core::ffi::c_int = unsafe { 0 as core::ffi::c_int };
+pub const DEAD: core::ffi::c_int = unsafe { -(1 as core::ffi::c_int) };
+pub const DEAD_PRINCIPAL: core::ffi::c_int = unsafe { -(1 as core::ffi::c_int) };
+pub const DEAD_NON_PRINCIPAL: core::ffi::c_int = unsafe { -(2 as core::ffi::c_int) };
+unsafe extern "C" fn t_add(mut a: size_t, mut b: size_t, mut ok: *mut core::ffi::c_int) -> size_t {
+    *ok = (*ok != 0 && a.wrapping_add(b) >= (if a > b { a } else { b })) as core::ffi::c_int;
+    return if *ok != 0 {
+        a.wrapping_add(b)
+    } else {
+        0 as size_t
+    };
+}
+unsafe extern "C" fn t_mult(mut a: size_t, mut k: size_t, mut ok: *mut core::ffi::c_int) -> size_t {
+    let mut i: size_t = 0;
+    let mut s: size_t = 0 as size_t;
+    i = 0 as size_t;
+    while i < k {
+        s = t_add(s, a, ok);
+        i = i.wrapping_add(1);
+    }
+    return s;
+}
+
+pub unsafe extern "C" fn colamd_recommended(
+    mut nnz: int32_t,
+    mut n_row: int32_t,
+    mut n_col: int32_t,
+) -> size_t {
+    let mut s: size_t = 0;
+    let mut c: size_t = 0;
+    let mut r: size_t = 0;
+    let mut ok: core::ffi::c_int = TRUE;
+    if nnz < 0 as int32_t || n_row < 0 as int32_t || n_col < 0 as int32_t {
+        return 0 as size_t;
+    }
+    s = t_mult(nnz as size_t, 2 as size_t, &mut ok);
+    c = (t_mult(
+        t_add(n_col as size_t, 1 as size_t, &mut ok),
+        ::core::mem::size_of::<Colamd_Col>() as size_t,
+        &mut ok,
+    ))
+    .wrapping_div(::core::mem::size_of::<int32_t>() as size_t);
+    r = (t_mult(
+        t_add(n_row as size_t, 1 as size_t, &mut ok),
+        ::core::mem::size_of::<Colamd_Row>() as size_t,
+        &mut ok,
+    ))
+    .wrapping_div(::core::mem::size_of::<int32_t>() as size_t);
+    s = t_add(s, c, &mut ok);
+    s = t_add(s, r, &mut ok);
+    s = t_add(s, n_col as size_t, &mut ok);
+    s = t_add(s, (nnz / 5 as int32_t) as size_t, &mut ok);
+    return if ok != 0 { s } else { 0 as size_t };
+}
+
+pub unsafe extern "C" fn colamd_set_defaults(mut knobs: *mut core::ffi::c_double) {
+    let mut i: int32_t = 0;
+    if knobs.is_null() {
+        return;
+    }
+    i = 0 as core::ffi::c_int as int32_t;
+    while i < COLAMD_KNOBS as int32_t {
+        *knobs.offset(i as isize) = 0 as core::ffi::c_int as core::ffi::c_double;
+        i += 1;
+    }
+    *knobs.offset(COLAMD_DENSE_ROW as isize) = 10 as core::ffi::c_int as core::ffi::c_double;
+    *knobs.offset(COLAMD_DENSE_COL as isize) = 10 as core::ffi::c_int as core::ffi::c_double;
+    *knobs.offset(COLAMD_AGGRESSIVE as isize) = TRUE as core::ffi::c_double;
+}
+
+pub unsafe extern "C" fn symamd(
+    mut n: int32_t,
+    mut A: *mut int32_t,
+    mut p: *mut int32_t,
+    mut perm: *mut int32_t,
+    mut knobs: *mut core::ffi::c_double,
+    mut stats: *mut int32_t,
+    mut allocate: Option<unsafe extern "C" fn(size_t, size_t) -> *mut core::ffi::c_void>,
+    mut release: Option<unsafe extern "C" fn(*mut core::ffi::c_void) -> ()>,
+) -> core::ffi::c_int {
+    let mut count: *mut int32_t = 0 as *mut int32_t;
+    let mut mark: *mut int32_t = 0 as *mut int32_t;
+    let mut M: *mut int32_t = 0 as *mut int32_t;
+    let mut Mlen: size_t = 0;
+    let mut n_row: int32_t = 0;
+    let mut nnz: int32_t = 0;
+    let mut i: int32_t = 0;
+    let mut j: int32_t = 0;
+    let mut k: int32_t = 0;
+    let mut mnz: int32_t = 0;
+    let mut pp: int32_t = 0;
+    let mut last_row: int32_t = 0;
+    let mut length: int32_t = 0;
+    let mut cknobs: [core::ffi::c_double; 20] = [0.; 20];
+    let mut default_knobs: [core::ffi::c_double; 20] = [0.; 20];
+    if stats.is_null() {
+        return 0 as core::ffi::c_int;
+    }
+    i = 0 as core::ffi::c_int as int32_t;
+    while i < COLAMD_STATS as int32_t {
+        *stats.offset(i as isize) = 0 as core::ffi::c_int as int32_t;
+        i += 1;
+    }
+    *stats.offset(COLAMD_STATUS as isize) = COLAMD_OK as int32_t;
+    *stats.offset(COLAMD_INFO1 as isize) = -(1 as core::ffi::c_int) as int32_t;
+    *stats.offset(COLAMD_INFO2 as isize) = -(1 as core::ffi::c_int) as int32_t;
+    if A.is_null() {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_A_not_present as int32_t;
+        return 0 as core::ffi::c_int;
+    }
+    if p.is_null() {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_p_not_present as int32_t;
+        return 0 as core::ffi::c_int;
+    }
+    if n < 0 as int32_t {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_ncol_negative as int32_t;
+        *stats.offset(COLAMD_INFO1 as isize) = n;
+        return 0 as core::ffi::c_int;
+    }
+    nnz = *p.offset(n as isize);
+    if nnz < 0 as int32_t {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_nnz_negative as int32_t;
+        *stats.offset(COLAMD_INFO1 as isize) = nnz;
+        return 0 as core::ffi::c_int;
+    }
+    if *p.offset(0 as core::ffi::c_int as isize) != 0 as int32_t {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_p0_nonzero as int32_t;
+        *stats.offset(COLAMD_INFO1 as isize) = *p.offset(0 as core::ffi::c_int as isize);
+        return 0 as core::ffi::c_int;
+    }
+    if knobs.is_null() {
+        colamd_set_defaults(default_knobs.as_mut_ptr());
+        knobs = default_knobs.as_mut_ptr() as *mut core::ffi::c_double;
+    }
+    count = (Some(allocate.expect("non-null function pointer"))).expect("non-null function pointer")(
+        (n + 1 as int32_t) as size_t,
+        ::core::mem::size_of::<int32_t>() as size_t,
+    ) as *mut int32_t;
+    if count.is_null() {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_out_of_memory as int32_t;
+        return 0 as core::ffi::c_int;
+    }
+    mark = (Some(allocate.expect("non-null function pointer"))).expect("non-null function pointer")(
+        (n + 1 as int32_t) as size_t,
+        ::core::mem::size_of::<int32_t>() as size_t,
+    ) as *mut int32_t;
+    if mark.is_null() {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_out_of_memory as int32_t;
+        (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
+            count as *mut core::ffi::c_void,
+        );
+        return 0 as core::ffi::c_int;
+    }
+    *stats.offset(COLAMD_INFO3 as isize) = 0 as core::ffi::c_int as int32_t;
+    i = 0 as core::ffi::c_int as int32_t;
+    while i < n {
+        *mark.offset(i as isize) = -(1 as core::ffi::c_int) as int32_t;
+        i += 1;
+    }
+    j = 0 as core::ffi::c_int as int32_t;
+    while j < n {
+        last_row = -(1 as core::ffi::c_int) as int32_t;
+        length = *p.offset((j + 1 as int32_t) as isize) - *p.offset(j as isize);
+        if length < 0 as int32_t {
+            *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_col_length_negative as int32_t;
+            *stats.offset(COLAMD_INFO1 as isize) = j;
+            *stats.offset(COLAMD_INFO2 as isize) = length;
+            (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
+                count as *mut core::ffi::c_void,
+            );
+            (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
+                mark as *mut core::ffi::c_void,
+            );
+            return 0 as core::ffi::c_int;
+        }
+        pp = *p.offset(j as isize);
+        while pp < *p.offset((j + 1 as int32_t) as isize) {
+            i = *A.offset(pp as isize);
+            if i < 0 as int32_t || i >= n {
+                *stats.offset(COLAMD_STATUS as isize) =
+                    COLAMD_ERROR_row_index_out_of_bounds as int32_t;
+                *stats.offset(COLAMD_INFO1 as isize) = j;
+                *stats.offset(COLAMD_INFO2 as isize) = i;
+                *stats.offset(COLAMD_INFO3 as isize) = n;
+                (Some(release.expect("non-null function pointer")))
+                    .expect("non-null function pointer")(
+                    count as *mut core::ffi::c_void
+                );
+                (Some(release.expect("non-null function pointer")))
+                    .expect("non-null function pointer")(
+                    mark as *mut core::ffi::c_void
+                );
+                return 0 as core::ffi::c_int;
+            }
+            if i <= last_row || *mark.offset(i as isize) == j {
+                *stats.offset(COLAMD_STATUS as isize) = COLAMD_OK_BUT_JUMBLED as int32_t;
+                *stats.offset(COLAMD_INFO1 as isize) = j;
+                *stats.offset(COLAMD_INFO2 as isize) = i;
+                let ref mut fresh0 = *stats.offset(COLAMD_INFO3 as isize);
+                *fresh0 += 1;
+            }
+            if i > j && *mark.offset(i as isize) != j {
+                let ref mut fresh1 = *count.offset(i as isize);
+                *fresh1 += 1;
+                let ref mut fresh2 = *count.offset(j as isize);
+                *fresh2 += 1;
+            }
+            *mark.offset(i as isize) = j;
+            last_row = i;
+            pp += 1;
+        }
+        j += 1;
+    }
+    *perm.offset(0 as core::ffi::c_int as isize) = 0 as core::ffi::c_int as int32_t;
+    j = 1 as core::ffi::c_int as int32_t;
+    while j <= n {
+        *perm.offset(j as isize) =
+            *perm.offset((j - 1 as int32_t) as isize) + *count.offset((j - 1 as int32_t) as isize);
+        j += 1;
+    }
+    j = 0 as core::ffi::c_int as int32_t;
+    while j < n {
+        *count.offset(j as isize) = *perm.offset(j as isize);
+        j += 1;
+    }
+    mnz = *perm.offset(n as isize);
+    n_row = mnz / 2 as int32_t;
+    Mlen = colamd_recommended(mnz, n_row, n);
+    M = (Some(allocate.expect("non-null function pointer"))).expect("non-null function pointer")(
+        Mlen,
+        ::core::mem::size_of::<int32_t>() as size_t,
+    ) as *mut int32_t;
+    if M.is_null() {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_out_of_memory as int32_t;
+        (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
+            count as *mut core::ffi::c_void,
+        );
+        (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
+            mark as *mut core::ffi::c_void,
+        );
+        return 0 as core::ffi::c_int;
+    }
+    k = 0 as core::ffi::c_int as int32_t;
+    if *stats.offset(COLAMD_STATUS as isize) == COLAMD_OK as int32_t {
+        j = 0 as core::ffi::c_int as int32_t;
+        while j < n {
+            pp = *p.offset(j as isize);
+            while pp < *p.offset((j + 1 as int32_t) as isize) {
+                i = *A.offset(pp as isize);
+                if i > j {
+                    let ref mut fresh3 = *count.offset(i as isize);
+                    let fresh4 = *fresh3;
+                    *fresh3 = *fresh3 + 1;
+                    *M.offset(fresh4 as isize) = k;
+                    let ref mut fresh5 = *count.offset(j as isize);
+                    let fresh6 = *fresh5;
+                    *fresh5 = *fresh5 + 1;
+                    *M.offset(fresh6 as isize) = k;
+                    k += 1;
+                }
+                pp += 1;
+            }
+            j += 1;
+        }
+    } else {
+        i = 0 as core::ffi::c_int as int32_t;
+        while i < n {
+            *mark.offset(i as isize) = -(1 as core::ffi::c_int) as int32_t;
+            i += 1;
+        }
+        j = 0 as core::ffi::c_int as int32_t;
+        while j < n {
+            pp = *p.offset(j as isize);
+            while pp < *p.offset((j + 1 as int32_t) as isize) {
+                i = *A.offset(pp as isize);
+                if i > j && *mark.offset(i as isize) != j {
+                    let ref mut fresh7 = *count.offset(i as isize);
+                    let fresh8 = *fresh7;
+                    *fresh7 = *fresh7 + 1;
+                    *M.offset(fresh8 as isize) = k;
+                    let ref mut fresh9 = *count.offset(j as isize);
+                    let fresh10 = *fresh9;
+                    *fresh9 = *fresh9 + 1;
+                    *M.offset(fresh10 as isize) = k;
+                    k += 1;
+                    *mark.offset(i as isize) = j;
+                }
+                pp += 1;
+            }
+            j += 1;
+        }
+    }
+    (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
+        count as *mut core::ffi::c_void,
+    );
+    (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
+        mark as *mut core::ffi::c_void,
+    );
+    i = 0 as core::ffi::c_int as int32_t;
+    while i < COLAMD_KNOBS as int32_t {
+        cknobs[i as usize] = *knobs.offset(i as isize);
+        i += 1;
+    }
+    cknobs[COLAMD_DENSE_ROW as usize] = -(1 as core::ffi::c_int) as core::ffi::c_double;
+    cknobs[COLAMD_DENSE_COL as usize] = *knobs.offset(COLAMD_DENSE_ROW as isize);
+    colamd(
+        n_row,
+        n,
+        Mlen as int32_t,
+        M as *mut int32_t,
+        perm,
+        cknobs.as_mut_ptr(),
+        stats,
+    );
+    *stats.offset(COLAMD_DENSE_ROW as isize) = *stats.offset(COLAMD_DENSE_COL as isize);
+    (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
+        M as *mut core::ffi::c_void,
+    );
+    return 1 as core::ffi::c_int;
+}
+
+pub unsafe extern "C" fn colamd(
+    mut n_row: int32_t,
+    mut n_col: int32_t,
+    mut Alen: int32_t,
+    mut A: *mut int32_t,
+    mut p: *mut int32_t,
+    mut knobs: *mut core::ffi::c_double,
+    mut stats: *mut int32_t,
+) -> core::ffi::c_int {
+    let mut i: int32_t = 0;
+    let mut nnz: int32_t = 0;
+    let mut Row_size: size_t = 0;
+    let mut Col_size: size_t = 0;
+    let mut need: size_t = 0;
+    let mut Row: *mut Colamd_Row = 0 as *mut Colamd_Row;
+    let mut Col: *mut Colamd_Col = 0 as *mut Colamd_Col;
+    let mut n_col2: int32_t = 0;
+    let mut n_row2: int32_t = 0;
+    let mut ngarbage: int32_t = 0;
+    let mut max_deg: int32_t = 0;
+    let mut default_knobs: [core::ffi::c_double; 20] = [0.; 20];
+    let mut aggressive: int32_t = 0;
+    let mut ok: core::ffi::c_int = 0;
+    if stats.is_null() {
+        return 0 as core::ffi::c_int;
+    }
+    i = 0 as core::ffi::c_int as int32_t;
+    while i < COLAMD_STATS as int32_t {
+        *stats.offset(i as isize) = 0 as core::ffi::c_int as int32_t;
+        i += 1;
+    }
+    *stats.offset(COLAMD_STATUS as isize) = COLAMD_OK as int32_t;
+    *stats.offset(COLAMD_INFO1 as isize) = -(1 as core::ffi::c_int) as int32_t;
+    *stats.offset(COLAMD_INFO2 as isize) = -(1 as core::ffi::c_int) as int32_t;
+    if A.is_null() {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_A_not_present as int32_t;
+        return 0 as core::ffi::c_int;
+    }
+    if p.is_null() {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_p_not_present as int32_t;
+        return 0 as core::ffi::c_int;
+    }
+    if n_row < 0 as int32_t {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_nrow_negative as int32_t;
+        *stats.offset(COLAMD_INFO1 as isize) = n_row;
+        return 0 as core::ffi::c_int;
+    }
+    if n_col < 0 as int32_t {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_ncol_negative as int32_t;
+        *stats.offset(COLAMD_INFO1 as isize) = n_col;
+        return 0 as core::ffi::c_int;
+    }
+    nnz = *p.offset(n_col as isize);
+    if nnz < 0 as int32_t {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_nnz_negative as int32_t;
+        *stats.offset(COLAMD_INFO1 as isize) = nnz;
+        return 0 as core::ffi::c_int;
+    }
+    if *p.offset(0 as core::ffi::c_int as isize) != 0 as int32_t {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_p0_nonzero as int32_t;
+        *stats.offset(COLAMD_INFO1 as isize) = *p.offset(0 as core::ffi::c_int as isize);
+        return 0 as core::ffi::c_int;
+    }
+    if knobs.is_null() {
+        colamd_set_defaults(default_knobs.as_mut_ptr());
+        knobs = default_knobs.as_mut_ptr() as *mut core::ffi::c_double;
+    }
+    aggressive = (*knobs.offset(COLAMD_AGGRESSIVE as isize) != FALSE as core::ffi::c_double)
+        as core::ffi::c_int as int32_t;
+    ok = TRUE;
+    Col_size = (t_mult(
+        t_add(n_col as size_t, 1 as size_t, &mut ok),
+        ::core::mem::size_of::<Colamd_Col>() as size_t,
+        &mut ok,
+    ))
+    .wrapping_div(::core::mem::size_of::<int32_t>() as size_t);
+    Row_size = (t_mult(
+        t_add(n_row as size_t, 1 as size_t, &mut ok),
+        ::core::mem::size_of::<Colamd_Row>() as size_t,
+        &mut ok,
+    ))
+    .wrapping_div(::core::mem::size_of::<int32_t>() as size_t);
+    need = t_mult(nnz as size_t, 2 as size_t, &mut ok);
+    need = t_add(need, n_col as size_t, &mut ok);
+    need = t_add(need, Col_size, &mut ok);
+    need = t_add(need, Row_size, &mut ok);
+    if ok == 0 || need > Alen as size_t {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_A_too_small as int32_t;
+        *stats.offset(COLAMD_INFO1 as isize) = need as int32_t;
+        *stats.offset(COLAMD_INFO2 as isize) = Alen;
+        return 0 as core::ffi::c_int;
+    }
+    Alen = (Alen as size_t).wrapping_sub(Col_size.wrapping_add(Row_size)) as int32_t as int32_t;
+    Col = &mut *A.offset(Alen as isize) as *mut int32_t as *mut Colamd_Col;
+    Row = &mut *A.offset((Alen as size_t).wrapping_add(Col_size) as isize) as *mut int32_t
+        as *mut Colamd_Row;
+    if init_rows_cols(
+        n_row,
+        n_col,
+        Row as *mut Colamd_Row,
+        Col as *mut Colamd_Col,
+        A,
+        p,
+        stats,
+    ) == 0
+    {
+        return 0 as core::ffi::c_int;
+    }
+    init_scoring(
+        n_row,
+        n_col,
+        Row as *mut Colamd_Row,
+        Col as *mut Colamd_Col,
+        A,
+        p,
+        knobs,
+        &mut n_row2,
+        &mut n_col2,
+        &mut max_deg,
+    );
+    ngarbage = find_ordering(
+        n_row,
+        n_col,
+        Alen,
+        Row as *mut Colamd_Row,
+        Col as *mut Colamd_Col,
+        A,
+        p,
+        n_col2,
+        max_deg,
+        2 as int32_t * nnz,
+        aggressive,
+    );
+    order_children(n_col, Col as *mut Colamd_Col, p);
+    *stats.offset(COLAMD_DENSE_ROW as isize) = n_row - n_row2;
+    *stats.offset(COLAMD_DENSE_COL as isize) = n_col - n_col2;
+    *stats.offset(COLAMD_DEFRAG_COUNT as isize) = ngarbage;
+    return 1 as core::ffi::c_int;
+}
+
+pub unsafe extern "C" fn colamd_report(mut stats: *mut int32_t) {
+    print_report(
+        b"colamd\0" as *const u8 as *const core::ffi::c_char as *mut core::ffi::c_char,
+        stats,
+    );
+}
+
+pub unsafe extern "C" fn symamd_report(mut stats: *mut int32_t) {
+    print_report(
+        b"symamd\0" as *const u8 as *const core::ffi::c_char as *mut core::ffi::c_char,
+        stats,
+    );
+}
+unsafe extern "C" fn init_rows_cols(
+    mut n_row: int32_t,
+    mut n_col: int32_t,
+    mut Row: *mut Colamd_Row,
+    mut Col: *mut Colamd_Col,
+    mut A: *mut int32_t,
+    mut p: *mut int32_t,
+    mut stats: *mut int32_t,
+) -> int32_t {
+    let mut col: int32_t = 0;
+    let mut row: int32_t = 0;
+    let mut cp: *mut int32_t = 0 as *mut int32_t;
+    let mut cp_end: *mut int32_t = 0 as *mut int32_t;
+    let mut rp: *mut int32_t = 0 as *mut int32_t;
+    let mut rp_end: *mut int32_t = 0 as *mut int32_t;
+    let mut last_row: int32_t = 0;
+    col = 0 as core::ffi::c_int as int32_t;
+    while col < n_col {
+        (*Col.offset(col as isize)).start = *p.offset(col as isize);
+        (*Col.offset(col as isize)).length =
+            *p.offset((col + 1 as int32_t) as isize) - *p.offset(col as isize);
+        if (*Col.offset(col as isize)).length < 0 as int32_t {
+            *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_col_length_negative as int32_t;
+            *stats.offset(COLAMD_INFO1 as isize) = col;
+            *stats.offset(COLAMD_INFO2 as isize) = (*Col.offset(col as isize)).length;
+            return 0 as int32_t;
+        }
+        (*Col.offset(col as isize)).shared1.thickness = 1 as core::ffi::c_int as int32_t;
+        (*Col.offset(col as isize)).shared2.score = 0 as core::ffi::c_int as int32_t;
+        (*Col.offset(col as isize)).shared3.prev = EMPTY as int32_t;
+        (*Col.offset(col as isize)).shared4.degree_next = EMPTY as int32_t;
+        col += 1;
+    }
+    *stats.offset(COLAMD_INFO3 as isize) = 0 as core::ffi::c_int as int32_t;
+    row = 0 as core::ffi::c_int as int32_t;
+    while row < n_row {
+        (*Row.offset(row as isize)).length = 0 as core::ffi::c_int as int32_t;
+        (*Row.offset(row as isize)).shared2.mark = -(1 as core::ffi::c_int) as int32_t;
+        row += 1;
+    }
+    col = 0 as core::ffi::c_int as int32_t;
+    while col < n_col {
+        last_row = -(1 as core::ffi::c_int) as int32_t;
+        cp = &mut *A.offset(*p.offset(col as isize) as isize) as *mut int32_t;
+        cp_end = &mut *A.offset(*p.offset((col + 1 as int32_t) as isize) as isize) as *mut int32_t;
+        while cp < cp_end {
+            let fresh11 = cp;
+            cp = cp.offset(1);
+            row = *fresh11;
+            if row < 0 as int32_t || row >= n_row {
+                *stats.offset(COLAMD_STATUS as isize) =
+                    COLAMD_ERROR_row_index_out_of_bounds as int32_t;
+                *stats.offset(COLAMD_INFO1 as isize) = col;
+                *stats.offset(COLAMD_INFO2 as isize) = row;
+                *stats.offset(COLAMD_INFO3 as isize) = n_row;
+                return 0 as int32_t;
+            }
+            if row <= last_row || (*Row.offset(row as isize)).shared2.mark == col {
+                *stats.offset(COLAMD_STATUS as isize) = COLAMD_OK_BUT_JUMBLED as int32_t;
+                *stats.offset(COLAMD_INFO1 as isize) = col;
+                *stats.offset(COLAMD_INFO2 as isize) = row;
+                let ref mut fresh12 = *stats.offset(COLAMD_INFO3 as isize);
+                *fresh12 += 1;
+            }
+            if (*Row.offset(row as isize)).shared2.mark != col {
+                let ref mut fresh13 = (*Row.offset(row as isize)).length;
+                *fresh13 += 1;
+            } else {
+                let ref mut fresh14 = (*Col.offset(col as isize)).length;
+                *fresh14 -= 1;
+            }
+            (*Row.offset(row as isize)).shared2.mark = col;
+            last_row = row;
+        }
+        col += 1;
+    }
+    (*Row.offset(0 as core::ffi::c_int as isize)).start = *p.offset(n_col as isize);
+    (*Row.offset(0 as core::ffi::c_int as isize)).shared1.p =
+        (*Row.offset(0 as core::ffi::c_int as isize)).start;
+    (*Row.offset(0 as core::ffi::c_int as isize)).shared2.mark =
+        -(1 as core::ffi::c_int) as int32_t;
+    row = 1 as core::ffi::c_int as int32_t;
+    while row < n_row {
+        (*Row.offset(row as isize)).start = (*Row.offset((row - 1 as int32_t) as isize)).start
+            + (*Row.offset((row - 1 as int32_t) as isize)).length;
+        (*Row.offset(row as isize)).shared1.p = (*Row.offset(row as isize)).start;
+        (*Row.offset(row as isize)).shared2.mark = -(1 as core::ffi::c_int) as int32_t;
+        row += 1;
+    }
+    if *stats.offset(COLAMD_STATUS as isize) == COLAMD_OK_BUT_JUMBLED as int32_t {
+        col = 0 as core::ffi::c_int as int32_t;
+        while col < n_col {
+            cp = &mut *A.offset(*p.offset(col as isize) as isize) as *mut int32_t;
+            cp_end =
+                &mut *A.offset(*p.offset((col + 1 as int32_t) as isize) as isize) as *mut int32_t;
+            while cp < cp_end {
+                let fresh15 = cp;
+                cp = cp.offset(1);
+                row = *fresh15;
+                if (*Row.offset(row as isize)).shared2.mark != col {
+                    let ref mut fresh16 = (*Row.offset(row as isize)).shared1.p;
+                    let fresh17 = *fresh16;
+                    *fresh16 = *fresh16 + 1;
+                    *A.offset(fresh17 as isize) = col;
+                    (*Row.offset(row as isize)).shared2.mark = col;
+                }
+            }
+            col += 1;
+        }
+    } else {
+        col = 0 as core::ffi::c_int as int32_t;
+        while col < n_col {
+            cp = &mut *A.offset(*p.offset(col as isize) as isize) as *mut int32_t;
+            cp_end =
+                &mut *A.offset(*p.offset((col + 1 as int32_t) as isize) as isize) as *mut int32_t;
+            while cp < cp_end {
+                let fresh18 = cp;
+                cp = cp.offset(1);
+                let ref mut fresh19 = (*Row.offset(*fresh18 as isize)).shared1.p;
+                let fresh20 = *fresh19;
+                *fresh19 = *fresh19 + 1;
+                *A.offset(fresh20 as isize) = col;
+            }
+            col += 1;
+        }
+    }
+    row = 0 as core::ffi::c_int as int32_t;
+    while row < n_row {
+        (*Row.offset(row as isize)).shared2.mark = 0 as core::ffi::c_int as int32_t;
+        (*Row.offset(row as isize)).shared1.degree = (*Row.offset(row as isize)).length;
+        row += 1;
+    }
+    if *stats.offset(COLAMD_STATUS as isize) == COLAMD_OK_BUT_JUMBLED as int32_t {
+        (*Col.offset(0 as core::ffi::c_int as isize)).start = 0 as core::ffi::c_int as int32_t;
+        *p.offset(0 as core::ffi::c_int as isize) =
+            (*Col.offset(0 as core::ffi::c_int as isize)).start;
+        col = 1 as core::ffi::c_int as int32_t;
+        while col < n_col {
+            (*Col.offset(col as isize)).start = (*Col.offset((col - 1 as int32_t) as isize)).start
+                + (*Col.offset((col - 1 as int32_t) as isize)).length;
+            *p.offset(col as isize) = (*Col.offset(col as isize)).start;
+            col += 1;
+        }
+        row = 0 as core::ffi::c_int as int32_t;
+        while row < n_row {
+            rp = &mut *A.offset((*Row.offset(row as isize)).start as isize) as *mut int32_t;
+            rp_end = rp.offset((*Row.offset(row as isize)).length as isize);
+            while rp < rp_end {
+                let fresh21 = rp;
+                rp = rp.offset(1);
+                let ref mut fresh22 = *p.offset(*fresh21 as isize);
+                let fresh23 = *fresh22;
+                *fresh22 = *fresh22 + 1;
+                *A.offset(fresh23 as isize) = row;
+            }
+            row += 1;
+        }
+    }
+    return 1 as int32_t;
+}
+unsafe extern "C" fn init_scoring(
+    mut n_row: int32_t,
+    mut n_col: int32_t,
+    mut Row: *mut Colamd_Row,
+    mut Col: *mut Colamd_Col,
+    mut A: *mut int32_t,
+    mut head: *mut int32_t,
+    mut knobs: *mut core::ffi::c_double,
+    mut p_n_row2: *mut int32_t,
+    mut p_n_col2: *mut int32_t,
+    mut p_max_deg: *mut int32_t,
+) {
+    let mut c: int32_t = 0;
+    let mut r: int32_t = 0;
+    let mut row: int32_t = 0;
+    let mut cp: *mut int32_t = 0 as *mut int32_t;
+    let mut deg: int32_t = 0;
+    let mut cp_end: *mut int32_t = 0 as *mut int32_t;
+    let mut new_cp: *mut int32_t = 0 as *mut int32_t;
+    let mut col_length: int32_t = 0;
+    let mut score: int32_t = 0;
+    let mut n_col2: int32_t = 0;
+    let mut n_row2: int32_t = 0;
+    let mut dense_row_count: int32_t = 0;
+    let mut dense_col_count: int32_t = 0;
+    let mut min_score: int32_t = 0;
+    let mut max_deg: int32_t = 0;
+    let mut next_col: int32_t = 0;
+    if *knobs.offset(COLAMD_DENSE_ROW as isize) < 0 as core::ffi::c_int as core::ffi::c_double {
+        dense_row_count = n_col - 1 as int32_t;
+    } else {
+        dense_row_count = (if 16.0f64
+            > *knobs.offset(0 as core::ffi::c_int as isize) * sqrt(n_col as core::ffi::c_double)
+        {
+            16.0f64
+        } else {
+            *knobs.offset(0 as core::ffi::c_int as isize) * sqrt(n_col as core::ffi::c_double)
+        }) as int32_t;
+    }
+    if *knobs.offset(COLAMD_DENSE_COL as isize) < 0 as core::ffi::c_int as core::ffi::c_double {
+        dense_col_count = n_row - 1 as int32_t;
+    } else {
+        dense_col_count = (if 16.0f64
+            > *knobs.offset(1 as core::ffi::c_int as isize)
+                * sqrt((if n_row < n_col { n_row } else { n_col }) as core::ffi::c_double)
+        {
+            16.0f64
+        } else {
+            *knobs.offset(1 as core::ffi::c_int as isize)
+                * sqrt((if n_row < n_col { n_row } else { n_col }) as core::ffi::c_double)
+        }) as int32_t;
+    }
+    max_deg = 0 as core::ffi::c_int as int32_t;
+    n_col2 = n_col;
+    n_row2 = n_row;
+    c = n_col - 1 as int32_t;
+    while c >= 0 as int32_t {
+        deg = (*Col.offset(c as isize)).length;
+        if deg == 0 as int32_t {
+            n_col2 -= 1;
+            (*Col.offset(c as isize)).shared2.order = n_col2;
+            (*Col.offset(c as isize)).start = DEAD_PRINCIPAL as int32_t;
+        }
+        c -= 1;
+    }
+    c = n_col - 1 as int32_t;
+    while c >= 0 as int32_t {
+        if !((*Col.offset(c as isize)).start < ALIVE as int32_t) {
+            deg = (*Col.offset(c as isize)).length;
+            if deg > dense_col_count {
+                n_col2 -= 1;
+                (*Col.offset(c as isize)).shared2.order = n_col2;
+                cp = &mut *A.offset((*Col.offset(c as isize)).start as isize) as *mut int32_t;
+                cp_end = cp.offset((*Col.offset(c as isize)).length as isize);
+                while cp < cp_end {
+                    let fresh24 = cp;
+                    cp = cp.offset(1);
+                    let ref mut fresh25 = (*Row.offset(*fresh24 as isize)).shared1.degree;
+                    *fresh25 -= 1;
+                }
+                (*Col.offset(c as isize)).start = DEAD_PRINCIPAL as int32_t;
+            }
+        }
+        c -= 1;
+    }
+    r = 0 as core::ffi::c_int as int32_t;
+    while r < n_row {
+        deg = (*Row.offset(r as isize)).shared1.degree;
+        if deg > dense_row_count || deg == 0 as int32_t {
+            (*Row.offset(r as isize)).shared2.mark = DEAD as int32_t;
+            n_row2 -= 1;
+        } else {
+            max_deg = if max_deg > deg { max_deg } else { deg };
+        }
+        r += 1;
+    }
+    c = n_col - 1 as int32_t;
+    while c >= 0 as int32_t {
+        if !((*Col.offset(c as isize)).start < ALIVE as int32_t) {
+            score = 0 as core::ffi::c_int as int32_t;
+            cp = &mut *A.offset((*Col.offset(c as isize)).start as isize) as *mut int32_t;
+            new_cp = cp;
+            cp_end = cp.offset((*Col.offset(c as isize)).length as isize);
+            while cp < cp_end {
+                let fresh26 = cp;
+                cp = cp.offset(1);
+                row = *fresh26;
+                if (*Row.offset(row as isize)).shared2.mark < ALIVE as int32_t {
+                    continue;
+                }
+                let fresh27 = new_cp;
+                new_cp = new_cp.offset(1);
+                *fresh27 = row;
+                score = (score as core::ffi::c_int
+                    + ((*Row.offset(row as isize)).shared1.degree - 1 as int32_t)
+                        as core::ffi::c_int) as int32_t;
+                score = if score < n_col { score } else { n_col };
+            }
+            col_length = new_cp.offset_from(
+                &mut *A.offset((*Col.offset(c as isize)).start as isize) as *mut int32_t,
+            ) as core::ffi::c_long as int32_t;
+            if col_length == 0 as int32_t {
+                n_col2 -= 1;
+                (*Col.offset(c as isize)).shared2.order = n_col2;
+                (*Col.offset(c as isize)).start = DEAD_PRINCIPAL as int32_t;
+            } else {
+                (*Col.offset(c as isize)).length = col_length;
+                (*Col.offset(c as isize)).shared2.score = score;
+            }
+        }
+        c -= 1;
+    }
+    c = 0 as core::ffi::c_int as int32_t;
+    while c <= n_col {
+        *head.offset(c as isize) = EMPTY as int32_t;
+        c += 1;
+    }
+    min_score = n_col;
+    c = n_col - 1 as int32_t;
+    while c >= 0 as int32_t {
+        if (*Col.offset(c as isize)).start >= ALIVE as int32_t {
+            score = (*Col.offset(c as isize)).shared2.score;
+            next_col = *head.offset(score as isize);
+            (*Col.offset(c as isize)).shared3.prev = EMPTY as int32_t;
+            (*Col.offset(c as isize)).shared4.degree_next = next_col;
+            if next_col != EMPTY as int32_t {
+                (*Col.offset(next_col as isize)).shared3.prev = c;
+            }
+            *head.offset(score as isize) = c;
+            min_score = if min_score < score { min_score } else { score };
+        }
+        c -= 1;
+    }
+    *p_n_col2 = n_col2;
+    *p_n_row2 = n_row2;
+    *p_max_deg = max_deg;
+}
+unsafe extern "C" fn find_ordering(
+    mut n_row: int32_t,
+    mut n_col: int32_t,
+    mut Alen: int32_t,
+    mut Row: *mut Colamd_Row,
+    mut Col: *mut Colamd_Col,
+    mut A: *mut int32_t,
+    mut head: *mut int32_t,
+    mut n_col2: int32_t,
+    mut max_deg: int32_t,
+    mut pfree: int32_t,
+    mut aggressive: int32_t,
+) -> int32_t {
+    let mut k: int32_t = 0;
+    let mut pivot_col: int32_t = 0;
+    let mut cp: *mut int32_t = 0 as *mut int32_t;
+    let mut rp: *mut int32_t = 0 as *mut int32_t;
+    let mut pivot_row: int32_t = 0;
+    let mut new_cp: *mut int32_t = 0 as *mut int32_t;
+    let mut new_rp: *mut int32_t = 0 as *mut int32_t;
+    let mut pivot_row_start: int32_t = 0;
+    let mut pivot_row_degree: int32_t = 0;
+    let mut pivot_row_length: int32_t = 0;
+    let mut pivot_col_score: int32_t = 0;
+    let mut needed_memory: int32_t = 0;
+    let mut cp_end: *mut int32_t = 0 as *mut int32_t;
+    let mut rp_end: *mut int32_t = 0 as *mut int32_t;
+    let mut row: int32_t = 0;
+    let mut col: int32_t = 0;
+    let mut max_score: int32_t = 0;
+    let mut cur_score: int32_t = 0;
+    let mut hash: uint32_t = 0;
+    let mut head_column: int32_t = 0;
+    let mut first_col: int32_t = 0;
+    let mut tag_mark: int32_t = 0;
+    let mut row_mark: int32_t = 0;
+    let mut set_difference: int32_t = 0;
+    let mut min_score: int32_t = 0;
+    let mut col_thickness: int32_t = 0;
+    let mut max_mark: int32_t = 0;
+    let mut pivot_col_thickness: int32_t = 0;
+    let mut prev_col: int32_t = 0;
+    let mut next_col: int32_t = 0;
+    let mut ngarbage: int32_t = 0;
+    max_mark = INT_MAX as int32_t - n_col;
+    tag_mark = clear_mark(0 as int32_t, max_mark, n_row, Row);
+    min_score = 0 as core::ffi::c_int as int32_t;
+    ngarbage = 0 as core::ffi::c_int as int32_t;
+    k = 0 as core::ffi::c_int as int32_t;
+    while k < n_col2 {
+        while *head.offset(min_score as isize) == EMPTY as int32_t && min_score < n_col {
+            min_score += 1;
+        }
+        pivot_col = *head.offset(min_score as isize);
+        next_col = (*Col.offset(pivot_col as isize)).shared4.degree_next;
+        *head.offset(min_score as isize) = next_col;
+        if next_col != EMPTY as int32_t {
+            (*Col.offset(next_col as isize)).shared3.prev = EMPTY as int32_t;
+        }
+        pivot_col_score = (*Col.offset(pivot_col as isize)).shared2.score;
+        (*Col.offset(pivot_col as isize)).shared2.order = k;
+        pivot_col_thickness = (*Col.offset(pivot_col as isize)).shared1.thickness;
+        k += pivot_col_thickness;
+        needed_memory = if pivot_col_score < n_col - k {
+            pivot_col_score
+        } else {
+            n_col - k
+        };
+        if pfree + needed_memory >= Alen {
+            pfree = garbage_collection(n_row, n_col, Row, Col, A, &mut *A.offset(pfree as isize));
+            ngarbage += 1;
+            tag_mark = clear_mark(0 as int32_t, max_mark, n_row, Row);
+        }
+        pivot_row_start = pfree;
+        pivot_row_degree = 0 as core::ffi::c_int as int32_t;
+        (*Col.offset(pivot_col as isize)).shared1.thickness = -pivot_col_thickness;
+        cp = &mut *A.offset((*Col.offset(pivot_col as isize)).start as isize) as *mut int32_t;
+        cp_end = cp.offset((*Col.offset(pivot_col as isize)).length as isize);
+        while cp < cp_end {
+            let fresh28 = cp;
+            cp = cp.offset(1);
+            row = *fresh28;
+            if (*Row.offset(row as isize)).shared2.mark >= ALIVE as int32_t {
+                rp = &mut *A.offset((*Row.offset(row as isize)).start as isize) as *mut int32_t;
+                rp_end = rp.offset((*Row.offset(row as isize)).length as isize);
+                while rp < rp_end {
+                    let fresh29 = rp;
+                    rp = rp.offset(1);
+                    col = *fresh29;
+                    col_thickness = (*Col.offset(col as isize)).shared1.thickness;
+                    if col_thickness > 0 as int32_t
+                        && (*Col.offset(col as isize)).start >= ALIVE as int32_t
+                    {
+                        (*Col.offset(col as isize)).shared1.thickness = -col_thickness;
+                        let fresh30 = pfree;
+                        pfree = pfree + 1;
+                        *A.offset(fresh30 as isize) = col;
+                        pivot_row_degree += col_thickness;
+                    }
+                }
+            }
+        }
+        (*Col.offset(pivot_col as isize)).shared1.thickness = pivot_col_thickness;
+        max_deg = if max_deg > pivot_row_degree {
+            max_deg
+        } else {
+            pivot_row_degree
+        };
+        cp = &mut *A.offset((*Col.offset(pivot_col as isize)).start as isize) as *mut int32_t;
+        cp_end = cp.offset((*Col.offset(pivot_col as isize)).length as isize);
+        while cp < cp_end {
+            let fresh31 = cp;
+            cp = cp.offset(1);
+            row = *fresh31;
+            (*Row.offset(row as isize)).shared2.mark = DEAD as int32_t;
+        }
+        pivot_row_length = pfree - pivot_row_start;
+        if pivot_row_length > 0 as int32_t {
+            pivot_row = *A.offset((*Col.offset(pivot_col as isize)).start as isize);
+        } else {
+            pivot_row = EMPTY as int32_t;
+        }
+        rp = &mut *A.offset(pivot_row_start as isize) as *mut int32_t;
+        rp_end = rp.offset(pivot_row_length as isize);
+        while rp < rp_end {
+            let fresh32 = rp;
+            rp = rp.offset(1);
+            col = *fresh32;
+            col_thickness = -(*Col.offset(col as isize)).shared1.thickness;
+            (*Col.offset(col as isize)).shared1.thickness = col_thickness;
+            cur_score = (*Col.offset(col as isize)).shared2.score;
+            prev_col = (*Col.offset(col as isize)).shared3.prev;
+            next_col = (*Col.offset(col as isize)).shared4.degree_next;
+            if prev_col == EMPTY as int32_t {
+                *head.offset(cur_score as isize) = next_col;
+            } else {
+                (*Col.offset(prev_col as isize)).shared4.degree_next = next_col;
+            }
+            if next_col != EMPTY as int32_t {
+                (*Col.offset(next_col as isize)).shared3.prev = prev_col;
+            }
+            cp = &mut *A.offset((*Col.offset(col as isize)).start as isize) as *mut int32_t;
+            cp_end = cp.offset((*Col.offset(col as isize)).length as isize);
+            while cp < cp_end {
+                let fresh33 = cp;
+                cp = cp.offset(1);
+                row = *fresh33;
+                row_mark = (*Row.offset(row as isize)).shared2.mark;
+                if row_mark < ALIVE as int32_t {
+                    continue;
+                }
+                set_difference = row_mark - tag_mark;
+                if set_difference < 0 as int32_t {
+                    set_difference = (*Row.offset(row as isize)).shared1.degree;
+                }
+                set_difference -= col_thickness;
+                if set_difference == 0 as int32_t && aggressive != 0 {
+                    (*Row.offset(row as isize)).shared2.mark = DEAD as int32_t;
+                } else {
+                    (*Row.offset(row as isize)).shared2.mark = set_difference + tag_mark;
+                }
+            }
+        }
+        rp = &mut *A.offset(pivot_row_start as isize) as *mut int32_t;
+        rp_end = rp.offset(pivot_row_length as isize);
+        while rp < rp_end {
+            let fresh34 = rp;
+            rp = rp.offset(1);
+            col = *fresh34;
+            hash = 0 as uint32_t;
+            cur_score = 0 as core::ffi::c_int as int32_t;
+            cp = &mut *A.offset((*Col.offset(col as isize)).start as isize) as *mut int32_t;
+            new_cp = cp;
+            cp_end = cp.offset((*Col.offset(col as isize)).length as isize);
+            while cp < cp_end {
+                let fresh35 = cp;
+                cp = cp.offset(1);
+                row = *fresh35;
+                row_mark = (*Row.offset(row as isize)).shared2.mark;
+                if row_mark < ALIVE as int32_t {
+                    continue;
+                }
+                let fresh36 = new_cp;
+                new_cp = new_cp.offset(1);
+                *fresh36 = row;
+                hash = hash.wrapping_add(row as uint32_t);
+                cur_score += row_mark - tag_mark;
+                cur_score = if cur_score < n_col { cur_score } else { n_col };
+            }
+            (*Col.offset(col as isize)).length = new_cp.offset_from(
+                &mut *A.offset((*Col.offset(col as isize)).start as isize) as *mut int32_t,
+            ) as core::ffi::c_long as int32_t;
+            if (*Col.offset(col as isize)).length == 0 as int32_t {
+                (*Col.offset(col as isize)).start = DEAD_PRINCIPAL as int32_t;
+                pivot_row_degree -= (*Col.offset(col as isize)).shared1.thickness;
+                (*Col.offset(col as isize)).shared2.order = k;
+                k += (*Col.offset(col as isize)).shared1.thickness;
+            } else {
+                (*Col.offset(col as isize)).shared2.score = cur_score;
+                hash = hash.wrapping_rem((n_col + 1 as int32_t) as uint32_t);
+                head_column = *head.offset(hash as isize);
+                if head_column > EMPTY as int32_t {
+                    first_col = (*Col.offset(head_column as isize)).shared3.headhash;
+                    (*Col.offset(head_column as isize)).shared3.headhash = col;
+                } else {
+                    first_col = -(head_column + 2 as int32_t);
+                    *head.offset(hash as isize) = -(col + 2 as int32_t);
+                }
+                (*Col.offset(col as isize)).shared4.hash_next = first_col;
+                (*Col.offset(col as isize)).shared3.hash = hash as int32_t;
+            }
+        }
+        detect_super_cols(Col, A, head, pivot_row_start, pivot_row_length);
+        (*Col.offset(pivot_col as isize)).start = DEAD_PRINCIPAL as int32_t;
+        tag_mark = clear_mark(tag_mark + max_deg + 1 as int32_t, max_mark, n_row, Row);
+        rp = &mut *A.offset(pivot_row_start as isize) as *mut int32_t;
+        new_rp = rp;
+        rp_end = rp.offset(pivot_row_length as isize);
+        while rp < rp_end {
+            let fresh37 = rp;
+            rp = rp.offset(1);
+            col = *fresh37;
+            if (*Col.offset(col as isize)).start < ALIVE as int32_t {
+                continue;
+            }
+            let fresh38 = new_rp;
+            new_rp = new_rp.offset(1);
+            *fresh38 = col;
+            let ref mut fresh39 = (*Col.offset(col as isize)).length;
+            let fresh40 = *fresh39;
+            *fresh39 = *fresh39 + 1;
+            *A.offset(((*Col.offset(col as isize)).start + fresh40) as isize) = pivot_row;
+            cur_score = (*Col.offset(col as isize)).shared2.score + pivot_row_degree;
+            max_score = n_col - k - (*Col.offset(col as isize)).shared1.thickness;
+            cur_score -= (*Col.offset(col as isize)).shared1.thickness;
+            cur_score = if cur_score < max_score {
+                cur_score
+            } else {
+                max_score
+            };
+            (*Col.offset(col as isize)).shared2.score = cur_score;
+            next_col = *head.offset(cur_score as isize);
+            (*Col.offset(col as isize)).shared4.degree_next = next_col;
+            (*Col.offset(col as isize)).shared3.prev = EMPTY as int32_t;
+            if next_col != EMPTY as int32_t {
+                (*Col.offset(next_col as isize)).shared3.prev = col;
+            }
+            *head.offset(cur_score as isize) = col;
+            min_score = if min_score < cur_score {
+                min_score
+            } else {
+                cur_score
+            };
+        }
+        if pivot_row_degree > 0 as int32_t {
+            (*Row.offset(pivot_row as isize)).start = pivot_row_start;
+            (*Row.offset(pivot_row as isize)).length =
+                new_rp.offset_from(&mut *A.offset(pivot_row_start as isize) as *mut int32_t)
+                    as core::ffi::c_long as int32_t;
+            (*Row.offset(pivot_row as isize)).shared1.degree = pivot_row_degree;
+            (*Row.offset(pivot_row as isize)).shared2.mark = 0 as core::ffi::c_int as int32_t;
+        }
+    }
+    return ngarbage;
+}
+unsafe extern "C" fn order_children(
+    mut n_col: int32_t,
+    mut Col: *mut Colamd_Col,
+    mut p: *mut int32_t,
+) {
+    let mut i: int32_t = 0;
+    let mut c: int32_t = 0;
+    let mut parent: int32_t = 0;
+    let mut order: int32_t = 0;
+    i = 0 as core::ffi::c_int as int32_t;
+    while i < n_col {
+        if !((*Col.offset(i as isize)).start == DEAD_PRINCIPAL as int32_t)
+            && (*Col.offset(i as isize)).shared2.order == EMPTY as int32_t
+        {
+            parent = i;
+            loop {
+                parent = (*Col.offset(parent as isize)).shared1.parent;
+                if (*Col.offset(parent as isize)).start == DEAD_PRINCIPAL as int32_t {
+                    break;
+                }
+            }
+            c = i;
+            order = (*Col.offset(parent as isize)).shared2.order;
+            loop {
+                let fresh41 = order;
+                order = order + 1;
+                (*Col.offset(c as isize)).shared2.order = fresh41;
+                (*Col.offset(c as isize)).shared1.parent = parent;
+                c = (*Col.offset(c as isize)).shared1.parent;
+                if !((*Col.offset(c as isize)).shared2.order == EMPTY as int32_t) {
+                    break;
+                }
+            }
+            (*Col.offset(parent as isize)).shared2.order = order;
+        }
+        i += 1;
+    }
+    c = 0 as core::ffi::c_int as int32_t;
+    while c < n_col {
+        *p.offset((*Col.offset(c as isize)).shared2.order as isize) = c;
+        c += 1;
+    }
+}
+unsafe extern "C" fn detect_super_cols(
+    mut Col: *mut Colamd_Col,
+    mut A: *mut int32_t,
+    mut head: *mut int32_t,
+    mut row_start: int32_t,
+    mut row_length: int32_t,
+) {
+    let mut hash: int32_t = 0;
+    let mut rp: *mut int32_t = 0 as *mut int32_t;
+    let mut c: int32_t = 0;
+    let mut super_c: int32_t = 0;
+    let mut cp1: *mut int32_t = 0 as *mut int32_t;
+    let mut cp2: *mut int32_t = 0 as *mut int32_t;
+    let mut length: int32_t = 0;
+    let mut prev_c: int32_t = 0;
+    let mut i: int32_t = 0;
+    let mut rp_end: *mut int32_t = 0 as *mut int32_t;
+    let mut col: int32_t = 0;
+    let mut head_column: int32_t = 0;
+    let mut first_col: int32_t = 0;
+    rp = &mut *A.offset(row_start as isize) as *mut int32_t;
+    rp_end = rp.offset(row_length as isize);
+    while rp < rp_end {
+        let fresh42 = rp;
+        rp = rp.offset(1);
+        col = *fresh42;
+        if (*Col.offset(col as isize)).start < ALIVE as int32_t {
+            continue;
+        }
+        hash = (*Col.offset(col as isize)).shared3.hash;
+        head_column = *head.offset(hash as isize);
+        if head_column > EMPTY as int32_t {
+            first_col = (*Col.offset(head_column as isize)).shared3.headhash;
+        } else {
+            first_col = -(head_column + 2 as int32_t);
+        }
+        super_c = first_col;
+        while super_c != EMPTY as int32_t {
+            length = (*Col.offset(super_c as isize)).length;
+            prev_c = super_c;
+            c = (*Col.offset(super_c as isize)).shared4.hash_next;
+            while c != EMPTY as int32_t {
+                if (*Col.offset(c as isize)).length != length
+                    || (*Col.offset(c as isize)).shared2.score
+                        != (*Col.offset(super_c as isize)).shared2.score
+                {
+                    prev_c = c;
+                } else {
+                    cp1 = &mut *A.offset((*Col.offset(super_c as isize)).start as isize)
+                        as *mut int32_t;
+                    cp2 = &mut *A.offset((*Col.offset(c as isize)).start as isize) as *mut int32_t;
+                    i = 0 as core::ffi::c_int as int32_t;
+                    while i < length {
+                        let fresh43 = cp1;
+                        cp1 = cp1.offset(1);
+                        let fresh44 = cp2;
+                        cp2 = cp2.offset(1);
+                        if *fresh43 != *fresh44 {
+                            break;
+                        }
+                        i += 1;
+                    }
+                    if i != length {
+                        prev_c = c;
+                    } else {
+                        (*Col.offset(super_c as isize)).shared1.thickness +=
+                            (*Col.offset(c as isize)).shared1.thickness;
+                        (*Col.offset(c as isize)).shared1.parent = super_c;
+                        (*Col.offset(c as isize)).start = DEAD_NON_PRINCIPAL as int32_t;
+                        (*Col.offset(c as isize)).shared2.order = EMPTY as int32_t;
+                        (*Col.offset(prev_c as isize)).shared4.hash_next =
+                            (*Col.offset(c as isize)).shared4.hash_next;
+                    }
+                }
+                c = (*Col.offset(c as isize)).shared4.hash_next;
+            }
+            super_c = (*Col.offset(super_c as isize)).shared4.hash_next;
+        }
+        if head_column > EMPTY as int32_t {
+            (*Col.offset(head_column as isize)).shared3.headhash = EMPTY as int32_t;
+        } else {
+            *head.offset(hash as isize) = EMPTY as int32_t;
+        }
+    }
+}
+unsafe extern "C" fn garbage_collection(
+    mut n_row: int32_t,
+    mut n_col: int32_t,
+    mut Row: *mut Colamd_Row,
+    mut Col: *mut Colamd_Col,
+    mut A: *mut int32_t,
+    mut pfree: *mut int32_t,
+) -> int32_t {
+    let mut psrc: *mut int32_t = 0 as *mut int32_t;
+    let mut pdest: *mut int32_t = 0 as *mut int32_t;
+    let mut j: int32_t = 0;
+    let mut r: int32_t = 0;
+    let mut c: int32_t = 0;
+    let mut length: int32_t = 0;
+    pdest = &mut *A.offset(0 as core::ffi::c_int as isize) as *mut int32_t;
+    c = 0 as core::ffi::c_int as int32_t;
+    while c < n_col {
+        if (*Col.offset(c as isize)).start >= ALIVE as int32_t {
+            psrc = &mut *A.offset((*Col.offset(c as isize)).start as isize) as *mut int32_t;
+            (*Col.offset(c as isize)).start = pdest
+                .offset_from(&mut *A.offset(0 as core::ffi::c_int as isize) as *mut int32_t)
+                as core::ffi::c_long as int32_t;
+            length = (*Col.offset(c as isize)).length;
+            j = 0 as core::ffi::c_int as int32_t;
+            while j < length {
+                let fresh45 = psrc;
+                psrc = psrc.offset(1);
+                r = *fresh45;
+                if (*Row.offset(r as isize)).shared2.mark >= ALIVE as int32_t {
+                    let fresh46 = pdest;
+                    pdest = pdest.offset(1);
+                    *fresh46 = r;
+                }
+                j += 1;
+            }
+            (*Col.offset(c as isize)).length = pdest.offset_from(
+                &mut *A.offset((*Col.offset(c as isize)).start as isize) as *mut int32_t,
+            ) as core::ffi::c_long as int32_t;
+        }
+        c += 1;
+    }
+    r = 0 as core::ffi::c_int as int32_t;
+    while r < n_row {
+        if (*Row.offset(r as isize)).shared2.mark < ALIVE as int32_t
+            || (*Row.offset(r as isize)).length == 0 as int32_t
+        {
+            (*Row.offset(r as isize)).shared2.mark = DEAD as int32_t;
+        } else {
+            psrc = &mut *A.offset((*Row.offset(r as isize)).start as isize) as *mut int32_t;
+            (*Row.offset(r as isize)).shared2.first_column = *psrc;
+            *psrc = -r - 1 as int32_t;
+        }
+        r += 1;
+    }
+    psrc = pdest;
+    while psrc < pfree {
+        let fresh47 = psrc;
+        psrc = psrc.offset(1);
+        if *fresh47 < 0 as int32_t {
+            psrc = psrc.offset(-1);
+            r = -*psrc - 1 as int32_t;
+            *psrc = (*Row.offset(r as isize)).shared2.first_column;
+            (*Row.offset(r as isize)).start = pdest
+                .offset_from(&mut *A.offset(0 as core::ffi::c_int as isize) as *mut int32_t)
+                as core::ffi::c_long as int32_t;
+            length = (*Row.offset(r as isize)).length;
+            j = 0 as core::ffi::c_int as int32_t;
+            while j < length {
+                let fresh48 = psrc;
+                psrc = psrc.offset(1);
+                c = *fresh48;
+                if (*Col.offset(c as isize)).start >= ALIVE as int32_t {
+                    let fresh49 = pdest;
+                    pdest = pdest.offset(1);
+                    *fresh49 = c;
+                }
+                j += 1;
+            }
+            (*Row.offset(r as isize)).length = pdest.offset_from(
+                &mut *A.offset((*Row.offset(r as isize)).start as isize) as *mut int32_t,
+            ) as core::ffi::c_long as int32_t;
+        }
+    }
+    return pdest.offset_from(&mut *A.offset(0 as core::ffi::c_int as isize) as *mut int32_t)
+        as core::ffi::c_long as int32_t;
+}
+unsafe extern "C" fn clear_mark(
+    mut tag_mark: int32_t,
+    mut max_mark: int32_t,
+    mut n_row: int32_t,
+    mut Row: *mut Colamd_Row,
+) -> int32_t {
+    let mut r: int32_t = 0;
+    if tag_mark <= 0 as int32_t || tag_mark >= max_mark {
+        r = 0 as core::ffi::c_int as int32_t;
+        while r < n_row {
+            if (*Row.offset(r as isize)).shared2.mark >= ALIVE as int32_t {
+                (*Row.offset(r as isize)).shared2.mark = 0 as core::ffi::c_int as int32_t;
+            }
+            r += 1;
+        }
+        tag_mark = 1 as core::ffi::c_int as int32_t;
+    }
+    return tag_mark;
+}
+unsafe extern "C" fn print_report(mut method: *mut core::ffi::c_char, mut stats: *mut int32_t) {
+    let mut i1: int32_t = 0;
+    let mut i2: int32_t = 0;
+    let mut i3: int32_t = 0;
+    let mut printf_func: Option<
+        unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+    > = None;
+    printf_func = SuiteSparse_config_printf_func_get();
+    if printf_func.is_some() {
+        printf_func.expect("non-null function pointer")(
+            b"\n%s version %d.%d.%d, %s: \0" as *const u8 as *const core::ffi::c_char,
+            method,
+            3 as core::ffi::c_int,
+            3 as core::ffi::c_int,
+            5 as core::ffi::c_int,
+            b"July 25, 2025\0" as *const u8 as *const core::ffi::c_char,
+        );
+    }
+    if stats.is_null() {
+        let mut printf_func_0: Option<
+            unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+        > = None;
+        printf_func_0 = SuiteSparse_config_printf_func_get();
+        if printf_func_0.is_some() {
+            printf_func_0.expect("non-null function pointer")(
+                b"No statistics available.\n\0" as *const u8 as *const core::ffi::c_char,
+            );
+        }
+        return;
+    }
+    i1 = *stats.offset(COLAMD_INFO1 as isize);
+    i2 = *stats.offset(COLAMD_INFO2 as isize);
+    i3 = *stats.offset(COLAMD_INFO3 as isize);
+    if *stats.offset(COLAMD_STATUS as isize) >= 0 as int32_t {
+        let mut printf_func_1: Option<
+            unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+        > = None;
+        printf_func_1 = SuiteSparse_config_printf_func_get();
+        if printf_func_1.is_some() {
+            printf_func_1.expect("non-null function pointer")(
+                b"OK.  \0" as *const u8 as *const core::ffi::c_char,
+            );
+        }
+    } else {
+        let mut printf_func_2: Option<
+            unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+        > = None;
+        printf_func_2 = SuiteSparse_config_printf_func_get();
+        if printf_func_2.is_some() {
+            printf_func_2.expect("non-null function pointer")(
+                b"ERROR.  \0" as *const u8 as *const core::ffi::c_char,
+            );
+        }
+    }
+    let mut current_block_146: u64;
+    match *stats.offset(COLAMD_STATUS as isize) {
+        COLAMD_OK_BUT_JUMBLED => {
+            let mut printf_func_3: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_3 = SuiteSparse_config_printf_func_get();
+            if printf_func_3.is_some() {
+                printf_func_3.expect("non-null function pointer")(
+                    b"Matrix has unsorted or duplicate row indices.\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
+            let mut printf_func_4: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_4 = SuiteSparse_config_printf_func_get();
+            if printf_func_4.is_some() {
+                printf_func_4.expect("non-null function pointer")(
+                    b"%s: number of duplicate or out-of-order row indices: %d\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                    method,
+                    i3,
+                );
+            }
+            let mut printf_func_5: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_5 = SuiteSparse_config_printf_func_get();
+            if printf_func_5.is_some() {
+                printf_func_5.expect("non-null function pointer")(
+                    b"%s: last seen duplicate or out-of-order row index:   %d\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                    method,
+                    i2,
+                );
+            }
+            let mut printf_func_6: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_6 = SuiteSparse_config_printf_func_get();
+            if printf_func_6.is_some() {
+                printf_func_6.expect("non-null function pointer")(
+                    b"%s: last seen in column:                             %d\0" as *const u8
+                        as *const core::ffi::c_char,
+                    method,
+                    i1,
+                );
+            }
+            current_block_146 = 16908757162089081965;
+        }
+        COLAMD_OK => {
+            current_block_146 = 16908757162089081965;
+        }
+        COLAMD_ERROR_A_not_present => {
+            let mut printf_func_11: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_11 = SuiteSparse_config_printf_func_get();
+            if printf_func_11.is_some() {
+                printf_func_11.expect("non-null function pointer")(
+                    b"Array A (row indices of matrix) not present.\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
+            current_block_146 = 7337917895049117968;
+        }
+        COLAMD_ERROR_p_not_present => {
+            let mut printf_func_12: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_12 = SuiteSparse_config_printf_func_get();
+            if printf_func_12.is_some() {
+                printf_func_12.expect("non-null function pointer")(
+                    b"Array p (column pointers for matrix) not present.\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                );
+            }
+            current_block_146 = 7337917895049117968;
+        }
+        COLAMD_ERROR_nrow_negative => {
+            let mut printf_func_13: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_13 = SuiteSparse_config_printf_func_get();
+            if printf_func_13.is_some() {
+                printf_func_13.expect("non-null function pointer")(
+                    b"Invalid number of rows (%d).\n\0" as *const u8 as *const core::ffi::c_char,
+                    i1,
+                );
+            }
+            current_block_146 = 7337917895049117968;
+        }
+        COLAMD_ERROR_ncol_negative => {
+            let mut printf_func_14: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_14 = SuiteSparse_config_printf_func_get();
+            if printf_func_14.is_some() {
+                printf_func_14.expect("non-null function pointer")(
+                    b"Invalid number of columns (%d).\n\0" as *const u8 as *const core::ffi::c_char,
+                    i1,
+                );
+            }
+            current_block_146 = 7337917895049117968;
+        }
+        COLAMD_ERROR_nnz_negative => {
+            let mut printf_func_15: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_15 = SuiteSparse_config_printf_func_get();
+            if printf_func_15.is_some() {
+                printf_func_15.expect("non-null function pointer")(
+                    b"Invalid number of nonzero entries (%d).\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                    i1,
+                );
+            }
+            current_block_146 = 7337917895049117968;
+        }
+        COLAMD_ERROR_p0_nonzero => {
+            let mut printf_func_16: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_16 = SuiteSparse_config_printf_func_get();
+            if printf_func_16.is_some() {
+                printf_func_16.expect("non-null function pointer")(
+                    b"Invalid column pointer, p [0] = %d, must be zero.\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                    i1,
+                );
+            }
+            current_block_146 = 7337917895049117968;
+        }
+        COLAMD_ERROR_A_too_small => {
+            let mut printf_func_17: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_17 = SuiteSparse_config_printf_func_get();
+            if printf_func_17.is_some() {
+                printf_func_17.expect("non-null function pointer")(
+                    b"Array A too small.\n\0" as *const u8 as *const core::ffi::c_char,
+                );
+            }
+            let mut printf_func_18: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_18 = SuiteSparse_config_printf_func_get();
+            if printf_func_18.is_some() {
+                printf_func_18.expect("non-null function pointer")(
+                    b"        Need Alen >= %d, but given only Alen = %d.\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                    i1,
+                    i2,
+                );
+            }
+            current_block_146 = 7337917895049117968;
+        }
+        COLAMD_ERROR_col_length_negative => {
+            let mut printf_func_19: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_19 = SuiteSparse_config_printf_func_get();
+            if printf_func_19.is_some() {
+                printf_func_19.expect("non-null function pointer")(
+                    b"Column %d has a negative number of nonzero entries (%d).\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                    i1,
+                    i2,
+                );
+            }
+            current_block_146 = 7337917895049117968;
+        }
+        COLAMD_ERROR_row_index_out_of_bounds => {
+            let mut printf_func_20: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_20 = SuiteSparse_config_printf_func_get();
+            if printf_func_20.is_some() {
+                printf_func_20.expect("non-null function pointer")(
+                    b"Row index (row %d) out of bounds (%d to %d) in column %d.\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                    i2,
+                    0 as core::ffi::c_int,
+                    i3 - 1 as int32_t,
+                    i1,
+                );
+            }
+            current_block_146 = 7337917895049117968;
+        }
+        COLAMD_ERROR_out_of_memory => {
+            let mut printf_func_21: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_21 = SuiteSparse_config_printf_func_get();
+            if printf_func_21.is_some() {
+                printf_func_21.expect("non-null function pointer")(
+                    b"Out of memory.\n\0" as *const u8 as *const core::ffi::c_char,
+                );
+            }
+            current_block_146 = 7337917895049117968;
+        }
+        _ => {
+            current_block_146 = 7337917895049117968;
+        }
+    }
+    match current_block_146 {
+        16908757162089081965 => {
+            let mut printf_func_7: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_7 = SuiteSparse_config_printf_func_get();
+            if printf_func_7.is_some() {
+                printf_func_7.expect("non-null function pointer")(
+                    b"\n\0" as *const u8 as *const core::ffi::c_char,
+                );
+            }
+            let mut printf_func_8: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_8 = SuiteSparse_config_printf_func_get();
+            if printf_func_8.is_some() {
+                printf_func_8.expect("non-null function pointer")(
+                    b"%s: number of dense or empty rows ignored:           %d\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                    method,
+                    *stats.offset(0 as core::ffi::c_int as isize),
+                );
+            }
+            let mut printf_func_9: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_9 = SuiteSparse_config_printf_func_get();
+            if printf_func_9.is_some() {
+                printf_func_9.expect("non-null function pointer")(
+                    b"%s: number of dense or empty columns ignored:        %d\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                    method,
+                    *stats.offset(1 as core::ffi::c_int as isize),
+                );
+            }
+            let mut printf_func_10: Option<
+                unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int,
+            > = None;
+            printf_func_10 = SuiteSparse_config_printf_func_get();
+            if printf_func_10.is_some() {
+                printf_func_10.expect("non-null function pointer")(
+                    b"%s: number of garbage collections performed:         %d\n\0" as *const u8
+                        as *const core::ffi::c_char,
+                    method,
+                    *stats.offset(2 as core::ffi::c_int as isize),
+                );
+            }
+        }
+        _ => {}
+    };
+}
