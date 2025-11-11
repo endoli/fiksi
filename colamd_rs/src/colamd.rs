@@ -225,7 +225,7 @@ pub unsafe extern "C" fn colamd_set_defaults(mut knobs: *mut core::ffi::c_double
 pub unsafe fn symamd(
     n: i32,
     a: &[i32],
-    p: *mut i32,
+    p: &[i32],
     perm: *mut i32,
     knobs: Option<&[f64; 20]>,
     stats: &mut [i32; 20],
@@ -255,24 +255,20 @@ pub unsafe fn symamd(
     stats[COLAMD_STATUS as usize] = COLAMD_OK;
     stats[COLAMD_INFO1 as usize] = -1;
     stats[COLAMD_INFO2 as usize] = -1;
-    if p.is_null() {
-        stats[COLAMD_STATUS as usize] = COLAMD_ERROR_p_not_present;
-        return 0 as core::ffi::c_int;
-    }
     if n < 0 as int32_t {
         stats[COLAMD_STATUS as usize] = COLAMD_ERROR_ncol_negative;
         stats[COLAMD_INFO1 as usize] = n;
         return 0 as core::ffi::c_int;
     }
-    nnz = *p.offset(n as isize);
+    nnz = p[n as usize];
     if nnz < 0 as int32_t {
         stats[COLAMD_STATUS as usize] = COLAMD_ERROR_nnz_negative;
         stats[COLAMD_INFO1 as usize] = nnz;
         return 0 as core::ffi::c_int;
     }
-    if *p.offset(0 as core::ffi::c_int as isize) != 0 as int32_t {
+    if p[0] != 0 {
         stats[COLAMD_STATUS as usize] = COLAMD_ERROR_p0_nonzero;
-        stats[COLAMD_INFO1 as usize] = *p.offset(0);
+        stats[COLAMD_INFO1 as usize] = p[0];
         return 0 as core::ffi::c_int;
     }
 
@@ -316,7 +312,7 @@ pub unsafe fn symamd(
     j = 0 as core::ffi::c_int as int32_t;
     while j < n {
         last_row = -(1 as core::ffi::c_int) as int32_t;
-        length = *p.offset((j + 1 as int32_t) as isize) - *p.offset(j as isize);
+        length = p[(j + 1 as int32_t) as usize] - p[j as usize];
         if length < 0 as int32_t {
             // column pointers must be non-decreasing
             stats[COLAMD_STATUS as usize] = COLAMD_ERROR_col_length_negative as int32_t;
@@ -330,8 +326,8 @@ pub unsafe fn symamd(
             );
             return 0 as core::ffi::c_int;
         }
-        pp = *p.offset(j as isize);
-        while pp < *p.offset((j + 1 as int32_t) as isize) {
+        pp = p[j as usize];
+        while pp < p[(j + 1 as int32_t) as usize] {
             i = a[pp as usize];
             if i < 0 as int32_t || i >= n {
                 // row index i, in column j, is out of bounds
@@ -401,8 +397,8 @@ pub unsafe fn symamd(
         // Matrix is OK
         j = 0 as core::ffi::c_int as int32_t;
         while j < n {
-            pp = *p.offset(j as isize);
-            while pp < *p.offset((j + 1 as int32_t) as isize) {
+            pp = p[j as usize];
+            while pp < p[(j + 1 as int32_t) as usize] {
                 i = a[pp as usize];
                 if i > j {
                     let ref mut fresh3 = *count.offset(i as isize);
@@ -428,8 +424,8 @@ pub unsafe fn symamd(
         }
         j = 0 as core::ffi::c_int as int32_t;
         while j < n {
-            pp = *p.offset(j as isize);
-            while pp < *p.offset((j + 1 as int32_t) as isize) {
+            pp = p[j as usize];
+            while pp < p[(j + 1 as int32_t) as usize] {
                 i = a[pp as usize];
                 if i > j && *mark.offset(i as isize) != j {
                     // row k of M contains column indices i and j
