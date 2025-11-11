@@ -227,7 +227,7 @@ pub unsafe fn symamd(
     mut A: *mut int32_t,
     mut p: *mut int32_t,
     mut perm: *mut int32_t,
-    mut knobs: *mut core::ffi::c_double,
+    mut knobs: Option<&[f64; 20]>,
     mut stats: &mut [i32; 20],
     mut allocate: Option<unsafe extern "C" fn(size_t, size_t) -> *mut core::ffi::c_void>,
     mut release: Option<unsafe extern "C" fn(*mut core::ffi::c_void) -> ()>,
@@ -243,8 +243,7 @@ pub unsafe fn symamd(
     let mut pp: int32_t = 0;
     let mut last_row: int32_t = 0;
     let mut length: int32_t = 0;
-    let mut cknobs: [core::ffi::c_double; 20] = [0.; 20];
-    let mut default_knobs: [core::ffi::c_double; 20] = [0.; 20];
+    let mut default_knobs: [f64; 20] = [0.; 20];
 
     i = 0 as core::ffi::c_int as int32_t;
     while i < COLAMD_STATS as int32_t {
@@ -278,10 +277,10 @@ pub unsafe fn symamd(
         stats[COLAMD_INFO1 as usize] = *p.offset(0);
         return 0 as core::ffi::c_int;
     }
-    if knobs.is_null() {
+    let knobs = knobs.unwrap_or_else(|| {
         colamd_set_defaults(default_knobs.as_mut_ptr());
-        knobs = default_knobs.as_mut_ptr() as *mut core::ffi::c_double;
-    }
+        &default_knobs
+    });
     count = (Some(allocate.expect("non-null function pointer"))).expect("non-null function pointer")(
         (n + 1 as int32_t) as size_t,
         ::core::mem::size_of::<int32_t>() as size_t,
@@ -431,13 +430,13 @@ pub unsafe fn symamd(
     (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
         mark as *mut core::ffi::c_void,
     );
-    i = 0 as core::ffi::c_int as int32_t;
-    while i < COLAMD_KNOBS as int32_t {
-        cknobs[i as usize] = *knobs.offset(i as isize);
-        i += 1;
-    }
-    cknobs[COLAMD_DENSE_ROW as usize] = -(1 as core::ffi::c_int) as core::ffi::c_double;
-    cknobs[COLAMD_DENSE_COL as usize] = *knobs.offset(COLAMD_DENSE_ROW as isize);
+
+    // === Adjust the knobs for M ===========================================
+    //
+    let mut cknobs = *knobs;
+    // there are no dense rows in M */
+    cknobs[COLAMD_DENSE_ROW as usize] = -1.;
+    cknobs[COLAMD_DENSE_COL as usize] = knobs[COLAMD_DENSE_ROW as usize];
     colamd(
         n_row,
         n,

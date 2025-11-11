@@ -196,11 +196,7 @@ pub fn symamd(
     let p = column_pointers.as_mut_ptr();
     let permutation = permutation.as_mut_ptr();
 
-    let mut knobs = options.map(Options::as_knobs_array);
-    let knobs = knobs
-        .as_mut()
-        .map(|k| k.as_mut_ptr())
-        .unwrap_or(core::ptr::null_mut());
+    let mut knobs = options.map(Options::as_knobs_array).as_ref();
 
     unsafe {
         colamd::symamd(
