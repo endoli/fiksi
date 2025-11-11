@@ -226,7 +226,7 @@ pub unsafe fn symamd(
     n: i32,
     a: &[i32],
     p: &[i32],
-    perm: *mut i32,
+    perm: &mut [i32],
     knobs: Option<&[f64; 20]>,
     stats: &mut [i32; 20],
     allocate: Option<unsafe extern "C" fn(size_t, size_t) -> *mut core::ffi::c_void>,
@@ -373,22 +373,22 @@ pub unsafe fn symamd(
     // === Compute column pointers of M =====================================
 
     // use output permutation, perm, for column pointers of M
-    *perm.offset(0 as core::ffi::c_int as isize) = 0 as core::ffi::c_int as int32_t;
+    perm[0] = 0;
     j = 1 as core::ffi::c_int as int32_t;
     while j <= n {
-        *perm.offset(j as isize) =
-            *perm.offset((j - 1 as int32_t) as isize) + *count.offset((j - 1 as int32_t) as isize);
+        perm[j as usize] =
+            perm[(j - 1 as int32_t) as usize] + *count.offset((j - 1 as int32_t) as isize);
         j += 1;
     }
     j = 0 as core::ffi::c_int as int32_t;
     while j < n {
-        *count.offset(j as isize) = *perm.offset(j as isize);
+        *count.offset(j as isize) = perm[j as usize];
         j += 1;
     }
 
     // === Construct M ======================================================
 
-    mnz = *perm.offset(n as isize);
+    mnz = perm[n as usize];
     n_row = mnz / 2 as int32_t;
     let m_len = colamd_recommended(mnz, n_row, n).expect("negative inputs or overflow");
     let mut m = vec![0_i32; m_len];
@@ -462,14 +462,7 @@ pub unsafe fn symamd(
     cknobs[COLAMD_DENSE_COL as usize] = knobs[COLAMD_DENSE_ROW as usize];
 
     // === Order the columns of M ===========================================
-    colamd(
-        n_row,
-        n,
-        &mut m,
-        core::slice::from_raw_parts_mut(perm, (n as usize).checked_add(1).expect("overflowed")),
-        cknobs.as_mut_ptr(),
-        stats,
-    );
+    colamd(n_row, n, &mut m, perm, cknobs.as_mut_ptr(), stats);
 
     // Note that the output permutation is now in perm
 

@@ -192,8 +192,6 @@ pub fn symamd(
         "The column pointers and column permutation slice must have the same length"
     );
 
-    let permutation = permutation.as_mut_ptr();
-
     let mut knobs = options.map(Options::as_knobs_array).as_ref();
 
     unsafe {
