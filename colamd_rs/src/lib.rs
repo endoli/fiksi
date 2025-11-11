@@ -165,8 +165,71 @@ pub fn colamd(
     unsafe { colamd::colamd(nrows, ncols, row_indices, column_pointers, knobs, stats) }
 }
 
-#[doc(hidden)]
-#[expect(unused, reason = "check signatures anyway")]
+/// Computes a column ordering for `A` such that the Cholesky decomposition remains sparse.
+///
+/// This computes an ordering P of a symmetric sparse matrix A such that the Cholesky factorization
+/// `PAP^T = LL^T` remains sparse. It is based on a column ordering of a matrix `M` constructed so
+/// that the nonzero pattern of `M^T M` is the same as `A`. The matrix `A` is assumed to be
+/// symmetric; only the strictly lower triangular part is accessed.
+///
+/// # Example
+///
+/// We can calculate a column approximate minimum degree ordering for the following sparse
+/// symmetric matrix
+///
+/// ```text
+///     1  2  3  4  5
+/// 1 | x  x
+/// 2 | x     x  x
+/// 3 |    x
+/// 4 |    x        x
+/// 5 |          x
+/// ```
+///
+/// as follows.
+///
+/// ```rust
+/// use colamd_rs::symamd;
+///
+/// let n = 5;
+///
+/// let mut row_indices = [0, 1, 0, 2, 3, 1, 1, 4, 3];
+/// let column_pointers = [0, 2, 5, 6, 8, 9];
+/// let mut permutation = [0, 0, 0, 0, 0, 0];
+/// let stats = &mut [0; 20];
+/// symamd(n, &row_indices, &column_pointers, &mut permutation, None, stats);
+///
+/// assert_eq!(permutation, [0, 2, 1, 3, 4, -1]);
+/// ```
+///
+/// Note the diagonal and upper-triangular part are ignored by [`symamd`]. That means we can also
+/// provide only the following strictly lower-triangular part (or even a non-symmetrical
+/// upper-triangular part).
+///
+/// ```text
+///     1  2  3  4  5
+/// 1 |
+/// 2 | x
+/// 3 |    x
+/// 4 |    x
+/// 5 |          x
+/// ```
+///
+/// For example:
+///
+/// ```rust
+/// use colamd_rs::symamd;
+///
+/// let n = 5;
+///
+/// let mut row_indices = [1, 2, 3, 4];
+/// let column_pointers = [0, 1, 3, 3, 4, 4];
+/// let mut permutation = [0, 0, 0, 0, 0, 0];
+/// let stats = &mut [0; 20];
+/// symamd(n, &row_indices, &column_pointers, &mut permutation, None, stats);
+///
+/// assert_eq!(permutation, [0, 2, 1, 3, 4, -1]);
+/// ```
 pub fn symamd(
     n: i32,
     row_indices: &[i32],
@@ -175,10 +238,6 @@ pub fn symamd(
     options: Option<Options>,
     stats: &mut [i32; 20],
 ) -> i32 {
-    unimplemented!(
-        "the implementation requires ANSI C `calloc` and `free`, rather than providing that, it should just be rewritten"
-    );
-
     assert_eq!(
         column_pointers.len(),
         n.checked_add(1)
@@ -192,16 +251,23 @@ pub fn symamd(
         "The column pointers and column permutation slice must have the same length"
     );
 
-    let mut knobs = options.map(Options::as_knobs_array).as_ref();
+    let knobs = options.map(Options::as_knobs_array);
 
-    unsafe { colamd::symamd(n, row_indices, column_pointers, permutation, knobs, stats) }
+    colamd::symamd(
+        n,
+        row_indices,
+        column_pointers,
+        permutation,
+        knobs.as_ref(),
+        stats,
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use alloc::vec;
 
-    use super::{Options, colamd, colamd_recommended};
+    use super::{Options, colamd, colamd_recommended, symamd};
 
     #[test]
     fn colamd_known_value() {
@@ -240,5 +306,59 @@ mod tests {
 
         // Running this through the original C version results in the permutation `[1, 2, 0, -1]`.
         assert_eq!(column_pointers, &[1, 2, 0, -1]);
+    }
+
+    #[test]
+    fn symamd_known_value() {
+        // Note: this example is from
+        // https://github.com/DrTimothyAldenDavis/SuiteSparse/blob/9759b8c7538ecc92f9aa76b19fbf3f266432d113/COLAMD/Demo/colamd_example.c#L176C18-L194
+
+        // Only the strictly lower triangular part is included, since symamd ignores the diagonal
+        // and upper triangular part of B.
+        #[rustfmt::skip]
+        let row_indices = [
+            1,    // col 0
+            2, 3, // col 1
+            4,    // col 3
+        ];
+        let column_pointers = [0, 1, 3, 3, 4, 4];
+        let mut permutation = [0; 6];
+
+        symamd(
+            5,
+            &row_indices,
+            &column_pointers,
+            &mut permutation,
+            None,
+            &mut [0; 20],
+        );
+
+        // Known value from:
+        // https://github.com/DrTimothyAldenDavis/SuiteSparse/blob/9759b8c7538ecc92f9aa76b19fbf3f266432d113/COLAMD/Demo/colamd_example.out#L47-L51
+        assert_eq!(permutation, [0, 2, 1, 3, 4, -1]);
+
+        // Test again, including diagonal and non-symmetrical upper triangular entries (those
+        // should be ignored)
+        #[rustfmt::skip]
+        let row_indices = [
+            0, 1,    // col 0
+            2, 3,    // col 1
+            1,       // col 2
+            4,       // col 3
+            0, 3, 4, // col 4
+        ];
+        let column_pointers = [0, 2, 4, 5, 6, 9];
+        let mut permutation = [0; 6];
+
+        symamd(
+            5,
+            &row_indices,
+            &column_pointers,
+            &mut permutation,
+            None,
+            &mut [0; 20],
+        );
+
+        assert_eq!(permutation, [0, 2, 1, 3, 4, -1]);
     }
 }
