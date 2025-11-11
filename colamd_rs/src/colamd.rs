@@ -617,6 +617,15 @@ unsafe fn init_rows_cols(
     p: &mut [i32],
     stats: &mut [i32; 20],
 ) -> bool {
+    assert!(
+        rows.len() >= n_row as usize,
+        "`rows` must be at least of length `n_row`"
+    );
+    assert!(
+        cols.len() >= n_col as usize,
+        "`cols` must be at least of length `n_col`"
+    );
+
     // === Initialize columns, and check column pointers ====================
 
     for col in 0..n_col {
@@ -640,9 +649,9 @@ unsafe fn init_rows_cols(
 
     stats[COLAMD_INFO3 as usize] = 0; // number of duplicate or unsorted row indices
 
-    for row in 0..n_row as usize {
-        (rows[row]).length = 0;
-        (rows[row]).shared2.mark = -1;
+    for row in rows.iter_mut().take(n_row as usize) {
+        row.length = 0;
+        row.shared2.mark = -1;
     }
     for col in 0..n_col {
         let mut last_row: i32 = -1;
@@ -714,9 +723,9 @@ unsafe fn init_rows_cols(
 
     // === Clear the row marks and set row degrees ==========================
 
-    for row in 0..n_row {
-        (rows[row as usize]).shared2.mark = 0;
-        (rows[row as usize]).shared1.degree = (rows[row as usize]).length;
+    for row in rows.iter_mut().take(n_row as usize) {
+        row.shared2.mark = 0;
+        row.shared1.degree = row.length;
     }
 
     // === See if we need to re-create columns ==============================
