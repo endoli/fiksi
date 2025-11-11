@@ -192,7 +192,6 @@ pub fn symamd(
         "The column pointers and column permutation slice must have the same length"
     );
 
-    let a_i = row_indices.as_mut_ptr();
     let p = column_pointers.as_mut_ptr();
     let permutation = permutation.as_mut_ptr();
 
@@ -201,7 +200,7 @@ pub fn symamd(
     unsafe {
         colamd::symamd(
             n,
-            a_i,
+            row_indices,
             p,
             permutation,
             knobs,

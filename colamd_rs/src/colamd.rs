@@ -223,10 +223,10 @@ pub unsafe extern "C" fn colamd_set_defaults(mut knobs: *mut core::ffi::c_double
     reason = "we'll be dropping the allocation arguments later"
 )]
 pub unsafe fn symamd(
-    n: int32_t,
-    A: *const int32_t,
-    p: *mut int32_t,
-    perm: *mut int32_t,
+    n: i32,
+    a: &[i32],
+    p: *mut i32,
+    perm: *mut i32,
     knobs: Option<&[f64; 20]>,
     stats: &mut [i32; 20],
     allocate: Option<unsafe extern "C" fn(size_t, size_t) -> *mut core::ffi::c_void>,
@@ -255,10 +255,6 @@ pub unsafe fn symamd(
     stats[COLAMD_STATUS as usize] = COLAMD_OK;
     stats[COLAMD_INFO1 as usize] = -1;
     stats[COLAMD_INFO2 as usize] = -1;
-    if A.is_null() {
-        stats[COLAMD_STATUS as usize] = COLAMD_ERROR_A_not_present;
-        return 0 as core::ffi::c_int;
-    }
     if p.is_null() {
         stats[COLAMD_STATUS as usize] = COLAMD_ERROR_p_not_present;
         return 0 as core::ffi::c_int;
@@ -336,7 +332,7 @@ pub unsafe fn symamd(
         }
         pp = *p.offset(j as isize);
         while pp < *p.offset((j + 1 as int32_t) as isize) {
-            i = *A.offset(pp as isize);
+            i = a[pp as usize];
             if i < 0 as int32_t || i >= n {
                 // row index i, in column j, is out of bounds
                 stats[COLAMD_STATUS as usize] = COLAMD_ERROR_row_index_out_of_bounds;
@@ -407,7 +403,7 @@ pub unsafe fn symamd(
         while j < n {
             pp = *p.offset(j as isize);
             while pp < *p.offset((j + 1 as int32_t) as isize) {
-                i = *A.offset(pp as isize);
+                i = a[pp as usize];
                 if i > j {
                     let ref mut fresh3 = *count.offset(i as isize);
                     let fresh4 = *fresh3;
@@ -434,7 +430,7 @@ pub unsafe fn symamd(
         while j < n {
             pp = *p.offset(j as isize);
             while pp < *p.offset((j + 1 as int32_t) as isize) {
-                i = *A.offset(pp as isize);
+                i = a[pp as usize];
                 if i > j && *mark.offset(i as isize) != j {
                     // row k of M contains column indices i and j
                     let ref mut fresh7 = *count.offset(i as isize);
