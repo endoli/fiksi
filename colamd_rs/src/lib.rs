@@ -169,8 +169,8 @@ pub fn colamd(
 #[expect(unused, reason = "check signatures anyway")]
 pub fn symamd(
     n: i32,
-    row_indices: &mut [i32],
-    column_pointers: &mut [i32],
+    row_indices: &[i32],
+    column_pointers: &[i32],
     permutation: &mut [i32],
     options: Option<Options>,
     stats: &mut [i32; 20],
