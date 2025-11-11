@@ -52,6 +52,8 @@ fn ensure_libm_dependency_used() -> f32 {
 
 mod colamd;
 
+pub use colamd::colamd_recommended;
+
 /// Options controlling [`colamd`][colamd()] and `symamd` behavior.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Options {
@@ -94,14 +96,6 @@ impl core::default::Default for Options {
     }
 }
 
-/// Returns the recommended length of the row index slice for use by [`colamd`][colamd()].
-///
-/// Returns 0 if any input argument is negative. The use of this routine is optional. It is not
-/// needed for `symamd`, which dynamically allocates its own memory.
-pub fn colamd_recommended(nnz: i32, n_row: i32, n_col: i32) -> usize {
-    unsafe { colamd::colamd_recommended(nnz, n_row, n_col) }
-}
-
 /// Computes a column ordering for `A` such that the Cholesky decomposition of `A^T A` has less
 /// fill-in.
 ///
@@ -131,7 +125,7 @@ pub fn colamd_recommended(nnz: i32, n_row: i32, n_col: i32) -> usize {
 /// let nrows = 5;
 /// let ncols = 4;
 ///
-/// let a_len = colamd_recommended(num_nonzero, nrows, ncols);
+/// let a_len = colamd_recommended(num_nonzero, nrows, ncols).unwrap();
 /// let mut row_indices = vec![0; a_len];
 /// row_indices[..11].copy_from_slice(&[0, 1, 4, 2, 4, 0, 1, 2, 3, 1, 3]);
 /// let column_pointers = &mut [0, 3, 5, 9, 11];
@@ -250,7 +244,7 @@ mod tests {
 
     #[test]
     fn colamd_known_value_no_aggressive_absorption() {
-        let a_len = colamd_recommended(7, 4, 3);
+        let a_len = colamd_recommended(7, 4, 3).unwrap();
         let column_pointers = &mut [0, 3, 4, 7];
         let mut row_indices = vec![0; a_len];
         row_indices[..7].copy_from_slice(&[0, 1, 2, 1, 0, 1, 3]);

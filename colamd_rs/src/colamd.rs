@@ -122,8 +122,6 @@ pub const COLAMD_ERROR_row_index_out_of_bounds: core::ffi::c_int =
     unsafe { -(9 as core::ffi::c_int) };
 pub const COLAMD_ERROR_out_of_memory: core::ffi::c_int = unsafe { -(10 as core::ffi::c_int) };
 pub const INT_MAX: core::ffi::c_int = unsafe { __INT_MAX__ };
-pub const COLAMD_recommended: unsafe extern "C" fn(int32_t, int32_t, int32_t) -> size_t =
-    unsafe { colamd_recommended };
 pub const COLAMD_set_defaults: unsafe extern "C" fn(*mut core::ffi::c_double) -> () =
     unsafe { colamd_set_defaults };
 pub const COLAMD_MAIN: unsafe extern "C" fn(
@@ -161,36 +159,30 @@ unsafe extern "C" fn t_mult(mut a: size_t, mut k: size_t, mut ok: *mut core::ffi
     return s;
 }
 
-pub unsafe extern "C" fn colamd_recommended(
-    mut nnz: int32_t,
-    mut n_row: int32_t,
-    mut n_col: int32_t,
-) -> size_t {
-    let mut s: size_t = 0;
-    let mut c: size_t = 0;
-    let mut r: size_t = 0;
-    let mut ok: core::ffi::c_int = TRUE;
-    if nnz < 0 as int32_t || n_row < 0 as int32_t || n_col < 0 as int32_t {
-        return 0 as size_t;
-    }
-    s = t_mult(nnz as size_t, 2 as size_t, &mut ok);
-    c = (t_mult(
-        t_add(n_col as size_t, 1 as size_t, &mut ok),
-        ::core::mem::size_of::<Colamd_Col>() as size_t,
-        &mut ok,
-    ))
-    .wrapping_div(::core::mem::size_of::<int32_t>() as size_t);
-    r = (t_mult(
-        t_add(n_row as size_t, 1 as size_t, &mut ok),
-        ::core::mem::size_of::<Colamd_Row>() as size_t,
-        &mut ok,
-    ))
-    .wrapping_div(::core::mem::size_of::<int32_t>() as size_t);
-    s = t_add(s, c, &mut ok);
-    s = t_add(s, r, &mut ok);
-    s = t_add(s, n_col as size_t, &mut ok);
-    s = t_add(s, (nnz / 5 as int32_t) as size_t, &mut ok);
-    return if ok != 0 { s } else { 0 as size_t };
+/// Returns the recommended value of the `a` slice for use by [`crate::colamd`][crate::colamd()].
+///
+/// Returns `None` if any input argument is negative or arithmetic overflow occurred. The use of
+/// this routine is optional. Not needed for [`crate::symamd`], which dynamically allocates its own
+/// memory.
+pub fn colamd_recommended(nnz: i32, n_row: i32, n_col: i32) -> Option<usize> {
+    let nnz = usize::try_from(nnz).ok()?;
+    let n_row = usize::try_from(n_row).ok()?;
+    let n_col = usize::try_from(n_col).ok()?;
+
+    let c = n_col
+        .checked_add(1)?
+        .checked_mul(core::mem::size_of::<Colamd_Col>())?
+        .wrapping_div(core::mem::size_of::<i32>());
+    let r = n_row
+        .checked_add(1)?
+        .checked_mul(core::mem::size_of::<Colamd_Row>())?
+        .wrapping_div(core::mem::size_of::<i32>());
+
+    nnz.checked_mul(2)?
+        .checked_add(c)?
+        .checked_add(r)?
+        .checked_add(n_col)?
+        .checked_add(nnz / 5)
 }
 
 pub unsafe extern "C" fn colamd_set_defaults(mut knobs: *mut core::ffi::c_double) {
@@ -365,7 +357,7 @@ pub unsafe extern "C" fn symamd(
     }
     mnz = *perm.offset(n as isize);
     n_row = mnz / 2 as int32_t;
-    Mlen = colamd_recommended(mnz, n_row, n);
+    Mlen = colamd_recommended(mnz, n_row, n).expect("negative inputs or overflow");
     M = (Some(allocate.expect("non-null function pointer"))).expect("non-null function pointer")(
         Mlen,
         ::core::mem::size_of::<int32_t>() as size_t,
