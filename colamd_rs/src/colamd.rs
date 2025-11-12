@@ -29,6 +29,8 @@ use alloc::vec;
 fn sqrt(x: f64) -> f64 {
     #[cfg(feature = "std")]
     {
+        extern crate std;
+
         x.sqrt()
     }
     #[cfg(not(feature = "std"))]
