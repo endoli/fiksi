@@ -2039,6 +2039,7 @@ name = "solvi"
 version = "0.1.0"
 dependencies = [
  "bitvec",
+ "colamd_rs",
  "libm",
  "num-traits",
 ]

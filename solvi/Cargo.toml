@@ -17,10 +17,12 @@ targets = []
 
 [features]
 default = ["std"]
-std = ["bitvec/std", "num-traits/std"]
-libm = ["dep:libm", "num-traits/libm"]
+std = ["bitvec/std", "colamd_rs/std", "num-traits/std"]
+libm = ["dep:libm", "colamd_rs/libm", "num-traits/libm"]
 
 [dependencies]
+colamd_rs.workspace = true
+
 bitvec.workspace = true
 num-traits = { version = "0.2.19", default-features = false }
 
