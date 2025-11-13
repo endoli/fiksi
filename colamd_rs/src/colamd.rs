@@ -540,16 +540,15 @@ pub unsafe fn colamd(
     let cols: &mut [Colamd_Col] = bytemuck::cast_slice_mut(col);
     let rows: &mut [Colamd_Row] = bytemuck::cast_slice_mut(row);
 
-    if init_rows_cols(
+    if !init_rows_cols(
         n_row,
         n_col,
-        rows.as_mut_ptr(),
-        cols.as_mut_ptr(),
-        a.as_mut_ptr(),
-        p,
-        stats,
-    ) == 0
-    {
+        rows,
+        cols,
+        a,
+        core::slice::from_raw_parts_mut(p, (n_col as usize).checked_add(1).expect("overflowed")),
+        &mut *stats.cast::<[i32; 20]>(),
+    ) {
         return 0 as core::ffi::c_int;
     }
 
@@ -602,165 +601,166 @@ pub unsafe extern "C" fn symamd_report(mut stats: *mut int32_t) {
         stats,
     );
 }
-unsafe extern "C" fn init_rows_cols(
-    mut n_row: int32_t,
-    mut n_col: int32_t,
-    mut Row: *mut Colamd_Row,
-    mut Col: *mut Colamd_Col,
-    mut A: *mut int32_t,
-    mut p: *mut int32_t,
-    mut stats: *mut int32_t,
-) -> int32_t {
-    let mut col: int32_t = 0;
-    let mut row: int32_t = 0;
-    let mut cp: *mut int32_t = 0 as *mut int32_t;
-    let mut cp_end: *mut int32_t = 0 as *mut int32_t;
-    let mut rp: *mut int32_t = 0 as *mut int32_t;
-    let mut rp_end: *mut int32_t = 0 as *mut int32_t;
-    let mut last_row: int32_t = 0;
-    col = 0 as core::ffi::c_int as int32_t;
-    while col < n_col {
-        (*Col.offset(col as isize)).start = *p.offset(col as isize);
-        (*Col.offset(col as isize)).length =
-            *p.offset((col + 1 as int32_t) as isize) - *p.offset(col as isize);
-        if (*Col.offset(col as isize)).length < 0 as int32_t {
-            *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_col_length_negative as int32_t;
-            *stats.offset(COLAMD_INFO1 as isize) = col;
-            *stats.offset(COLAMD_INFO2 as isize) = (*Col.offset(col as isize)).length;
-            return 0 as int32_t;
+
+/// Initialize rows and columns.
+///
+/// Takes the column form of the matrix in `A` and creates the row form of the matrix.  Also, row
+/// and column attributes are stored in the `cols` and `rows` slices. If the columns are un-sorted
+/// or contain duplicate row indices, this routine will also sort and remove duplicate row indices
+/// from the column form of the matrix. Returns false if the matrix is invalid, true otherwise.
+unsafe fn init_rows_cols(
+    n_row: i32,
+    n_col: i32,
+    rows: &mut [Colamd_Row],
+    cols: &mut [Colamd_Col],
+    A: &mut [i32],
+    p: &mut [i32],
+    stats: &mut [i32; 20],
+) -> bool {
+    assert!(
+        rows.len() >= n_row as usize,
+        "`rows` must be at least of length `n_row`"
+    );
+    assert!(
+        cols.len() >= n_col as usize,
+        "`cols` must be at least of length `n_col`"
+    );
+
+    // === Initialize columns, and check column pointers ====================
+
+    for col in 0..n_col {
+        (cols[col as usize]).start = p[col as usize];
+        (cols[col as usize]).length = p[(col + 1) as usize] - p[col as usize];
+        if (cols[col as usize]).length < 0 {
+            stats[COLAMD_STATUS as usize] = COLAMD_ERROR_col_length_negative;
+            stats[COLAMD_INFO1 as usize] = col;
+            stats[COLAMD_INFO2 as usize] = cols[col as usize].length;
+            return false;
         }
-        (*Col.offset(col as isize)).shared1.thickness = 1 as core::ffi::c_int as int32_t;
-        (*Col.offset(col as isize)).shared2.score = 0 as core::ffi::c_int as int32_t;
-        (*Col.offset(col as isize)).shared3.prev = EMPTY as int32_t;
-        (*Col.offset(col as isize)).shared4.degree_next = EMPTY as int32_t;
-        col += 1;
+        (cols[col as usize]).shared1.thickness = 1;
+        (cols[col as usize]).shared2.score = 0;
+        (cols[col as usize]).shared3.prev = EMPTY;
+        (cols[col as usize]).shared4.degree_next = EMPTY;
     }
-    *stats.offset(COLAMD_INFO3 as isize) = 0 as core::ffi::c_int as int32_t;
-    row = 0 as core::ffi::c_int as int32_t;
-    while row < n_row {
-        (*Row.offset(row as isize)).length = 0 as core::ffi::c_int as int32_t;
-        (*Row.offset(row as isize)).shared2.mark = -(1 as core::ffi::c_int) as int32_t;
-        row += 1;
+
+    // p [0..n_col] no longer needed, used as "head" in subsequent routines
+
+    // === Scan columns, compute row degrees, and check row indices =========
+
+    stats[COLAMD_INFO3 as usize] = 0; // number of duplicate or unsorted row indices
+
+    for row in rows.iter_mut().take(n_row as usize) {
+        row.length = 0;
+        row.shared2.mark = -1;
     }
-    col = 0 as core::ffi::c_int as int32_t;
-    while col < n_col {
-        last_row = -(1 as core::ffi::c_int) as int32_t;
-        cp = &mut *A.offset(*p.offset(col as isize) as isize) as *mut int32_t;
-        cp_end = &mut *A.offset(*p.offset((col + 1 as int32_t) as isize) as isize) as *mut int32_t;
-        while cp < cp_end {
-            let fresh11 = cp;
-            cp = cp.offset(1);
-            row = *fresh11;
+    for col in 0..n_col {
+        let mut last_row: i32 = -1;
+        for &row in &A[p[col as usize] as usize..p[col as usize + 1] as usize] {
+            // make sure row indices within range
             if row < 0 as int32_t || row >= n_row {
-                *stats.offset(COLAMD_STATUS as isize) =
-                    COLAMD_ERROR_row_index_out_of_bounds as int32_t;
-                *stats.offset(COLAMD_INFO1 as isize) = col;
-                *stats.offset(COLAMD_INFO2 as isize) = row;
-                *stats.offset(COLAMD_INFO3 as isize) = n_row;
-                return 0 as int32_t;
+                stats[COLAMD_STATUS as usize] = COLAMD_ERROR_row_index_out_of_bounds as int32_t;
+                stats[COLAMD_INFO1 as usize] = col;
+                stats[COLAMD_INFO2 as usize] = row;
+                stats[COLAMD_INFO3 as usize] = n_row;
+                return false;
             }
-            if row <= last_row || (*Row.offset(row as isize)).shared2.mark == col {
-                *stats.offset(COLAMD_STATUS as isize) = COLAMD_OK_BUT_JUMBLED as int32_t;
-                *stats.offset(COLAMD_INFO1 as isize) = col;
-                *stats.offset(COLAMD_INFO2 as isize) = row;
-                let ref mut fresh12 = *stats.offset(COLAMD_INFO3 as isize);
-                *fresh12 += 1;
+            if row <= last_row || rows[row as usize].shared2.mark == col {
+                // row index are unsorted or repeated (or both), thus col is jumbled. This is a
+                // notice, not an error condition.
+                stats[COLAMD_STATUS as usize] = COLAMD_OK_BUT_JUMBLED as int32_t;
+                stats[COLAMD_INFO1 as usize] = col;
+                stats[COLAMD_INFO2 as usize] = row;
+                stats[COLAMD_INFO3 as usize] += 1;
             }
-            if (*Row.offset(row as isize)).shared2.mark != col {
-                let ref mut fresh13 = (*Row.offset(row as isize)).length;
-                *fresh13 += 1;
+            if (rows[row as usize]).shared2.mark != col {
+                rows[row as usize].length += 1;
             } else {
-                let ref mut fresh14 = (*Col.offset(col as isize)).length;
-                *fresh14 -= 1;
+                // this is a repeated entry in the column, it will be removed
+                cols[col as usize].length -= 1;
             }
-            (*Row.offset(row as isize)).shared2.mark = col;
+            // mark the row as having been seen in this column
+            (rows[row as usize]).shared2.mark = col;
             last_row = row;
         }
-        col += 1;
     }
-    (*Row.offset(0 as core::ffi::c_int as isize)).start = *p.offset(n_col as isize);
-    (*Row.offset(0 as core::ffi::c_int as isize)).shared1.p =
-        (*Row.offset(0 as core::ffi::c_int as isize)).start;
-    (*Row.offset(0 as core::ffi::c_int as isize)).shared2.mark =
-        -(1 as core::ffi::c_int) as int32_t;
-    row = 1 as core::ffi::c_int as int32_t;
-    while row < n_row {
-        (*Row.offset(row as isize)).start = (*Row.offset((row - 1 as int32_t) as isize)).start
-            + (*Row.offset((row - 1 as int32_t) as isize)).length;
-        (*Row.offset(row as isize)).shared1.p = (*Row.offset(row as isize)).start;
-        (*Row.offset(row as isize)).shared2.mark = -(1 as core::ffi::c_int) as int32_t;
-        row += 1;
+
+    // === Compute row pointers =============================================
+
+    // row form of the matrix starts directly after the column form of matrix in A
+    rows[0].start = p[n_col as usize];
+    rows[0].shared1.p = (rows[0]).start;
+    rows[0].shared2.mark = -1;
+    for row in 1..n_row {
+        rows[row as usize].start = rows[(row - 1) as usize].start + rows[(row - 1) as usize].length;
+        rows[row as usize].shared1.p = (rows[row as usize]).start;
+        rows[row as usize].shared2.mark = -1;
     }
-    if *stats.offset(COLAMD_STATUS as isize) == COLAMD_OK_BUT_JUMBLED as int32_t {
-        col = 0 as core::ffi::c_int as int32_t;
-        while col < n_col {
-            cp = &mut *A.offset(*p.offset(col as isize) as isize) as *mut int32_t;
-            cp_end =
-                &mut *A.offset(*p.offset((col + 1 as int32_t) as isize) as isize) as *mut int32_t;
-            while cp < cp_end {
-                let fresh15 = cp;
-                cp = cp.offset(1);
-                row = *fresh15;
-                if (*Row.offset(row as isize)).shared2.mark != col {
-                    let ref mut fresh16 = (*Row.offset(row as isize)).shared1.p;
-                    let fresh17 = *fresh16;
-                    *fresh16 = *fresh16 + 1;
-                    *A.offset(fresh17 as isize) = col;
-                    (*Row.offset(row as isize)).shared2.mark = col;
+
+    // === Create row form ==================================================
+
+    if stats[COLAMD_STATUS as usize] == COLAMD_OK_BUT_JUMBLED as int32_t {
+        // if cols jumbled, watch for repeated row indices
+        for col in 0..n_col {
+            for cp in p[col as usize]..p[(col + 1) as usize] {
+                let row = A[cp as usize];
+                if rows[row as usize].shared2.mark != col {
+                    A[rows[row as usize].shared1.p as usize] = col;
+                    rows[row as usize].shared1.p += 1;
+                    rows[row as usize].shared2.mark = col;
                 }
             }
-            col += 1;
         }
     } else {
-        col = 0 as core::ffi::c_int as int32_t;
-        while col < n_col {
-            cp = &mut *A.offset(*p.offset(col as isize) as isize) as *mut int32_t;
-            cp_end =
-                &mut *A.offset(*p.offset((col + 1 as int32_t) as isize) as isize) as *mut int32_t;
-            while cp < cp_end {
-                let fresh18 = cp;
-                cp = cp.offset(1);
-                let ref mut fresh19 = (*Row.offset(*fresh18 as isize)).shared1.p;
-                let fresh20 = *fresh19;
-                *fresh19 = *fresh19 + 1;
-                *A.offset(fresh20 as isize) = col;
+        // f cols not jumbled, we don't need the mark (this is faster)
+        for col in 0..n_col {
+            for cp in p[col as usize]..p[(col + 1) as usize] {
+                let row = A[cp as usize];
+                A[rows[row as usize].shared1.p as usize] = col;
+                rows[row as usize].shared1.p += 1;
             }
-            col += 1;
         }
     }
-    row = 0 as core::ffi::c_int as int32_t;
-    while row < n_row {
-        (*Row.offset(row as isize)).shared2.mark = 0 as core::ffi::c_int as int32_t;
-        (*Row.offset(row as isize)).shared1.degree = (*Row.offset(row as isize)).length;
-        row += 1;
+
+    // === Clear the row marks and set row degrees ==========================
+
+    for row in rows.iter_mut().take(n_row as usize) {
+        row.shared2.mark = 0;
+        row.shared1.degree = row.length;
     }
-    if *stats.offset(COLAMD_STATUS as isize) == COLAMD_OK_BUT_JUMBLED as int32_t {
-        (*Col.offset(0 as core::ffi::c_int as isize)).start = 0 as core::ffi::c_int as int32_t;
-        *p.offset(0 as core::ffi::c_int as isize) =
-            (*Col.offset(0 as core::ffi::c_int as isize)).start;
-        col = 1 as core::ffi::c_int as int32_t;
-        while col < n_col {
-            (*Col.offset(col as isize)).start = (*Col.offset((col - 1 as int32_t) as isize)).start
-                + (*Col.offset((col - 1 as int32_t) as isize)).length;
-            *p.offset(col as isize) = (*Col.offset(col as isize)).start;
-            col += 1;
+
+    // === See if we need to re-create columns ==============================
+
+    if stats[COLAMD_STATUS as usize] == COLAMD_OK_BUT_JUMBLED as int32_t {
+        // === Compute col pointers =========================================
+
+        // col form of the matrix starts at `a[0]`. Note, we may have a gap between the col form and
+        // the row form if there were duplicate entries, if so, it will be removed upon the first
+        // garbage collection
+
+        cols[0].start = 0;
+        p[0] = cols[0].start;
+        for col in 1..n_col {
+            // note that the lengths here are for pruned columns, i.e. no duplicate row indices
+            // will exist for these columns
+            (cols[col as usize]).start =
+                cols[(col - 1) as usize].start + cols[(col - 1) as usize].length;
+            p[col as usize] = cols[col as usize].start;
         }
-        row = 0 as core::ffi::c_int as int32_t;
-        while row < n_row {
-            rp = &mut *A.offset((*Row.offset(row as isize)).start as isize) as *mut int32_t;
-            rp_end = rp.offset((*Row.offset(row as isize)).length as isize);
-            while rp < rp_end {
-                let fresh21 = rp;
-                rp = rp.offset(1);
-                let ref mut fresh22 = *p.offset(*fresh21 as isize);
-                let fresh23 = *fresh22;
-                *fresh22 = *fresh22 + 1;
-                *A.offset(fresh23 as isize) = row;
+
+        // === Re-create col form ===========================================
+
+        for row in 0..n_row {
+            let row_ = rows[row as usize];
+            for rp in row_.start..row_.start + row_.length {
+                A[p[rp as usize] as usize] = row;
+                p[rp as usize] += 1;
             }
-            row += 1;
         }
     }
-    return 1 as int32_t;
+
+    // === Done.  Matrix is not (or no longer) jumbled ======================
+
+    true
 }
 unsafe extern "C" fn init_scoring(
     mut n_row: int32_t,
