@@ -26,6 +26,7 @@
 
 use alloc::vec;
 
+#[inline(always)]
 fn sqrt(x: f64) -> f64 {
     #[cfg(feature = "std")]
     {
