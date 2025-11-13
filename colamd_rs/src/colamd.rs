@@ -26,8 +26,16 @@
 
 use alloc::vec;
 
-unsafe extern "C" {
-    fn sqrt(__x: core::ffi::c_double) -> core::ffi::c_double;
+#[inline(always)]
+fn sqrt(x: f64) -> f64 {
+    #[cfg(feature = "std")]
+    {
+        f64::sqrt(x)
+    }
+    #[cfg(not(feature = "std"))]
+    {
+        libm::sqrt(x)
+    }
 }
 
 fn SuiteSparse_config_printf_func_get()
