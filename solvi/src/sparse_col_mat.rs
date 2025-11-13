@@ -64,6 +64,24 @@ pub struct SparseColMatStructure {
 }
 
 impl SparseColMatStructure {
+    /// Get the index range of a column.
+    ///
+    /// This is useful for, e.g., indexing into a sparse matrix value array stored in parallel to
+    /// this sparsity structure.
+    ///
+    /// Also see [`SparseColMat`] for a sparse matrix including its values.
+    #[inline]
+    #[track_caller]
+    pub fn index_column_range(&self, col: usize) -> core::ops::Range<usize> {
+        if col + 1 >= self.column_pointers.len() {
+            panic!(
+                "column index {col} out of range for matrix with {} columns",
+                self.ncols()
+            );
+        }
+        self.column_pointers[col]..self.column_pointers[col + 1]
+    }
+
     /// Get a the rows in the given column `col`.
     ///
     /// Panics if out of bounds.
