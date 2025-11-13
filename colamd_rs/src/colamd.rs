@@ -19,7 +19,6 @@
     clippy::single_match,
     clippy::toplevel_ref_arg,
     clippy::unnecessary_unwrap,
-    clippy::unnecessary_literal_unwrap,
     clippy::zero_ptr,
     reason = "transpiled using c2rust"
 )]
@@ -218,22 +217,14 @@ pub unsafe extern "C" fn colamd_set_defaults(mut knobs: *mut core::ffi::c_double
     *knobs.offset(COLAMD_AGGRESSIVE as isize) = TRUE as core::ffi::c_double;
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "we'll be dropping the allocation arguments later"
-)]
-pub unsafe fn symamd(
-    mut n: int32_t,
-    mut A: *mut int32_t,
-    mut p: *mut int32_t,
-    mut perm: *mut int32_t,
-    mut knobs: *mut core::ffi::c_double,
-    mut stats: &mut [i32; 20],
-    mut allocate: Option<unsafe extern "C" fn(size_t, size_t) -> *mut core::ffi::c_void>,
-    mut release: Option<unsafe extern "C" fn(*mut core::ffi::c_void) -> ()>,
+pub fn symamd(
+    n: i32,
+    a: &[i32],
+    p: &[i32],
+    perm: &mut [i32],
+    knobs: Option<&[f64; 20]>,
+    stats: &mut [i32; 20],
 ) -> core::ffi::c_int {
-    let mut count: *mut int32_t = 0 as *mut int32_t;
-    let mut mark: *mut int32_t = 0 as *mut int32_t;
     let mut n_row: int32_t = 0;
     let mut nnz: int32_t = 0;
     let mut i: int32_t = 0;
@@ -243,156 +234,139 @@ pub unsafe fn symamd(
     let mut pp: int32_t = 0;
     let mut last_row: int32_t = 0;
     let mut length: int32_t = 0;
-    let mut cknobs: [core::ffi::c_double; 20] = [0.; 20];
-    let mut default_knobs: [core::ffi::c_double; 20] = [0.; 20];
-    let stats = stats.as_mut_ptr();
-    if stats.is_null() {
-        return 0 as core::ffi::c_int;
-    }
+    let mut default_knobs: [f64; 20] = [0.; 20];
+
+    // === Check the input arguments ========================================
+
     i = 0 as core::ffi::c_int as int32_t;
     while i < COLAMD_STATS as int32_t {
-        *stats.offset(i as isize) = 0 as core::ffi::c_int as int32_t;
+        stats[i as usize] = 0 as core::ffi::c_int as int32_t;
         i += 1;
     }
-    *stats.offset(COLAMD_STATUS as isize) = COLAMD_OK as int32_t;
-    *stats.offset(COLAMD_INFO1 as isize) = -(1 as core::ffi::c_int) as int32_t;
-    *stats.offset(COLAMD_INFO2 as isize) = -(1 as core::ffi::c_int) as int32_t;
-    if A.is_null() {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_A_not_present as int32_t;
-        return 0 as core::ffi::c_int;
-    }
-    if p.is_null() {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_p_not_present as int32_t;
-        return 0 as core::ffi::c_int;
-    }
+    stats[COLAMD_STATUS as usize] = COLAMD_OK;
+    stats[COLAMD_INFO1 as usize] = -1;
+    stats[COLAMD_INFO2 as usize] = -1;
     if n < 0 as int32_t {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_ncol_negative as int32_t;
-        *stats.offset(COLAMD_INFO1 as isize) = n;
+        stats[COLAMD_STATUS as usize] = COLAMD_ERROR_ncol_negative;
+        stats[COLAMD_INFO1 as usize] = n;
         return 0 as core::ffi::c_int;
     }
-    nnz = *p.offset(n as isize);
+    nnz = p[n as usize];
     if nnz < 0 as int32_t {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_nnz_negative as int32_t;
-        *stats.offset(COLAMD_INFO1 as isize) = nnz;
+        stats[COLAMD_STATUS as usize] = COLAMD_ERROR_nnz_negative;
+        stats[COLAMD_INFO1 as usize] = nnz;
         return 0 as core::ffi::c_int;
     }
-    if *p.offset(0 as core::ffi::c_int as isize) != 0 as int32_t {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_p0_nonzero as int32_t;
-        *stats.offset(COLAMD_INFO1 as isize) = *p.offset(0 as core::ffi::c_int as isize);
+    if p[0] != 0 {
+        stats[COLAMD_STATUS as usize] = COLAMD_ERROR_p0_nonzero;
+        stats[COLAMD_INFO1 as usize] = p[0];
         return 0 as core::ffi::c_int;
     }
-    if knobs.is_null() {
-        colamd_set_defaults(default_knobs.as_mut_ptr());
-        knobs = default_knobs.as_mut_ptr() as *mut core::ffi::c_double;
-    }
-    count = (Some(allocate.expect("non-null function pointer"))).expect("non-null function pointer")(
-        (n + 1 as int32_t) as size_t,
-        ::core::mem::size_of::<int32_t>() as size_t,
-    ) as *mut int32_t;
-    if count.is_null() {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_out_of_memory as int32_t;
-        return 0 as core::ffi::c_int;
-    }
-    mark = (Some(allocate.expect("non-null function pointer"))).expect("non-null function pointer")(
-        (n + 1 as int32_t) as size_t,
-        ::core::mem::size_of::<int32_t>() as size_t,
-    ) as *mut int32_t;
-    if mark.is_null() {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_out_of_memory as int32_t;
-        (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
-            count as *mut core::ffi::c_void,
-        );
-        return 0 as core::ffi::c_int;
-    }
-    *stats.offset(COLAMD_INFO3 as isize) = 0 as core::ffi::c_int as int32_t;
+
+    // === If no knobs, set default knobs ===================================
+
+    let knobs = knobs.unwrap_or_else(|| {
+        unsafe {
+            colamd_set_defaults(default_knobs.as_mut_ptr());
+        }
+        &default_knobs
+    });
+
+    // === Allocate count and mark ==========================================
+
+    let mut count = vec![0; n as usize + 1];
+    let mut mark = vec![0; n as usize + 1];
+
+    // === Compute column counts of M, check if A is valid ==================
+
+    stats[COLAMD_INFO3 as usize] = 0 as core::ffi::c_int;
     i = 0 as core::ffi::c_int as int32_t;
     while i < n {
-        *mark.offset(i as isize) = -(1 as core::ffi::c_int) as int32_t;
+        mark[i as usize] = -1;
         i += 1;
     }
     j = 0 as core::ffi::c_int as int32_t;
     while j < n {
         last_row = -(1 as core::ffi::c_int) as int32_t;
-        length = *p.offset((j + 1 as int32_t) as isize) - *p.offset(j as isize);
+        length = p[(j + 1 as int32_t) as usize] - p[j as usize];
         if length < 0 as int32_t {
-            *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_col_length_negative as int32_t;
-            *stats.offset(COLAMD_INFO1 as isize) = j;
-            *stats.offset(COLAMD_INFO2 as isize) = length;
-            (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
-                count as *mut core::ffi::c_void,
-            );
-            (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
-                mark as *mut core::ffi::c_void,
-            );
+            // column pointers must be non-decreasing
+            stats[COLAMD_STATUS as usize] = COLAMD_ERROR_col_length_negative as int32_t;
+            stats[COLAMD_INFO1 as usize] = j;
+            stats[COLAMD_INFO2 as usize] = length;
             return 0 as core::ffi::c_int;
         }
-        pp = *p.offset(j as isize);
-        while pp < *p.offset((j + 1 as int32_t) as isize) {
-            i = *A.offset(pp as isize);
+        pp = p[j as usize];
+        while pp < p[(j + 1 as int32_t) as usize] {
+            i = a[pp as usize];
             if i < 0 as int32_t || i >= n {
-                *stats.offset(COLAMD_STATUS as isize) =
-                    COLAMD_ERROR_row_index_out_of_bounds as int32_t;
-                *stats.offset(COLAMD_INFO1 as isize) = j;
-                *stats.offset(COLAMD_INFO2 as isize) = i;
-                *stats.offset(COLAMD_INFO3 as isize) = n;
-                (Some(release.expect("non-null function pointer")))
-                    .expect("non-null function pointer")(
-                    count as *mut core::ffi::c_void
-                );
-                (Some(release.expect("non-null function pointer")))
-                    .expect("non-null function pointer")(
-                    mark as *mut core::ffi::c_void
-                );
+                // row index i, in column j, is out of bounds
+                stats[COLAMD_STATUS as usize] = COLAMD_ERROR_row_index_out_of_bounds;
+                stats[COLAMD_INFO1 as usize] = j;
+                stats[COLAMD_INFO2 as usize] = i;
+                stats[COLAMD_INFO3 as usize] = n;
                 return 0 as core::ffi::c_int;
             }
-            if i <= last_row || *mark.offset(i as isize) == j {
-                *stats.offset(COLAMD_STATUS as isize) = COLAMD_OK_BUT_JUMBLED as int32_t;
-                *stats.offset(COLAMD_INFO1 as isize) = j;
-                *stats.offset(COLAMD_INFO2 as isize) = i;
-                let ref mut fresh0 = *stats.offset(COLAMD_INFO3 as isize);
-                *fresh0 += 1;
+
+            if i <= last_row || mark[i as usize] == j {
+                // row index is unsorted or repeated (or both), thus col is jumbled. This is a
+                // notice, not an error condition.
+                stats[COLAMD_STATUS as usize] = COLAMD_OK_BUT_JUMBLED;
+                stats[COLAMD_INFO1 as usize] = j;
+                stats[COLAMD_INFO2 as usize] = i;
+                stats[COLAMD_INFO3 as usize] += 1;
             }
-            if i > j && *mark.offset(i as isize) != j {
-                let ref mut fresh1 = *count.offset(i as isize);
+
+            if i > j && mark[i as usize] != j {
+                // row k of M will contain column indices i and j
+                let ref mut fresh1 = count[i as usize];
                 *fresh1 += 1;
-                let ref mut fresh2 = *count.offset(j as isize);
+                let ref mut fresh2 = count[j as usize];
                 *fresh2 += 1;
             }
-            *mark.offset(i as isize) = j;
+            // mark the row as having been seen in this column
+            mark[i as usize] = j;
             last_row = i;
             pp += 1;
         }
         j += 1;
     }
-    *perm.offset(0 as core::ffi::c_int as isize) = 0 as core::ffi::c_int as int32_t;
+
+    // === Compute column pointers of M =====================================
+
+    // use output permutation, perm, for column pointers of M
+    perm[0] = 0;
     j = 1 as core::ffi::c_int as int32_t;
     while j <= n {
-        *perm.offset(j as isize) =
-            *perm.offset((j - 1 as int32_t) as isize) + *count.offset((j - 1 as int32_t) as isize);
+        perm[j as usize] = perm[(j - 1 as int32_t) as usize] + count[(j - 1 as int32_t) as usize];
         j += 1;
     }
     j = 0 as core::ffi::c_int as int32_t;
     while j < n {
-        *count.offset(j as isize) = *perm.offset(j as isize);
+        count[j as usize] = perm[j as usize];
         j += 1;
     }
-    mnz = *perm.offset(n as isize);
+
+    // === Construct M ======================================================
+
+    mnz = perm[n as usize];
     n_row = mnz / 2 as int32_t;
     let m_len = colamd_recommended(mnz, n_row, n).expect("negative inputs or overflow");
     let mut m = vec![0_i32; m_len];
     k = 0 as core::ffi::c_int as int32_t;
-    if *stats.offset(COLAMD_STATUS as isize) == COLAMD_OK as int32_t {
+    if stats[COLAMD_STATUS as usize] == COLAMD_OK {
+        // Matrix is OK
         j = 0 as core::ffi::c_int as int32_t;
         while j < n {
-            pp = *p.offset(j as isize);
-            while pp < *p.offset((j + 1 as int32_t) as isize) {
-                i = *A.offset(pp as isize);
+            pp = p[j as usize];
+            while pp < p[(j + 1 as int32_t) as usize] {
+                i = a[pp as usize];
                 if i > j {
-                    let ref mut fresh3 = *count.offset(i as isize);
+                    let ref mut fresh3 = count[i as usize];
                     let fresh4 = *fresh3;
                     *fresh3 = *fresh3 + 1;
                     m[fresh4 as usize] = k;
-                    let ref mut fresh5 = *count.offset(j as isize);
+                    let ref mut fresh5 = count[j as usize];
                     let fresh6 = *fresh5;
                     *fresh5 = *fresh5 + 1;
                     m[fresh6 as usize] = k;
@@ -403,55 +377,54 @@ pub unsafe fn symamd(
             j += 1;
         }
     } else {
+        // Matrix is jumbled. Do not add duplicates to M. Unsorted cols OK.
         i = 0 as core::ffi::c_int as int32_t;
         while i < n {
-            *mark.offset(i as isize) = -(1 as core::ffi::c_int) as int32_t;
+            mark[i as usize] = -1;
             i += 1;
         }
         j = 0 as core::ffi::c_int as int32_t;
         while j < n {
-            pp = *p.offset(j as isize);
-            while pp < *p.offset((j + 1 as int32_t) as isize) {
-                i = *A.offset(pp as isize);
-                if i > j && *mark.offset(i as isize) != j {
-                    let ref mut fresh7 = *count.offset(i as isize);
+            pp = p[j as usize];
+            while pp < p[(j + 1 as int32_t) as usize] {
+                i = a[pp as usize];
+                if i > j && mark[i as usize] != j {
+                    // row k of M contains column indices i and j
+                    let ref mut fresh7 = count[i as usize];
                     let fresh8 = *fresh7;
                     *fresh7 = *fresh7 + 1;
                     m[fresh8 as usize] = k;
-                    let ref mut fresh9 = *count.offset(j as isize);
+                    let ref mut fresh9 = count[j as usize];
                     let fresh10 = *fresh9;
                     *fresh9 = *fresh9 + 1;
                     m[fresh10 as usize] = k;
                     k += 1;
-                    *mark.offset(i as isize) = j;
+                    mark[i as usize] = j;
                 }
                 pp += 1;
             }
             j += 1;
         }
     }
-    (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
-        count as *mut core::ffi::c_void,
-    );
-    (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
-        mark as *mut core::ffi::c_void,
-    );
-    i = 0 as core::ffi::c_int as int32_t;
-    while i < COLAMD_KNOBS as int32_t {
-        cknobs[i as usize] = *knobs.offset(i as isize);
-        i += 1;
+
+    // === Adjust the knobs for M ===========================================
+
+    let mut cknobs = *knobs;
+    // there are no dense rows in M */
+    cknobs[COLAMD_DENSE_ROW as usize] = -1.;
+    cknobs[COLAMD_DENSE_COL as usize] = knobs[COLAMD_DENSE_ROW as usize];
+
+    // === Order the columns of M ===========================================
+    unsafe {
+        colamd(n_row, n, &mut m, perm, cknobs.as_mut_ptr(), stats);
     }
-    cknobs[COLAMD_DENSE_ROW as usize] = -(1 as core::ffi::c_int) as core::ffi::c_double;
-    cknobs[COLAMD_DENSE_COL as usize] = *knobs.offset(COLAMD_DENSE_ROW as isize);
-    colamd(
-        n_row,
-        n,
-        &mut m,
-        core::slice::from_raw_parts_mut(perm, (n as usize).checked_add(1).expect("overflowed")),
-        cknobs.as_mut_ptr(),
-        &mut *stats.cast::<[i32; 20]>(),
-    );
-    *stats.offset(COLAMD_DENSE_ROW as isize) = *stats.offset(COLAMD_DENSE_COL as isize);
+
+    // Note that the output permutation is now in perm
+
+    // === get the statistics for symamd from colamd ========================
+
+    // a dense column in colamd means a dense row and col in symamd
+    stats[COLAMD_DENSE_ROW as usize] = stats[COLAMD_DENSE_COL as usize];
     return 1 as core::ffi::c_int;
 }
 

@@ -169,8 +169,8 @@ pub fn colamd(
 #[expect(unused, reason = "check signatures anyway")]
 pub fn symamd(
     n: i32,
-    row_indices: &mut [i32],
-    column_pointers: &mut [i32],
+    row_indices: &[i32],
+    column_pointers: &[i32],
     permutation: &mut [i32],
     options: Option<Options>,
     stats: &mut [i32; 20],
@@ -192,28 +192,9 @@ pub fn symamd(
         "The column pointers and column permutation slice must have the same length"
     );
 
-    let a_i = row_indices.as_mut_ptr();
-    let p = column_pointers.as_mut_ptr();
-    let permutation = permutation.as_mut_ptr();
+    let mut knobs = options.map(Options::as_knobs_array).as_ref();
 
-    let mut knobs = options.map(Options::as_knobs_array);
-    let knobs = knobs
-        .as_mut()
-        .map(|k| k.as_mut_ptr())
-        .unwrap_or(core::ptr::null_mut());
-
-    unsafe {
-        colamd::symamd(
-            n,
-            a_i,
-            p,
-            permutation,
-            knobs,
-            stats,
-            None, // wants `calloc`
-            None, // wants `free`
-        )
-    }
+    unsafe { colamd::symamd(n, row_indices, column_pointers, permutation, knobs, stats) }
 }
 
 #[cfg(test)]
