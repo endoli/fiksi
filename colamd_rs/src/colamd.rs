@@ -19,7 +19,6 @@
     clippy::single_match,
     clippy::toplevel_ref_arg,
     clippy::unnecessary_unwrap,
-    clippy::unnecessary_literal_unwrap,
     clippy::zero_ptr,
     reason = "transpiled using c2rust"
 )]
