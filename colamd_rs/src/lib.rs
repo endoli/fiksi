@@ -43,6 +43,8 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![no_std]
 
+extern crate alloc;
+
 // Keep clippy from complaining about unused libm in nostd test case.
 #[cfg(feature = "libm")]
 #[expect(unused, reason = "keep clippy happy")]
@@ -213,8 +215,6 @@ pub fn symamd(
 
 #[cfg(test)]
 mod tests {
-    extern crate alloc;
-
     use alloc::vec;
 
     use super::{Options, colamd, colamd_recommended};
