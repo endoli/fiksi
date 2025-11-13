@@ -5,6 +5,143 @@ use alloc::{vec, vec::Vec};
 
 use crate::TripletMat;
 
+/// A formatting error.
+///
+/// These are the errors that can occur when checking the format of sparse data, like in
+/// [`SparseColMatStructure::try_from_data`].
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub enum SparseFormatError {
+    /// Got a bad amount of pointers for the given matrix dimension.
+    ///
+    /// The number of pointers should be equal to the number of major axes plus 1. For a sparse
+    /// column matrix: the number of column pointers should be equal to the number of columns plus
+    /// one.
+    BadNumberOfPointers {
+        /// The number of expected pointers.
+        expected: usize,
+
+        /// The number of pointers actually given.
+        got: usize,
+    },
+
+    /// Got a bad starting pointer. It should be `0`.
+    BadStartPointer {
+        /// The actual value of the first pointer.
+        got: usize,
+    },
+
+    /// Got a bad starting pointer. It should be equal to the number of non-zeroes.
+    BadEndPointer {
+        /// The expected value of the end pointer.
+        expected: usize,
+        
+        /// The actual value of the end pointer.
+        got: usize,
+    },
+
+    /// The pointers were not ordered.
+    ///
+    /// For all slices, each slice end pointers should be greater than or equal to the slice start pointer.
+    UnorderedPointer {
+        /// The slice in which the error occurred.
+        ///
+        /// For a sparse column matrix, this is the column.
+        slice: usize,
+        
+        /// The start pointer of this slice.
+        start: usize,
+        
+        /// The end pointer of this slice.
+        end: usize,
+    },
+
+    /// An index within a slice was unordered.
+    UndorderedIndex {
+        /// The slice in which the error occurred.
+        ///
+        /// For a sparse column matrix, this is the column.
+        slice: usize,
+
+        /// The position within the indices slice where the error occurred.
+        ///
+        /// For a sparse column matrix, this is the index into the row indices slice.
+        idx: usize,
+        
+        /// The previous index value.
+        ///
+        /// For a sparse column matrix, this is the previous row index within this slice.
+        prev: usize,
+        
+        /// The index value at the indicated position. This should be strictly greater than `prev`.
+        ///
+        /// For a sparse column matrix, this is the row index at position `idx`.
+        got: usize,
+    },
+
+    /// An index within a slice was out of bounds.
+    IndexOutOfBounds {
+        /// The slice in which the error occurred.
+        ///
+        /// For a sparse column matrix, this is the column.
+        slice: usize,
+        
+        /// The index into the indices slice.
+        ///
+        /// For a sparse column matrix, this is the index into the row indices slice.
+        idx: usize,
+
+        /// The index value.
+        ///
+        /// For a sparse column matrix, this is the row index at position `idx`.
+        value: usize,
+
+        /// The sparse length of the slice. All index values must be strictly smaller than this.
+        ///
+        /// For a sparse column matrix, this is the number of matrix rows.
+        bound: usize,
+    },
+}
+
+impl core::fmt::Display for SparseFormatError {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        match self {
+            SparseFormatError::BadNumberOfPointers { expected, got } => {
+                f.write_fmt(core::format_args!(
+                    "Got a bad amount of pointers. Expected: `{expected}` (size of major dimension + 1), got: `{got}`."
+                ))
+            }
+            SparseFormatError::BadStartPointer { got } => {
+                f.write_fmt(core::format_args!(
+                    "The start pointer should always be `0`. Got: `{got}`."
+                ))
+            }
+            SparseFormatError::BadEndPointer { expected, got } => {
+                f.write_fmt(core::format_args!(
+                    "The end pointer should always be equal to the amount of structural non-zeroes. Expected: `{expected}`, got: `{got}`."
+                ))
+            }
+            SparseFormatError::UnorderedPointer { slice, start, end } => {
+                f.write_fmt(core::format_args!(
+                    "The pointers for slice `{slice}` of the major axis are unordered. Start: `{start}`, end: `{end}`. Pointers must increase monotonically."
+                ))
+            }
+            SparseFormatError::UndorderedIndex { slice, idx, prev, got } => {
+                f.write_fmt(core::format_args!(
+                    "Index `{idx}` (in slice `{slice}`) is unordered. The previous index had value `{prev}`, this has value `{got}`. Indices must be strictly monotonically increasing (duplicates are not allowed)."
+                ))
+            }
+            SparseFormatError::IndexOutOfBounds { slice, idx, value, bound } => {
+                f.write_fmt(core::format_args!(
+                    "Index `{idx}` (in slice `{slice}`) is out of bounds. Length: `{bound}`, got index: `{value}`."
+                ))
+            }
+        }
+    }
+}
+
+impl core::error::Error for SparseFormatError {}
+
 /// The structure of a sparse column matrix.
 ///
 /// For a sparse column matrix with values, see [`SparseColMat`].
@@ -64,6 +201,117 @@ pub struct SparseColMatStructure {
 }
 
 impl SparseColMatStructure {
+    /// Construct a new [`SparseColMatStructure`] from the given data.
+    ///
+    /// The formatting is checked according to the structure described
+    /// [here][SparseColMatStructure]. An error is returned if the data is malformed.
+    pub fn try_from_data(
+        nrows: usize,
+        ncols: usize,
+        row_indices: Vec<usize>,
+        column_pointers: Vec<usize>,
+    ) -> Result<Self, SparseFormatError> {
+        let num_nonzero = row_indices.len();
+
+        if column_pointers.len() != ncols + 1 {
+            return Err(SparseFormatError::BadNumberOfPointers {
+                expected: ncols + 1,
+                got: column_pointers.len(),
+            });
+        }
+
+        if column_pointers[0] != 0 {
+            return Err(SparseFormatError::BadStartPointer {
+                got: column_pointers[0],
+            });
+        }
+
+        if column_pointers[ncols] != num_nonzero {
+            return Err(SparseFormatError::BadEndPointer {
+                expected: num_nonzero,
+                got: column_pointers[ncols],
+            });
+        }
+
+        for col in 0..ncols {
+            let start = column_pointers[col];
+            let end = column_pointers[col + 1];
+
+            if end < start {
+                return Err(SparseFormatError::UnorderedPointer {
+                    slice: col,
+                    start,
+                    end,
+                });
+            }
+
+            debug_assert!(
+                end <= num_nonzero,
+                "We checked that the column pointers are sorted and that the last column pointer points to the end of `num_nozero`, so are within `row_indices` bounds"
+            );
+
+            if end > start {
+                let mut prev_row = row_indices[start];
+                if prev_row >= nrows {
+                    return Err(SparseFormatError::IndexOutOfBounds {
+                        slice: col,
+                        idx: start,
+                        value: prev_row,
+                        bound: nrows,
+                    });
+                }
+                for idx in start + 1..end {
+                    let row = row_indices[idx];
+
+                    if row >= nrows {
+                        return Err(SparseFormatError::IndexOutOfBounds {
+                            slice: col,
+                            idx,
+                            value: row,
+                            bound: nrows,
+                        });
+                    }
+
+                    if row <= prev_row {
+                        return Err(SparseFormatError::UndorderedIndex {
+                            slice: col,
+                            idx,
+                            prev: prev_row,
+                            got: row,
+                        });
+                    }
+
+                    prev_row = row;
+                }
+            }
+        }
+
+        Ok(Self {
+            nrows,
+            ncols,
+            row_indices,
+            column_pointers,
+        })
+    }
+
+    /// Get the index range of a column.
+    ///
+    /// This is useful for, e.g., indexing into a sparse matrix value array stored in parallel to
+    /// this sparsity structure.
+    ///
+    /// Also see [`SparseColMat`] for a sparse matrix including its values.
+    #[inline]
+    #[track_caller]
+    pub fn index_column_range(&self, col: usize) -> core::ops::Range<usize> {
+        if col + 1 >= self.column_pointers.len() {
+            panic!(
+                "column index {col} out of range for matrix with {} columns",
+                self.ncols()
+            );
+        }
+        self.column_pointers[col]..self.column_pointers[col + 1]
+    }
+
     /// Get a the rows in the given column `col`.
     ///
     /// Panics if out of bounds.
@@ -328,7 +576,9 @@ impl<T: num_traits::real::Real> SparseColMat<T> {
 
 #[cfg(test)]
 mod tests {
-    use crate::{SparseColMat, TripletMat};
+    use alloc::vec;
+
+    use crate::{SparseColMat, SparseColMatStructure, TripletMat};
 
     #[test]
     fn solve_upper_triangular() {
@@ -364,5 +614,54 @@ mod tests {
         for (calculated, expected) in b.into_iter().zip(X) {
             assert!((calculated - expected).abs() < EPSILON);
         }
+    }
+
+    #[test]
+    fn try_from_data() {
+        assert!(
+            SparseColMatStructure::try_from_data(
+                4,
+                5,
+                vec![0, 1, 1, 2, 1, 2, 3],
+                vec![0, 1, 2, 4, 4, 7]
+            )
+            .is_ok()
+        );
+
+        let r = SparseColMatStructure::try_from_data(
+            4,
+            5,
+            vec![0, 1, 1, 2, 1, 2, 3],
+            vec![0, 1, 3, 4, 4, 7],
+        );
+        let err = r.err().expect("Error");
+        assert_eq!(
+            &alloc::format!("{err}"),
+            "Index `2` (in slice `1`) is unordered. The previous index had value `1`, this has value `1`. Indices must be strictly monotonically increasing (duplicates are not allowed)."
+        );
+
+        let r = SparseColMatStructure::try_from_data(
+            4,
+            5,
+            vec![0, 1, 1, 2, 1, 2, 3],
+            vec![0, 1, 3, 4, 4, 5],
+        );
+        let err = r.err().expect("Error");
+        assert_eq!(
+            &alloc::format!("{err}"),
+            "The end pointer should always be equal to the amount of structural non-zeroes. Expected: `7`, got: `5`."
+        );
+
+        let r = SparseColMatStructure::try_from_data(
+            4,
+            5,
+            vec![0, 10, 1, 2, 1, 2, 3],
+            vec![0, 1, 2, 4, 4, 7],
+        );
+        let err = r.err().expect("Error");
+        assert_eq!(
+            &alloc::format!("{err}"),
+            "Index `1` (in slice `1`) is out of bounds. Length: `4`, got index: `10`."
+        );
     }
 }

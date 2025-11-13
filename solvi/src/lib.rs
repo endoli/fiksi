@@ -44,5 +44,5 @@ mod triplet_mat;
 pub mod utils;
 
 pub use permutation::PermutationSequence;
-pub use sparse_col_mat::{SparseColMat, SparseColMatStructure};
+pub use sparse_col_mat::{SparseColMat, SparseColMatStructure, SparseFormatError};
 pub use triplet_mat::{Triplet, TripletMat};
