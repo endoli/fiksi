@@ -24,8 +24,6 @@
     reason = "transpiled using c2rust"
 )]
 
-extern crate alloc;
-
 use alloc::vec;
 
 unsafe extern "C" {
