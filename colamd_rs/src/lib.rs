@@ -43,10 +43,10 @@
 #![cfg_attr(docsrs, feature(doc_cfg))]
 #![no_std]
 
-extern crate alloc;
+#[cfg(feature = "std")]
+extern crate std;
 
-#[cfg(not(feature = "std"))]
-mod floatfuncs;
+extern crate alloc;
 
 // Keep clippy from complaining about unused libm in nostd test case.
 #[cfg(feature = "libm")]
