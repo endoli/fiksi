@@ -16,7 +16,6 @@
     clippy::assign_op_pattern,
     clippy::needless_return,
     clippy::nonminimal_bool,
-    clippy::ptr_offset_with_cast,
     clippy::single_match,
     clippy::toplevel_ref_arg,
     clippy::unnecessary_unwrap,
@@ -24,6 +23,10 @@
     clippy::zero_ptr,
     reason = "transpiled using c2rust"
 )]
+
+extern crate alloc;
+
+use alloc::vec;
 
 unsafe extern "C" {
     fn sqrt(__x: core::ffi::c_double) -> core::ffi::c_double;
@@ -40,7 +43,7 @@ pub type __uint32_t = u32;
 pub type int32_t = __int32_t;
 pub type uint32_t = __uint32_t;
 pub type Colamd_Row = Colamd_Row_struct;
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 #[repr(C)]
 pub struct Colamd_Row_struct {
     pub start: int32_t,
@@ -48,20 +51,26 @@ pub struct Colamd_Row_struct {
     pub shared1: C2RustUnnamed_0,
     pub shared2: C2RustUnnamed,
 }
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, bytemuck::Zeroable)]
 #[repr(C)]
 pub union C2RustUnnamed {
     pub mark: int32_t,
     pub first_column: int32_t,
 }
-#[derive(Copy, Clone)]
+
+unsafe impl bytemuck::Pod for C2RustUnnamed {}
+
+#[derive(Copy, Clone, bytemuck::Zeroable)]
 #[repr(C)]
 pub union C2RustUnnamed_0 {
     pub degree: int32_t,
     pub p: int32_t,
 }
+
+unsafe impl bytemuck::Pod for C2RustUnnamed_0 {}
+
 pub type Colamd_Col = Colamd_Col_struct;
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 #[repr(C)]
 pub struct Colamd_Col_struct {
     pub start: int32_t,
@@ -71,31 +80,43 @@ pub struct Colamd_Col_struct {
     pub shared3: C2RustUnnamed_2,
     pub shared4: C2RustUnnamed_1,
 }
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, bytemuck::Zeroable)]
 #[repr(C)]
 pub union C2RustUnnamed_1 {
     pub degree_next: int32_t,
     pub hash_next: int32_t,
 }
-#[derive(Copy, Clone)]
+
+unsafe impl bytemuck::Pod for C2RustUnnamed_1 {}
+
+#[derive(Copy, Clone, bytemuck::Zeroable)]
 #[repr(C)]
 pub union C2RustUnnamed_2 {
     pub headhash: int32_t,
     pub hash: int32_t,
     pub prev: int32_t,
 }
-#[derive(Copy, Clone)]
+
+unsafe impl bytemuck::Pod for C2RustUnnamed_2 {}
+
+#[derive(Copy, Clone, bytemuck::Zeroable)]
 #[repr(C)]
 pub union C2RustUnnamed_3 {
     pub score: int32_t,
     pub order: int32_t,
 }
-#[derive(Copy, Clone)]
+
+unsafe impl bytemuck::Pod for C2RustUnnamed_3 {}
+
+#[derive(Copy, Clone, bytemuck::Zeroable)]
 #[repr(C)]
 pub union C2RustUnnamed_4 {
     pub thickness: int32_t,
     pub parent: int32_t,
 }
+
+unsafe impl bytemuck::Pod for C2RustUnnamed_4 {}
+
 pub const __INT_MAX__: core::ffi::c_int = unsafe { 2147483647 as core::ffi::c_int };
 pub const NULL: core::ffi::c_int = unsafe { 0 as core::ffi::c_int };
 pub const COLAMD_KNOBS: core::ffi::c_int = unsafe { 20 as core::ffi::c_int };
@@ -124,15 +145,6 @@ pub const COLAMD_ERROR_out_of_memory: core::ffi::c_int = unsafe { -(10 as core::
 pub const INT_MAX: core::ffi::c_int = unsafe { __INT_MAX__ };
 pub const COLAMD_set_defaults: unsafe extern "C" fn(*mut core::ffi::c_double) -> () =
     unsafe { colamd_set_defaults };
-pub const COLAMD_MAIN: unsafe extern "C" fn(
-    int32_t,
-    int32_t,
-    int32_t,
-    *mut int32_t,
-    *mut int32_t,
-    *mut core::ffi::c_double,
-    *mut int32_t,
-) -> core::ffi::c_int = unsafe { colamd };
 pub const TRUE: core::ffi::c_int = unsafe { 1 as core::ffi::c_int };
 pub const FALSE: core::ffi::c_int = unsafe { 0 as core::ffi::c_int };
 pub const EMPTY: core::ffi::c_int = unsafe { -(1 as core::ffi::c_int) };
@@ -200,20 +212,22 @@ pub unsafe extern "C" fn colamd_set_defaults(mut knobs: *mut core::ffi::c_double
     *knobs.offset(COLAMD_AGGRESSIVE as isize) = TRUE as core::ffi::c_double;
 }
 
-pub unsafe extern "C" fn symamd(
+#[expect(
+    clippy::too_many_arguments,
+    reason = "we'll be dropping the allocation arguments later"
+)]
+pub unsafe fn symamd(
     mut n: int32_t,
     mut A: *mut int32_t,
     mut p: *mut int32_t,
     mut perm: *mut int32_t,
     mut knobs: *mut core::ffi::c_double,
-    mut stats: *mut int32_t,
+    mut stats: &mut [i32; 20],
     mut allocate: Option<unsafe extern "C" fn(size_t, size_t) -> *mut core::ffi::c_void>,
     mut release: Option<unsafe extern "C" fn(*mut core::ffi::c_void) -> ()>,
 ) -> core::ffi::c_int {
     let mut count: *mut int32_t = 0 as *mut int32_t;
     let mut mark: *mut int32_t = 0 as *mut int32_t;
-    let mut M: *mut int32_t = 0 as *mut int32_t;
-    let mut Mlen: size_t = 0;
     let mut n_row: int32_t = 0;
     let mut nnz: int32_t = 0;
     let mut i: int32_t = 0;
@@ -225,6 +239,7 @@ pub unsafe extern "C" fn symamd(
     let mut length: int32_t = 0;
     let mut cknobs: [core::ffi::c_double; 20] = [0.; 20];
     let mut default_knobs: [core::ffi::c_double; 20] = [0.; 20];
+    let stats = stats.as_mut_ptr();
     if stats.is_null() {
         return 0 as core::ffi::c_int;
     }
@@ -357,21 +372,8 @@ pub unsafe extern "C" fn symamd(
     }
     mnz = *perm.offset(n as isize);
     n_row = mnz / 2 as int32_t;
-    Mlen = colamd_recommended(mnz, n_row, n).expect("negative inputs or overflow");
-    M = (Some(allocate.expect("non-null function pointer"))).expect("non-null function pointer")(
-        Mlen,
-        ::core::mem::size_of::<int32_t>() as size_t,
-    ) as *mut int32_t;
-    if M.is_null() {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_out_of_memory as int32_t;
-        (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
-            count as *mut core::ffi::c_void,
-        );
-        (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
-            mark as *mut core::ffi::c_void,
-        );
-        return 0 as core::ffi::c_int;
-    }
+    let m_len = colamd_recommended(mnz, n_row, n).expect("negative inputs or overflow");
+    let mut m = vec![0_i32; m_len];
     k = 0 as core::ffi::c_int as int32_t;
     if *stats.offset(COLAMD_STATUS as isize) == COLAMD_OK as int32_t {
         j = 0 as core::ffi::c_int as int32_t;
@@ -383,11 +385,11 @@ pub unsafe extern "C" fn symamd(
                     let ref mut fresh3 = *count.offset(i as isize);
                     let fresh4 = *fresh3;
                     *fresh3 = *fresh3 + 1;
-                    *M.offset(fresh4 as isize) = k;
+                    m[fresh4 as usize] = k;
                     let ref mut fresh5 = *count.offset(j as isize);
                     let fresh6 = *fresh5;
                     *fresh5 = *fresh5 + 1;
-                    *M.offset(fresh6 as isize) = k;
+                    m[fresh6 as usize] = k;
                     k += 1;
                 }
                 pp += 1;
@@ -409,11 +411,11 @@ pub unsafe extern "C" fn symamd(
                     let ref mut fresh7 = *count.offset(i as isize);
                     let fresh8 = *fresh7;
                     *fresh7 = *fresh7 + 1;
-                    *M.offset(fresh8 as isize) = k;
+                    m[fresh8 as usize] = k;
                     let ref mut fresh9 = *count.offset(j as isize);
                     let fresh10 = *fresh9;
                     *fresh9 = *fresh9 + 1;
-                    *M.offset(fresh10 as isize) = k;
+                    m[fresh10 as usize] = k;
                     k += 1;
                     *mark.offset(i as isize) = j;
                 }
@@ -438,35 +440,28 @@ pub unsafe extern "C" fn symamd(
     colamd(
         n_row,
         n,
-        Mlen as int32_t,
-        M as *mut int32_t,
-        perm,
+        &mut m,
+        core::slice::from_raw_parts_mut(perm, (n as usize).checked_add(1).expect("overflowed")),
         cknobs.as_mut_ptr(),
-        stats,
+        &mut *stats.cast::<[i32; 20]>(),
     );
     *stats.offset(COLAMD_DENSE_ROW as isize) = *stats.offset(COLAMD_DENSE_COL as isize);
-    (Some(release.expect("non-null function pointer"))).expect("non-null function pointer")(
-        M as *mut core::ffi::c_void,
-    );
     return 1 as core::ffi::c_int;
 }
 
-pub unsafe extern "C" fn colamd(
-    mut n_row: int32_t,
-    mut n_col: int32_t,
-    mut Alen: int32_t,
-    mut A: *mut int32_t,
-    mut p: *mut int32_t,
+pub unsafe fn colamd(
+    n_row: i32,
+    n_col: i32,
+    mut a: &mut [i32],
+    mut p: &mut [i32],
     mut knobs: *mut core::ffi::c_double,
-    mut stats: *mut int32_t,
+    stats: &mut [i32; 20],
 ) -> core::ffi::c_int {
     let mut i: int32_t = 0;
     let mut nnz: int32_t = 0;
     let mut Row_size: size_t = 0;
     let mut Col_size: size_t = 0;
     let mut need: size_t = 0;
-    let mut Row: *mut Colamd_Row = 0 as *mut Colamd_Row;
-    let mut Col: *mut Colamd_Col = 0 as *mut Colamd_Col;
     let mut n_col2: int32_t = 0;
     let mut n_row2: int32_t = 0;
     let mut ngarbage: int32_t = 0;
@@ -474,6 +469,8 @@ pub unsafe extern "C" fn colamd(
     let mut default_knobs: [core::ffi::c_double; 20] = [0.; 20];
     let mut aggressive: int32_t = 0;
     let mut ok: core::ffi::c_int = 0;
+
+    let stats = stats.as_mut_ptr();
     if stats.is_null() {
         return 0 as core::ffi::c_int;
     }
@@ -485,14 +482,7 @@ pub unsafe extern "C" fn colamd(
     *stats.offset(COLAMD_STATUS as isize) = COLAMD_OK as int32_t;
     *stats.offset(COLAMD_INFO1 as isize) = -(1 as core::ffi::c_int) as int32_t;
     *stats.offset(COLAMD_INFO2 as isize) = -(1 as core::ffi::c_int) as int32_t;
-    if A.is_null() {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_A_not_present as int32_t;
-        return 0 as core::ffi::c_int;
-    }
-    if p.is_null() {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_p_not_present as int32_t;
-        return 0 as core::ffi::c_int;
-    }
+    let p = p.as_mut_ptr();
     if n_row < 0 as int32_t {
         *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_nrow_negative as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = n_row;
@@ -537,34 +527,42 @@ pub unsafe extern "C" fn colamd(
     need = t_add(need, n_col as size_t, &mut ok);
     need = t_add(need, Col_size, &mut ok);
     need = t_add(need, Row_size, &mut ok);
-    if ok == 0 || need > Alen as size_t {
+    let a_len = a.len();
+    if ok == 0 || need > a_len {
         *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_A_too_small as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = need as int32_t;
-        *stats.offset(COLAMD_INFO2 as isize) = Alen;
+        *stats.offset(COLAMD_INFO2 as isize) = a_len as i32;
         return 0 as core::ffi::c_int;
     }
-    Alen = (Alen as size_t).wrapping_sub(Col_size.wrapping_add(Row_size)) as int32_t as int32_t;
-    Col = &mut *A.offset(Alen as isize) as *mut int32_t as *mut Colamd_Col;
-    Row = &mut *A.offset((Alen as size_t).wrapping_add(Col_size) as isize) as *mut int32_t
-        as *mut Colamd_Row;
+    let a_len = a_len.wrapping_sub(Col_size.wrapping_add(Row_size));
+    let (a, col) = a.split_at_mut(a_len);
+    let (col, row) = col.split_at_mut(Col_size);
+    let cols: &mut [Colamd_Col] = bytemuck::cast_slice_mut(col);
+    let rows: &mut [Colamd_Row] = bytemuck::cast_slice_mut(row);
+
     if init_rows_cols(
         n_row,
         n_col,
-        Row as *mut Colamd_Row,
-        Col as *mut Colamd_Col,
-        A,
+        rows.as_mut_ptr(),
+        cols.as_mut_ptr(),
+        a.as_mut_ptr(),
         p,
         stats,
     ) == 0
     {
         return 0 as core::ffi::c_int;
     }
+
+    let a = a.as_mut_ptr();
+    let cols = cols.as_mut_ptr();
+    let rows = rows.as_mut_ptr();
+
     init_scoring(
         n_row,
         n_col,
-        Row as *mut Colamd_Row,
-        Col as *mut Colamd_Col,
-        A,
+        rows,
+        cols,
+        a,
         p,
         knobs,
         &mut n_row2,
@@ -574,17 +572,17 @@ pub unsafe extern "C" fn colamd(
     ngarbage = find_ordering(
         n_row,
         n_col,
-        Alen,
-        Row as *mut Colamd_Row,
-        Col as *mut Colamd_Col,
-        A,
+        a_len as i32,
+        rows,
+        cols,
+        a,
         p,
         n_col2,
         max_deg,
         2 as int32_t * nnz,
         aggressive,
     );
-    order_children(n_col, Col as *mut Colamd_Col, p);
+    order_children(n_col, cols, p);
     *stats.offset(COLAMD_DENSE_ROW as isize) = n_row - n_row2;
     *stats.offset(COLAMD_DENSE_COL as isize) = n_col - n_col2;
     *stats.offset(COLAMD_DEFRAG_COUNT as isize) = ngarbage;
