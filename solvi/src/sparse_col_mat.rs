@@ -57,7 +57,7 @@ pub enum SparseFormatError {
     },
 
     /// An index within a slice was unordered.
-    UndorderedIndex {
+    UnorderedIndex {
         /// The slice in which the error occurred.
         ///
         /// For a sparse column matrix, this is the column.
@@ -126,7 +126,7 @@ impl core::fmt::Display for SparseFormatError {
                     "The pointers for slice `{slice}` of the major axis are unordered. Start: `{start}`, end: `{end}`. Pointers must increase monotonically."
                 ))
             }
-            Self::UndorderedIndex { slice, idx, prev, got } => {
+            Self::UnorderedIndex { slice, idx, prev, got } => {
                 f.write_fmt(core::format_args!(
                     "Index `{idx}` (in slice `{slice}`) is unordered. The previous index had value `{prev}`, this has value `{got}`. Indices must be strictly monotonically increasing (duplicates are not allowed)."
                 ))
@@ -271,7 +271,7 @@ impl SparseColMatStructure {
                     }
 
                     if row <= prev_row {
-                        return Err(SparseFormatError::UndorderedIndex {
+                        return Err(SparseFormatError::UnorderedIndex {
                             slice: col,
                             idx,
                             prev: prev_row,
@@ -632,7 +632,7 @@ mod tests {
             vec![0, 1, 1, 2, 1, 2, 3],
             vec![0, 1, 3, 4, 4, 7],
         );
-        let err = r.err().expect("Error");
+        let err = r.expect_err("Error");
         assert_eq!(
             &alloc::format!("{err}"),
             "Index `2` (in slice `1`) is unordered. The previous index had value `1`, this has value `1`. Indices must be strictly monotonically increasing (duplicates are not allowed)."
@@ -644,7 +644,7 @@ mod tests {
             vec![0, 1, 1, 2, 1, 2, 3],
             vec![0, 1, 3, 4, 4, 5],
         );
-        let err = r.err().expect("Error");
+        let err = r.expect_err("Error");
         assert_eq!(
             &alloc::format!("{err}"),
             "The end pointer should always be equal to the amount of structural non-zeroes. Expected: `7`, got: `5`."
@@ -656,7 +656,7 @@ mod tests {
             vec![0, 10, 1, 2, 1, 2, 3],
             vec![0, 1, 2, 4, 4, 7],
         );
-        let err = r.err().expect("Error");
+        let err = r.expect_err("Error");
         assert_eq!(
             &alloc::format!("{err}"),
             "Index `1` (in slice `1`) is out of bounds. Length: `4`, got index: `10`."
