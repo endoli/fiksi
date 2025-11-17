@@ -19,7 +19,7 @@ pub enum SparseFormatError {
     /// one.
     BadNumberOfPointers {
         /// The number of expected pointers.
-        expected: usize,
+        expected: core::num::NonZeroUsize,
 
         /// The number of pointers actually given.
         got: usize,
@@ -216,7 +216,7 @@ impl SparseColMatStructure {
 
         if column_pointers.len() != ncols + 1 {
             return Err(SparseFormatError::BadNumberOfPointers {
-                expected: ncols + 1,
+                expected: (ncols + 1).try_into().unwrap(),
                 got: column_pointers.len(),
             });
         }
