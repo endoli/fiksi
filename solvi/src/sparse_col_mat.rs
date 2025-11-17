@@ -204,7 +204,8 @@ impl SparseColMatStructure {
     /// Construct a new [`SparseColMatStructure`] from the given data.
     ///
     /// The formatting is checked according to the structure described
-    /// [here][SparseColMatStructure]. An error is returned if the data is malformed.
+    /// [here][SparseColMatStructure]. A [`SparseFormatError`] is returned if the data is
+    /// malformed.
     pub fn try_from_data(
         nrows: usize,
         ncols: usize,
