@@ -35,7 +35,7 @@ pub enum SparseFormatError {
     BadEndPointer {
         /// The expected value of the end pointer.
         expected: usize,
-        
+
         /// The actual value of the end pointer.
         got: usize,
     },
@@ -48,10 +48,10 @@ pub enum SparseFormatError {
         ///
         /// For a sparse column matrix, this is the column.
         slice: usize,
-        
+
         /// The start pointer of this slice.
         start: usize,
-        
+
         /// The end pointer of this slice.
         end: usize,
     },
@@ -67,12 +67,12 @@ pub enum SparseFormatError {
         ///
         /// For a sparse column matrix, this is the index into the row indices slice.
         idx: usize,
-        
+
         /// The previous index value.
         ///
         /// For a sparse column matrix, this is the previous row index within this slice.
         prev: usize,
-        
+
         /// The index value at the indicated position. This should be strictly greater than `prev`.
         ///
         /// For a sparse column matrix, this is the row index at position `idx`.
@@ -85,7 +85,7 @@ pub enum SparseFormatError {
         ///
         /// For a sparse column matrix, this is the column.
         slice: usize,
-        
+
         /// The index into the indices slice.
         ///
         /// For a sparse column matrix, this is the index into the row indices slice.
@@ -106,32 +106,32 @@ pub enum SparseFormatError {
 impl core::fmt::Display for SparseFormatError {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
-            SparseFormatError::BadNumberOfPointers { expected, got } => {
+            Self::BadNumberOfPointers { expected, got } => {
                 f.write_fmt(core::format_args!(
                     "Got a bad amount of pointers. Expected: `{expected}` (size of major dimension + 1), got: `{got}`."
                 ))
             }
-            SparseFormatError::BadStartPointer { got } => {
+            Self::BadStartPointer { got } => {
                 f.write_fmt(core::format_args!(
                     "The start pointer should always be `0`. Got: `{got}`."
                 ))
             }
-            SparseFormatError::BadEndPointer { expected, got } => {
+            Self::BadEndPointer { expected, got } => {
                 f.write_fmt(core::format_args!(
                     "The end pointer should always be equal to the amount of structural non-zeroes. Expected: `{expected}`, got: `{got}`."
                 ))
             }
-            SparseFormatError::UnorderedPointer { slice, start, end } => {
+            Self::UnorderedPointer { slice, start, end } => {
                 f.write_fmt(core::format_args!(
                     "The pointers for slice `{slice}` of the major axis are unordered. Start: `{start}`, end: `{end}`. Pointers must increase monotonically."
                 ))
             }
-            SparseFormatError::UndorderedIndex { slice, idx, prev, got } => {
+            Self::UndorderedIndex { slice, idx, prev, got } => {
                 f.write_fmt(core::format_args!(
                     "Index `{idx}` (in slice `{slice}`) is unordered. The previous index had value `{prev}`, this has value `{got}`. Indices must be strictly monotonically increasing (duplicates are not allowed)."
                 ))
             }
-            SparseFormatError::IndexOutOfBounds { slice, idx, value, bound } => {
+            Self::IndexOutOfBounds { slice, idx, value, bound } => {
                 f.write_fmt(core::format_args!(
                     "Index `{idx}` (in slice `{slice}`) is out of bounds. Length: `{bound}`, got index: `{value}`."
                 ))
@@ -260,9 +260,7 @@ impl SparseColMatStructure {
                         bound: nrows,
                     });
                 }
-                for idx in start + 1..end {
-                    let row = row_indices[idx];
-
+                for (idx, &row) in row_indices.iter().enumerate().take(end).skip(start + 1) {
                     if row >= nrows {
                         return Err(SparseFormatError::IndexOutOfBounds {
                             slice: col,
