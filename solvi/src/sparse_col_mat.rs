@@ -66,7 +66,7 @@ pub enum SparseFormatError {
         /// The position within the indices slice where the error occurred.
         ///
         /// For a sparse column matrix, this is the index into the row indices slice.
-        idx: usize,
+        idx: core::num::NonZeroUsize,
 
         /// The previous index value.
         ///
@@ -274,7 +274,7 @@ impl SparseColMatStructure {
                     if row <= prev_row {
                         return Err(SparseFormatError::UnorderedIndex {
                             slice: col,
-                            idx,
+                            idx: idx.try_into().unwrap(),
                             prev: prev_row,
                             got: row,
                         });
