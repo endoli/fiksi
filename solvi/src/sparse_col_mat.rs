@@ -412,7 +412,7 @@ impl SparseColMatStructure {
     /// assert_eq!(a_transposed.index_column(2), &[2]);
     /// ```
     #[inline]
-    pub fn transpose(&self) -> SparseColMatStructure {
+    pub fn transpose(&self) -> Self {
         // TODO: because `Self::transpose_with_values` currently goes through `TripletMat` for
         // expedience, which requires some bounds to operate, we create a zero-sized type here with
         // the required trait impls.
@@ -446,13 +446,12 @@ impl SparseColMatStructure {
                 triplet_mat.push_triplet(i, j, values.next().unwrap());
             }
         }
-        let mat = SparseColMat::from_triplet_mat(&triplet_mat.transpose());
-        mat
+        SparseColMat::from_triplet_mat(&triplet_mat.transpose())
     }
 
     /// Permute the columns of `self`.
     #[inline]
-    pub fn permute_columns(&self, column_permutation: &[usize]) -> SparseColMatStructure {
+    pub fn permute_columns(&self, column_permutation: &[usize]) -> Self {
         // Create the values vector. Note this does not actually allocate, as `()` is a zero-sized
         // type.
         let values = vec![(); self.row_indices.len()];
@@ -471,7 +470,11 @@ impl SparseColMatStructure {
     ) -> SparseColMat<T> {
         let a_values = values;
 
-        assert!(a_values.len() >= self.row_indices.len());
+        assert_eq!(
+            a_values.len(),
+            self.row_indices.len(),
+            "`values` should have the same length as the number of structural non-zeroes"
+        );
 
         let mut row_indices = Vec::with_capacity(self.row_indices.len());
         let mut column_pointers = Vec::with_capacity(column_permutation.len() + 1);
@@ -486,7 +489,7 @@ impl SparseColMatStructure {
         }
 
         SparseColMat {
-            structure: SparseColMatStructure {
+            structure: Self {
                 nrows: self.nrows,
                 ncols: column_permutation.len(),
                 row_indices,
@@ -592,7 +595,7 @@ impl<T> SparseColMat<T> {
 impl<T: Copy> SparseColMat<T> {
     /// Permute the columns of `self`.
     #[inline]
-    pub fn permute_columns(&self, column_permutation: &[usize]) -> SparseColMat<T> {
+    pub fn permute_columns(&self, column_permutation: &[usize]) -> Self {
         self.structure
             .permute_columns_with_values(column_permutation, &self.values)
     }
@@ -641,7 +644,7 @@ impl<T: core::ops::AddAssign + Copy> SparseColMat<T> {
     // expedience, which requires some bounds to operate. The `AddAssign` bound technically could
     // be dropped, as we know each entry `A_ij` is unique.
     #[inline]
-    pub fn transpose(&self) -> SparseColMat<T> {
+    pub fn transpose(&self) -> Self {
         self.structure
             .transpose_with_values(self.values.iter().cloned())
     }
