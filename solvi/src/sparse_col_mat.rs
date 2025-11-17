@@ -401,6 +401,25 @@ pub struct SparseColMat<T> {
 }
 
 impl<T> SparseColMat<T> {
+    /// Create a new [`SparseColMat`] from a [`SparseColMatStructure`] and its values.
+    ///
+    /// The length of the `values` vector must be equal to the number of non-zeroes in the given
+    /// `structure`.
+    ///
+    /// # Panics
+    ///
+    /// This panics if the length of `values` is not equal to the number of non-zeroes in
+    /// `structure`.
+    pub fn from_structure_and_values(structure: SparseColMatStructure, values: Vec<T>) -> Self {
+        assert_eq!(
+            structure.row_indices.len(),
+            values.len(),
+            "The length of `values` must be equal to the number of non-zeroes in `structure`."
+        );
+
+        Self { structure, values }
+    }
+
     /// Get a tuple of the values and the rows of those values in the given column `col`.
     ///
     /// Panics if out of bounds.
