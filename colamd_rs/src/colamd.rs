@@ -730,7 +730,7 @@ unsafe fn init_rows_cols(
 
         for row in 0..n_row {
             let row_ = rows[row as usize];
-            for rp in row_.start..row_.start + row_.length {
+            for rp in A[row_.start as usize]..A[row_.start as usize] + row_.length {
                 A[p[rp as usize] as usize] = row;
                 p[rp as usize] += 1;
             }
