@@ -56,8 +56,10 @@ fn ensure_libm_dependency_used() -> f32 {
 }
 
 mod colamd;
+mod status;
 
 pub use colamd::colamd_recommended;
+pub use status::{Error, Statistics, Status};
 
 /// Options controlling [`colamd`][colamd()] and `symamd` behavior.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -134,8 +136,7 @@ impl core::default::Default for Options {
 /// let mut row_indices = vec![0; a_len];
 /// row_indices[..11].copy_from_slice(&[0, 1, 4, 2, 4, 0, 1, 2, 3, 1, 3]);
 /// let column_pointers = &mut [0, 3, 5, 9, 11];
-/// let stats = &mut [0; 20];
-/// colamd(nrows, ncols, &mut row_indices, column_pointers, None, stats);
+/// colamd(nrows, ncols, &mut row_indices, column_pointers, None);
 ///
 /// assert_eq!(column_pointers, &[1, 0, 2, 3, -1]);
 /// ```
@@ -145,8 +146,7 @@ pub fn colamd(
     row_indices: &mut [i32],
     column_pointers: &mut [i32],
     options: Option<Options>,
-    stats: &mut [i32; 20],
-) -> i32 {
+) -> Result<Statistics, Error> {
     assert_eq!(
         column_pointers.len(),
         ncols
@@ -156,13 +156,24 @@ pub fn colamd(
         "`p` must be of length `n_col+1` (containing one column pointer to the start of each column, plus a pointer at the end",
     );
 
-    let mut knobs = options.map(Options::as_knobs_array);
-    let knobs = knobs
-        .as_mut()
-        .map(|k| k.as_mut_ptr())
-        .unwrap_or(core::ptr::null_mut());
+    let stats = &mut [0; 20];
+    let res = {
+        let mut knobs = options.map(Options::as_knobs_array);
+        let knobs = knobs
+            .as_mut()
+            .map(|k| k.as_mut_ptr())
+            .unwrap_or(core::ptr::null_mut());
 
-    unsafe { colamd::colamd(nrows, ncols, row_indices, column_pointers, knobs, stats) }
+        unsafe { colamd::colamd(nrows, ncols, row_indices, column_pointers, knobs, stats) }
+    };
+
+    let result = status::stats_to_result(stats);
+    debug_assert_eq!(
+        result.is_ok(),
+        res == 1,
+        "The converted `stats` indicate success, but `colamd`'s return value indicates failure"
+    );
+    result
 }
 
 /// Computes a column ordering for `A` such that the Cholesky decomposition remains sparse.
@@ -196,8 +207,7 @@ pub fn colamd(
 /// let mut row_indices = [0, 1, 0, 2, 3, 1, 1, 4, 3];
 /// let column_pointers = [0, 2, 5, 6, 8, 9];
 /// let mut permutation = [0, 0, 0, 0, 0, 0];
-/// let stats = &mut [0; 20];
-/// symamd(n, &row_indices, &column_pointers, &mut permutation, None, stats);
+/// symamd(n, &row_indices, &column_pointers, &mut permutation, None);
 ///
 /// assert_eq!(permutation, [0, 2, 1, 3, 4, -1]);
 /// ```
@@ -225,8 +235,7 @@ pub fn colamd(
 /// let mut row_indices = [1, 2, 3, 4];
 /// let column_pointers = [0, 1, 3, 3, 4, 4];
 /// let mut permutation = [0, 0, 0, 0, 0, 0];
-/// let stats = &mut [0; 20];
-/// symamd(n, &row_indices, &column_pointers, &mut permutation, None, stats);
+/// symamd(n, &row_indices, &column_pointers, &mut permutation, None);
 ///
 /// assert_eq!(permutation, [0, 2, 1, 3, 4, -1]);
 /// ```
@@ -236,8 +245,7 @@ pub fn symamd(
     column_pointers: &[i32],
     permutation: &mut [i32],
     options: Option<Options>,
-    stats: &mut [i32; 20],
-) -> i32 {
+) -> Result<Statistics, Error> {
     assert_eq!(
         column_pointers.len(),
         n.checked_add(1)
@@ -251,16 +259,27 @@ pub fn symamd(
         "The column pointers and column permutation slice must have the same length"
     );
 
-    let knobs = options.map(Options::as_knobs_array);
+    let stats = &mut [0; 20];
+    let res = {
+        let knobs = options.map(Options::as_knobs_array);
 
-    colamd::symamd(
-        n,
-        row_indices,
-        column_pointers,
-        permutation,
-        knobs.as_ref(),
-        stats,
-    )
+        colamd::symamd(
+            n,
+            row_indices,
+            column_pointers,
+            permutation,
+            knobs.as_ref(),
+            stats,
+        )
+    };
+
+    let result = status::stats_to_result(stats);
+    debug_assert_eq!(
+        result.is_ok(),
+        res == 1,
+        "The converted `stats` indicate success, but `symamd`'s return value indicates failure"
+    );
+    result
 }
 
 #[cfg(test)]
@@ -279,8 +298,7 @@ mod tests {
         let mut row_indices = vec![0; A_LEN];
         row_indices[..11].copy_from_slice(&[0, 1, 4, 2, 4, 0, 1, 2, 3, 1, 3]);
         let column_pointers = &mut [0, 3, 5, 9, 11];
-        let stats = &mut [0; 20];
-        colamd(5, 4, &mut row_indices, column_pointers, None, stats);
+        assert!(colamd(5, 4, &mut row_indices, column_pointers, None).is_ok());
 
         // Running this through the original C version results in the permutation
         // `[1, 0, 2, 3, -1]`.
@@ -295,14 +313,7 @@ mod tests {
         row_indices[..7].copy_from_slice(&[0, 1, 2, 1, 0, 1, 3]);
         let mut knobs = Options::DEFAULT;
         knobs.aggressive_row_absorption = false;
-        colamd(
-            4,
-            3,
-            &mut row_indices,
-            column_pointers,
-            Some(knobs),
-            &mut [0; 20],
-        );
+        assert!(colamd(4, 3, &mut row_indices, column_pointers, Some(knobs),).is_ok());
 
         // Running this through the original C version results in the permutation `[1, 2, 0, -1]`.
         assert_eq!(column_pointers, &[1, 2, 0, -1]);
@@ -324,14 +335,7 @@ mod tests {
         let column_pointers = [0, 1, 3, 3, 4, 4];
         let mut permutation = [0; 6];
 
-        symamd(
-            5,
-            &row_indices,
-            &column_pointers,
-            &mut permutation,
-            None,
-            &mut [0; 20],
-        );
+        symamd(5, &row_indices, &column_pointers, &mut permutation, None).unwrap();
 
         // Known value from:
         // https://github.com/DrTimothyAldenDavis/SuiteSparse/blob/9759b8c7538ecc92f9aa76b19fbf3f266432d113/COLAMD/Demo/colamd_example.out#L47-L51
@@ -350,14 +354,7 @@ mod tests {
         let column_pointers = [0, 2, 4, 5, 6, 9];
         let mut permutation = [0; 6];
 
-        symamd(
-            5,
-            &row_indices,
-            &column_pointers,
-            &mut permutation,
-            None,
-            &mut [0; 20],
-        );
+        symamd(5, &row_indices, &column_pointers, &mut permutation, None).unwrap();
 
         assert_eq!(permutation, [0, 2, 1, 3, 4, -1]);
     }
