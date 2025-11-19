@@ -181,6 +181,7 @@ unsafe extern "C" fn t_mult(mut a: size_t, mut k: size_t, mut ok: *mut core::ffi
 /// Returns `None` if any input argument is negative or arithmetic overflow occurred. The use of
 /// this routine is optional. Not needed for [`crate::symamd`], which dynamically allocates its own
 /// memory.
+#[inline]
 pub fn colamd_recommended(nnz: i32, n_row: i32, n_col: i32) -> Option<usize> {
     let nnz = usize::try_from(nnz).ok()?;
     let n_row = usize::try_from(n_row).ok()?;
@@ -217,7 +218,9 @@ pub unsafe extern "C" fn colamd_set_defaults(mut knobs: *mut core::ffi::c_double
     *knobs.offset(COLAMD_AGGRESSIVE as isize) = TRUE as core::ffi::c_double;
 }
 
-pub fn symamd(
+/// Always inline as the only call-site is [`crate::symamd`].
+#[inline(always)]
+pub(crate) fn symamd(
     n: i32,
     a: &[i32],
     p: &[i32],
@@ -428,7 +431,7 @@ pub fn symamd(
     return 1 as core::ffi::c_int;
 }
 
-pub unsafe fn colamd(
+pub(crate) unsafe fn colamd(
     n_row: i32,
     n_col: i32,
     mut a: &mut [i32],
