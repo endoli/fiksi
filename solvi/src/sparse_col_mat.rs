@@ -294,6 +294,7 @@ impl SparseColMatStructure {
     }
 
     /// Create a sparse column matrix structure that is completely empty.
+    #[inline]
     pub const fn empty(nrows: usize, ncols: usize) -> Self {
         Self {
             nrows,
@@ -304,6 +305,7 @@ impl SparseColMatStructure {
     }
 
     /// Create a sparse column matrix structure representation of the square `n x n` identity matrix.
+    #[inline]
     pub fn identity(n: usize) -> Self {
         Self {
             nrows: n,
@@ -534,6 +536,7 @@ impl<T> SparseColMat<T> {
     ///
     /// This panics if the length of `values` is not equal to the number of non-zeroes in
     /// `structure`.
+    #[inline]
     pub fn from_structure_and_values(structure: SparseColMatStructure, values: Vec<T>) -> Self {
         assert_eq!(
             structure.row_indices.len(),
