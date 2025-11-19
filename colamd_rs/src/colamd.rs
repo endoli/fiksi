@@ -35,11 +35,6 @@ fn sqrt(x: f64) -> f64 {
     }
 }
 
-fn SuiteSparse_config_printf_func_get()
--> Option<unsafe extern "C" fn(*const core::ffi::c_char, ...) -> core::ffi::c_int> {
-    unimplemented!()
-}
-
 pub type size_t = usize;
 pub type __int32_t = i32;
 pub type __uint32_t = u32;
