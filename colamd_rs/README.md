@@ -13,9 +13,16 @@ Column approximate minimum degree ordering for sparse matrices.
 
 </div>
 
-`colamd_rs` calculates permutations for approximate minimum degree ordering for
-sparse matrices, to reduce fill-in when performing various sparse matrix
-algorithms.
+`colamd_rs` is a Rust port of [COLAMD][COLAMD]. It provides the `colamd` and
+`symamd` functions to compute permutations for approximate minimum degree
+ordering of sparse matrices, to reduce fill-in when performing various sparse
+matrix algorithms.
+
+This port is a mechanical translation performed using [C2Rust][c2rust], with
+some parts refactored to safe Rust. A safe API is provided.
+
+[COLAMD]: https://github.com/DrTimothyAldenDavis/SuiteSparse/tree/9759b8c7538ecc92f9aa76b19fbf3f266432d113/COLAMD
+[c2rust]: https://github.com/immunant/c2rust
 
 ## Minimum supported Rust Version (MSRV)
 
