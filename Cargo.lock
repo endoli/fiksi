@@ -363,7 +363,7 @@ dependencies = [
 
 [[package]]
 name = "colamd_rs"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "bytemuck",
  "libm",
@@ -2036,7 +2036,7 @@ dependencies = [
 
 [[package]]
 name = "solvi"
-version = "0.0.0"
+version = "0.1.0"
 dependencies = [
  "bitvec",
  "libm",
