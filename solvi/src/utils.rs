@@ -149,6 +149,7 @@ pub fn post_order(parents: &[usize]) -> Vec<usize> {
 /// assert_eq!(&levels, &[3, 2, 2, 3, 2, 1, 0]);
 /// assert_eq!(max_level, 3);
 /// ```
+#[inline]
 pub fn node_depth_levels(parents: &[usize]) -> (Vec<usize>, usize) {
     let n = parents.len();
 
@@ -201,6 +202,7 @@ pub fn node_depth_levels(parents: &[usize]) -> (Vec<usize>, usize) {
 ///     &[1,5,5,15],
 /// );
 /// ```
+#[inline]
 pub fn prefix_sum<T: core::ops::Add<Output = T> + core::default::Default + Copy>(
     values: impl core::iter::IntoIterator<Item = T>,
 ) -> impl core::iter::Iterator<Item = T> {
