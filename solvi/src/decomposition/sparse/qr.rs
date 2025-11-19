@@ -31,10 +31,34 @@
 use alloc::{vec, vec::Vec};
 
 use crate::{
-    SparseColMat, SparseColMatStructure,
+    PermutationSequence, SparseColMat, SparseColMatStructure,
     decomposition::sparse::cholesky::{self, CholeskyStructure},
     utils,
 };
+
+/// The matrix ordering algorithm to use before performing QR-decomposition.
+///
+/// Forming QR-factors using sparse matrices is faster (and uses less memory) than dense
+/// computations only if the resulting factors remain sparse. Entries that were originally zero but
+/// change to a non-zero value are called "fill-in." By permuting the matrix, fill-in can be
+/// reduced when performing QR-decomposition.
+///
+/// This type enumerates the supported algorithms for fill-in reduction.
+#[derive(Clone, Debug)]
+#[non_exhaustive]
+pub enum QrOrdering {
+    /// Don't perform any ordering.
+    ///
+    /// This uses the natural order of the matrix.
+    Natural,
+
+    /// Perform [COLAMD](colamd_rs::colamd()) ordering, a fast approximate algorithm for finding a
+    /// minimum degree column permutation.
+    ///
+    /// See "A Column Approximate Minimum Degree Ordering Algorithm" (2004) by Timothy A. Davis et
+    /// al.
+    Colamd,
+}
 
 /// Symbolic QR-decomposition built in preparation for efficient numeric decomposition.
 ///
@@ -45,6 +69,9 @@ pub struct SymbolicQr {
     row_permutation: Vec<usize>,
     r_structure: SparseColMatStructure,
     h_structure: SparseColMatStructure,
+
+    col_permutation: Vec<usize>,
+    inv_col_permutation_sequence: PermutationSequence,
 }
 
 impl SymbolicQr {
@@ -63,6 +90,8 @@ impl SymbolicQr {
 #[derive(Clone, Debug)]
 pub struct Qr<'q, T> {
     row_permutation: &'q [usize],
+    col_permutation: &'q [usize],
+    inv_col_permutation_sequence: &'q PermutationSequence,
     // TODO: as we don't have a concept of `SparseColMatRef`s and such yet, we temporarily take an
     // owned `SparseColMatStructure` here (through an owned `SparseColMat`), so we can solve using
     // the QR-decomposition without cloning.
@@ -81,7 +110,82 @@ impl SymbolicQr {
     ///
     /// Actual numeric factorization can then be performed, after building the factorization for a
     /// concrete value type using [`SymbolicQr::numeric`], using [`Qr::factorize`].
-    pub fn build(a: &SparseColMatStructure) -> Self {
+    ///
+    /// # Panics
+    ///
+    /// This panics if [`QrOrdering::Colamd`] is used and dimensions or the number of nonzeroes of
+    /// `a` are larger than [`i32::MAX`].
+    pub fn build(a: &SparseColMatStructure, ordering: QrOrdering) -> Self {
+        let mut permuted: Option<SparseColMatStructure> = None;
+
+        let (permutation, inv_col_permutation_sequence) = if matches!(ordering, QrOrdering::Colamd)
+        {
+            let a_len = colamd_rs::colamd_recommended(
+                a.row_indices.len().try_into().unwrap(),
+                a.nrows().try_into().unwrap(),
+                a.ncols().try_into().unwrap(),
+            )
+            .expect("overflow");
+            debug_assert!(
+                a_len >= a.row_indices.len(),
+                "The returned length should be able to hold at least all indices."
+            );
+
+            let mut a_scratch = vec![0; a_len];
+            for (a_scratch, a) in a_scratch.iter_mut().zip(&a.row_indices) {
+                #[expect(
+                    clippy::cast_possible_truncation,
+                    reason = "
+                        This does not truncate: for all valid `SparseColMatStructure` `a`, `a`'s
+                        row indices are strictly smaller than `a.nrow()`. By the `try_into` above,
+                        `a.nrow()` fits into an `i32`.
+                    "
+                )]
+                {
+                    *a_scratch = *a as i32;
+                }
+            }
+
+            #[expect(
+                clippy::cast_possible_truncation,
+                reason = "
+                    This does not truncate: for all valid `SparseColMatStructure` `a`, `a`'s
+                    largest column pointer is equal to `a.row_indices.len()`. By the `try_into`
+                    above, `a.row_indices.len()` fits into an `i32`.
+                "
+            )]
+            let mut p = Vec::from_iter(a.column_pointers.iter().map(|&p| p as i32));
+
+            colamd_rs::colamd(
+                a.nrows().try_into().unwrap(),
+                a.ncols().try_into().unwrap(),
+                &mut a_scratch,
+                &mut p,
+                None,
+            )
+            .expect("valid column ordering");
+            let permutation = Vec::from_iter(p.into_iter().map(|p| p as usize).take(a.ncols()));
+            permuted = Some(a.permute_columns(&permutation));
+
+            let mut inv_permutation = vec![0; a.ncols()];
+            for (idx, &col) in permutation.iter().enumerate() {
+                inv_permutation[col] = idx;
+            }
+            (
+                permutation,
+                PermutationSequence::build_for_gather_permutation(&inv_permutation),
+            )
+        } else {
+            let permutation = Vec::from_iter(0..a.ncols());
+            let permutation_sequence =
+                PermutationSequence::build_for_gather_permutation(&permutation);
+
+            (permutation, permutation_sequence)
+        };
+
+        // If we've permuted `a` above, use that permutation.
+        let a = permuted.as_ref().unwrap_or(a);
+
         let parents = cholesky::elimination_tree::<false>(a);
         let post = utils::post_order(&parents);
         let counts = cholesky::CholeskyCounts::build(a, &parents, &post);
@@ -95,6 +199,9 @@ impl SymbolicQr {
             row_permutation,
             r_structure,
             h_structure,
+
+            col_permutation: permutation,
+            inv_col_permutation_sequence,
         }
     }
 
@@ -102,6 +209,8 @@ impl SymbolicQr {
     pub fn numeric<'q, T: num_traits::real::Real>(&'q self) -> Qr<'q, T> {
         Qr {
             row_permutation: &self.row_permutation,
+            col_permutation: &self.col_permutation,
+            inv_col_permutation_sequence: &self.inv_col_permutation_sequence,
             r: SparseColMat {
                 structure: self.r_structure.clone(),
                 values: vec![T::zero(); self.r_structure.row_indices.len()],
@@ -177,7 +286,7 @@ impl<'q, T: num_traits::real::Real + core::fmt::Debug> Qr<'q, T> {
         for j in 0..n {
             self.x.fill(T::zero());
 
-            let (values, rows) = a.index_column(j);
+            let (values, rows) = a.index_column(self.col_permutation[j]);
             for (&val, &row) in values.iter().zip(rows) {
                 self.x[self.row_permutation[row]] = val;
             }
@@ -241,7 +350,9 @@ impl<'q, T: num_traits::real::Real + core::fmt::Debug> Qr<'q, T> {
     #[track_caller]
     pub fn solve_mut(&self, b: &mut [T]) -> bool {
         self.q_tr_mul_mut(b);
-        self.r.solve_upper_triangular_mut(&mut b[..self.r.nrows()])
+        let solved = self.r.solve_upper_triangular_mut(&mut b[..self.r.nrows()]);
+        self.inv_col_permutation_sequence.permute_slice(b);
+        solved
     }
 
     /// Get a clone of the R-factor of the QR-decomposition.
@@ -259,8 +370,7 @@ mod tests {
 
     use crate::{SparseColMat, SparseColMatStructure, TripletMat};
 
-    use super::SymbolicQr;
-    extern crate std;
+    use super::{QrOrdering, SymbolicQr};
 
     #[test]
     fn underdetermined_damped() {
@@ -289,7 +399,7 @@ mod tests {
         triplets.push_triplet(4, 2, 1.);
         let a = SparseColMat::from_triplet_mat(&triplets);
 
-        let sqr = SymbolicQr::build(&a.structure);
+        let sqr = SymbolicQr::build(&a.structure, QrOrdering::Natural);
         assert_eq!(sqr.r_structure().column_pointers, &[0, 1, 2, 4]);
         assert_eq!(sqr.r_structure().row_indices, &[0, 1, 0, 2]);
 
@@ -332,7 +442,7 @@ mod tests {
         triplets.push_triplet(1, 2, 2.);
         let a = SparseColMat::from_triplet_mat(&triplets);
 
-        let sqr = SymbolicQr::build(&a.structure);
+        let sqr = SymbolicQr::build(&a.structure, QrOrdering::Natural);
         assert_eq!(sqr.r_structure().column_pointers, &[0, 1, 3, 6]);
         assert_eq!(sqr.r_structure().row_indices, &[0, 0, 1, 0, 1, 2]);
 
@@ -433,7 +543,7 @@ mod tests {
         let mut b_aug = [0.; 21];
         b_aug[..9].copy_from_slice(&b);
 
-        let symbolic_qr = SymbolicQr::build(&a.structure);
+        let symbolic_qr = SymbolicQr::build(&a.structure, QrOrdering::Natural);
 
         // The structure of the R-factor of the QR-decomposition of this matrix is as follows.
         //
@@ -499,9 +609,7 @@ mod tests {
             );
         }
 
-        qr.q_tr_mul_mut(&mut b_aug);
-
-        qr.r().solve_upper_triangular_mut(&mut b_aug[..12]);
+        qr.solve_mut(&mut b_aug);
 
         let x_expected = [
             -0.5102395940530802,
@@ -517,6 +625,23 @@ mod tests {
             0.9722340138357437,
             0.2840190700936184,
         ];
+        for (i, expected) in x_expected.iter().enumerate() {
+            assert!(
+                (b_aug[i] - expected).abs() < 1e-8,
+                "Expected x[{i}] to be {expected}. Got: {}",
+                b_aug[i]
+            );
+        }
+
+        // Using a column permutation for fill-in reduction, we no longer know the exact structure
+        // to expect, but we do expect finding the same solution to the linear system.
+        let symbolic_qr = SymbolicQr::build(&a.structure, QrOrdering::Colamd);
+        let mut qr = symbolic_qr.numeric();
+        qr.factorize(&a);
+        let mut b_aug = [0.; 21];
+        b_aug[..9].copy_from_slice(&b);
+        qr.solve_mut(&mut b_aug);
+
         for (i, expected) in x_expected.iter().enumerate() {
             assert!(
                 (b_aug[i] - expected).abs() < 1e-8,
