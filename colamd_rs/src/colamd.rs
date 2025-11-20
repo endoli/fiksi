@@ -11,7 +11,6 @@
     unused_assignments,
     unused_mut,
     unsafe_op_in_unsafe_fn,
-    trivial_numeric_casts,
     clippy::assign_op_pattern,
     clippy::nonminimal_bool,
     clippy::toplevel_ref_arg,
