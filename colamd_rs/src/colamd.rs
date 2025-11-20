@@ -9,7 +9,6 @@
     non_snake_case,
     non_upper_case_globals,
     unused_assignments,
-    unused_mut,
     unsafe_op_in_unsafe_fn,
     clippy::assign_op_pattern,
     clippy::nonminimal_bool,
@@ -147,7 +146,7 @@ pub const DEAD: core::ffi::c_int = -(1 as core::ffi::c_int);
 pub const DEAD_PRINCIPAL: core::ffi::c_int = -(1 as core::ffi::c_int);
 pub const DEAD_NON_PRINCIPAL: core::ffi::c_int = -(2 as core::ffi::c_int);
 
-unsafe extern "C" fn t_add(mut a: size_t, mut b: size_t, mut ok: *mut core::ffi::c_int) -> size_t {
+unsafe extern "C" fn t_add(a: size_t, b: size_t, ok: *mut core::ffi::c_int) -> size_t {
     *ok = (*ok != 0 && a.wrapping_add(b) >= (if a > b { a } else { b })) as core::ffi::c_int;
     if *ok != 0 {
         a.wrapping_add(b)
@@ -156,7 +155,7 @@ unsafe extern "C" fn t_add(mut a: size_t, mut b: size_t, mut ok: *mut core::ffi:
     }
 }
 
-unsafe extern "C" fn t_mult(mut a: size_t, mut k: size_t, mut ok: *mut core::ffi::c_int) -> size_t {
+unsafe extern "C" fn t_mult(a: size_t, k: size_t, ok: *mut core::ffi::c_int) -> size_t {
     let mut i: size_t = 0;
     let mut s: size_t = 0 as size_t;
     i = 0 as size_t;
@@ -194,7 +193,7 @@ pub fn colamd_recommended(nnz: i32, n_row: i32, n_col: i32) -> Option<usize> {
         .checked_add(nnz / 5)
 }
 
-pub unsafe extern "C" fn colamd_set_defaults(mut knobs: *mut core::ffi::c_double) {
+pub unsafe extern "C" fn colamd_set_defaults(knobs: *mut core::ffi::c_double) {
     let mut i: int32_t = 0;
     if knobs.is_null() {
         return;
@@ -425,8 +424,8 @@ pub(crate) fn symamd(
 pub(crate) unsafe fn colamd(
     n_row: i32,
     n_col: i32,
-    mut a: &mut [i32],
-    mut p: &mut [i32],
+    a: &mut [i32],
+    p: &mut [i32],
     mut knobs: *mut core::ffi::c_double,
     stats: &mut [i32; 20],
 ) -> core::ffi::c_int {
@@ -722,16 +721,16 @@ unsafe fn init_rows_cols(
     true
 }
 unsafe extern "C" fn init_scoring(
-    mut n_row: int32_t,
-    mut n_col: int32_t,
-    mut Row: *mut Colamd_Row,
-    mut Col: *mut Colamd_Col,
-    mut A: *mut int32_t,
-    mut head: *mut int32_t,
-    mut knobs: *mut core::ffi::c_double,
-    mut p_n_row2: *mut int32_t,
-    mut p_n_col2: *mut int32_t,
-    mut p_max_deg: *mut int32_t,
+    n_row: int32_t,
+    n_col: int32_t,
+    Row: *mut Colamd_Row,
+    Col: *mut Colamd_Col,
+    A: *mut int32_t,
+    head: *mut int32_t,
+    knobs: *mut core::ffi::c_double,
+    p_n_row2: *mut int32_t,
+    p_n_col2: *mut int32_t,
+    p_max_deg: *mut int32_t,
 ) {
     let mut c: int32_t = 0;
     let mut r: int32_t = 0;
@@ -879,17 +878,17 @@ unsafe extern "C" fn init_scoring(
     *p_max_deg = max_deg;
 }
 unsafe extern "C" fn find_ordering(
-    mut n_row: int32_t,
-    mut n_col: int32_t,
-    mut Alen: int32_t,
-    mut Row: *mut Colamd_Row,
-    mut Col: *mut Colamd_Col,
-    mut A: *mut int32_t,
-    mut head: *mut int32_t,
-    mut n_col2: int32_t,
+    n_row: int32_t,
+    n_col: int32_t,
+    Alen: int32_t,
+    Row: *mut Colamd_Row,
+    Col: *mut Colamd_Col,
+    A: *mut int32_t,
+    head: *mut int32_t,
+    n_col2: int32_t,
     mut max_deg: int32_t,
     mut pfree: int32_t,
-    mut aggressive: int32_t,
+    aggressive: int32_t,
 ) -> int32_t {
     let mut k: int32_t = 0;
     let mut pivot_col: int32_t = 0;
@@ -1143,11 +1142,7 @@ unsafe extern "C" fn find_ordering(
     }
     ngarbage
 }
-unsafe extern "C" fn order_children(
-    mut n_col: int32_t,
-    mut Col: *mut Colamd_Col,
-    mut p: *mut int32_t,
-) {
+unsafe extern "C" fn order_children(n_col: int32_t, Col: *mut Colamd_Col, p: *mut int32_t) {
     let mut i: int32_t = 0;
     let mut c: int32_t = 0;
     let mut parent: int32_t = 0;
@@ -1187,11 +1182,11 @@ unsafe extern "C" fn order_children(
     }
 }
 unsafe extern "C" fn detect_super_cols(
-    mut Col: *mut Colamd_Col,
-    mut A: *mut int32_t,
-    mut head: *mut int32_t,
-    mut row_start: int32_t,
-    mut row_length: int32_t,
+    Col: *mut Colamd_Col,
+    A: *mut int32_t,
+    head: *mut int32_t,
+    row_start: int32_t,
+    row_length: int32_t,
 ) {
     let mut hash: int32_t = 0;
     let mut rp: *mut int32_t = 0 as *mut int32_t;
@@ -1272,12 +1267,12 @@ unsafe extern "C" fn detect_super_cols(
     }
 }
 unsafe extern "C" fn garbage_collection(
-    mut n_row: int32_t,
-    mut n_col: int32_t,
-    mut Row: *mut Colamd_Row,
-    mut Col: *mut Colamd_Col,
-    mut A: *mut int32_t,
-    mut pfree: *mut int32_t,
+    n_row: int32_t,
+    n_col: int32_t,
+    Row: *mut Colamd_Row,
+    Col: *mut Colamd_Col,
+    A: *mut int32_t,
+    pfree: *mut int32_t,
 ) -> int32_t {
     let mut psrc: *mut int32_t = 0 as *mut int32_t;
     let mut pdest: *mut int32_t = 0 as *mut int32_t;
@@ -1359,9 +1354,9 @@ unsafe extern "C" fn garbage_collection(
 }
 unsafe extern "C" fn clear_mark(
     mut tag_mark: int32_t,
-    mut max_mark: int32_t,
-    mut n_row: int32_t,
-    mut Row: *mut Colamd_Row,
+    max_mark: int32_t,
+    n_row: int32_t,
+    Row: *mut Colamd_Row,
 ) -> int32_t {
     let mut r: int32_t = 0;
     if tag_mark <= 0 as int32_t || tag_mark >= max_mark {
