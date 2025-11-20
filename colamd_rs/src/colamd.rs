@@ -10,7 +10,6 @@
     non_upper_case_globals,
     unused_assignments,
     unused_mut,
-    unused_unsafe,
     unsafe_op_in_unsafe_fn,
     trivial_numeric_casts,
     clippy::assign_op_pattern,
@@ -115,41 +114,41 @@ pub union C2RustUnnamed_4 {
 
 unsafe impl bytemuck::Pod for C2RustUnnamed_4 {}
 
-pub const __INT_MAX__: core::ffi::c_int = unsafe { 2147483647 as core::ffi::c_int };
-pub const NULL: core::ffi::c_int = unsafe { 0 as core::ffi::c_int };
-pub const COLAMD_KNOBS: core::ffi::c_int = unsafe { 20 as core::ffi::c_int };
-pub const COLAMD_STATS: core::ffi::c_int = unsafe { 20 as core::ffi::c_int };
-pub const COLAMD_DENSE_ROW: core::ffi::c_int = unsafe { 0 as core::ffi::c_int };
-pub const COLAMD_DENSE_COL: core::ffi::c_int = unsafe { 1 as core::ffi::c_int };
-pub const COLAMD_AGGRESSIVE: core::ffi::c_int = unsafe { 2 as core::ffi::c_int };
-pub const COLAMD_DEFRAG_COUNT: core::ffi::c_int = unsafe { 2 as core::ffi::c_int };
-pub const COLAMD_STATUS: core::ffi::c_int = unsafe { 3 as core::ffi::c_int };
-pub const COLAMD_INFO1: core::ffi::c_int = unsafe { 4 as core::ffi::c_int };
-pub const COLAMD_INFO2: core::ffi::c_int = unsafe { 5 as core::ffi::c_int };
-pub const COLAMD_INFO3: core::ffi::c_int = unsafe { 6 as core::ffi::c_int };
-pub const COLAMD_OK: core::ffi::c_int = unsafe { 0 as core::ffi::c_int };
-pub const COLAMD_OK_BUT_JUMBLED: core::ffi::c_int = unsafe { 1 as core::ffi::c_int };
-pub const COLAMD_ERROR_A_not_present: core::ffi::c_int = unsafe { -(1 as core::ffi::c_int) };
-pub const COLAMD_ERROR_p_not_present: core::ffi::c_int = unsafe { -(2 as core::ffi::c_int) };
-pub const COLAMD_ERROR_nrow_negative: core::ffi::c_int = unsafe { -(3 as core::ffi::c_int) };
-pub const COLAMD_ERROR_ncol_negative: core::ffi::c_int = unsafe { -(4 as core::ffi::c_int) };
-pub const COLAMD_ERROR_nnz_negative: core::ffi::c_int = unsafe { -(5 as core::ffi::c_int) };
-pub const COLAMD_ERROR_p0_nonzero: core::ffi::c_int = unsafe { -(6 as core::ffi::c_int) };
-pub const COLAMD_ERROR_A_too_small: core::ffi::c_int = unsafe { -(7 as core::ffi::c_int) };
-pub const COLAMD_ERROR_col_length_negative: core::ffi::c_int = unsafe { -(8 as core::ffi::c_int) };
-pub const COLAMD_ERROR_row_index_out_of_bounds: core::ffi::c_int =
-    unsafe { -(9 as core::ffi::c_int) };
-pub const COLAMD_ERROR_out_of_memory: core::ffi::c_int = unsafe { -(10 as core::ffi::c_int) };
-pub const INT_MAX: core::ffi::c_int = unsafe { __INT_MAX__ };
+pub const __INT_MAX__: core::ffi::c_int = 2147483647 as core::ffi::c_int;
+pub const NULL: core::ffi::c_int = 0 as core::ffi::c_int;
+pub const COLAMD_KNOBS: core::ffi::c_int = 20 as core::ffi::c_int;
+pub const COLAMD_STATS: core::ffi::c_int = 20 as core::ffi::c_int;
+pub const COLAMD_DENSE_ROW: core::ffi::c_int = 0 as core::ffi::c_int;
+pub const COLAMD_DENSE_COL: core::ffi::c_int = 1 as core::ffi::c_int;
+pub const COLAMD_AGGRESSIVE: core::ffi::c_int = 2 as core::ffi::c_int;
+pub const COLAMD_DEFRAG_COUNT: core::ffi::c_int = 2 as core::ffi::c_int;
+pub const COLAMD_STATUS: core::ffi::c_int = 3 as core::ffi::c_int;
+pub const COLAMD_INFO1: core::ffi::c_int = 4 as core::ffi::c_int;
+pub const COLAMD_INFO2: core::ffi::c_int = 5 as core::ffi::c_int;
+pub const COLAMD_INFO3: core::ffi::c_int = 6 as core::ffi::c_int;
+pub const COLAMD_OK: core::ffi::c_int = 0 as core::ffi::c_int;
+pub const COLAMD_OK_BUT_JUMBLED: core::ffi::c_int = 1 as core::ffi::c_int;
+pub const COLAMD_ERROR_A_not_present: core::ffi::c_int = -(1 as core::ffi::c_int);
+pub const COLAMD_ERROR_p_not_present: core::ffi::c_int = -(2 as core::ffi::c_int);
+pub const COLAMD_ERROR_nrow_negative: core::ffi::c_int = -(3 as core::ffi::c_int);
+pub const COLAMD_ERROR_ncol_negative: core::ffi::c_int = -(4 as core::ffi::c_int);
+pub const COLAMD_ERROR_nnz_negative: core::ffi::c_int = -(5 as core::ffi::c_int);
+pub const COLAMD_ERROR_p0_nonzero: core::ffi::c_int = -(6 as core::ffi::c_int);
+pub const COLAMD_ERROR_A_too_small: core::ffi::c_int = -(7 as core::ffi::c_int);
+pub const COLAMD_ERROR_col_length_negative: core::ffi::c_int = -(8 as core::ffi::c_int);
+pub const COLAMD_ERROR_row_index_out_of_bounds: core::ffi::c_int = -(9 as core::ffi::c_int);
+pub const COLAMD_ERROR_out_of_memory: core::ffi::c_int = -(10 as core::ffi::c_int);
+pub const INT_MAX: core::ffi::c_int = __INT_MAX__;
 pub const COLAMD_set_defaults: unsafe extern "C" fn(*mut core::ffi::c_double) -> () =
-    unsafe { colamd_set_defaults };
-pub const TRUE: core::ffi::c_int = unsafe { 1 as core::ffi::c_int };
-pub const FALSE: core::ffi::c_int = unsafe { 0 as core::ffi::c_int };
-pub const EMPTY: core::ffi::c_int = unsafe { -(1 as core::ffi::c_int) };
-pub const ALIVE: core::ffi::c_int = unsafe { 0 as core::ffi::c_int };
-pub const DEAD: core::ffi::c_int = unsafe { -(1 as core::ffi::c_int) };
-pub const DEAD_PRINCIPAL: core::ffi::c_int = unsafe { -(1 as core::ffi::c_int) };
-pub const DEAD_NON_PRINCIPAL: core::ffi::c_int = unsafe { -(2 as core::ffi::c_int) };
+    colamd_set_defaults;
+pub const TRUE: core::ffi::c_int = 1 as core::ffi::c_int;
+pub const FALSE: core::ffi::c_int = 0 as core::ffi::c_int;
+pub const EMPTY: core::ffi::c_int = -(1 as core::ffi::c_int);
+pub const ALIVE: core::ffi::c_int = 0 as core::ffi::c_int;
+pub const DEAD: core::ffi::c_int = -(1 as core::ffi::c_int);
+pub const DEAD_PRINCIPAL: core::ffi::c_int = -(1 as core::ffi::c_int);
+pub const DEAD_NON_PRINCIPAL: core::ffi::c_int = -(2 as core::ffi::c_int);
+
 unsafe extern "C" fn t_add(mut a: size_t, mut b: size_t, mut ok: *mut core::ffi::c_int) -> size_t {
     *ok = (*ok != 0 && a.wrapping_add(b) >= (if a > b { a } else { b })) as core::ffi::c_int;
     return if *ok != 0 {
@@ -158,6 +157,7 @@ unsafe extern "C" fn t_add(mut a: size_t, mut b: size_t, mut ok: *mut core::ffi:
         0 as size_t
     };
 }
+
 unsafe extern "C" fn t_mult(mut a: size_t, mut k: size_t, mut ok: *mut core::ffi::c_int) -> size_t {
     let mut i: size_t = 0;
     let mut s: size_t = 0 as size_t;
