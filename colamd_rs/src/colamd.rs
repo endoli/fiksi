@@ -31,120 +31,119 @@ fn sqrt(x: f64) -> f64 {
     }
 }
 
-pub type size_t = usize;
-pub type __int32_t = i32;
-pub type __uint32_t = u32;
-pub type int32_t = __int32_t;
-pub type uint32_t = __uint32_t;
-pub type Colamd_Row = Colamd_Row_struct;
+type size_t = usize;
+type int32_t = i32;
+type uint32_t = u32;
+
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 #[repr(C)]
-pub struct Colamd_Row_struct {
-    pub start: int32_t,
-    pub length: int32_t,
-    pub shared1: C2RustUnnamed_0,
-    pub shared2: C2RustUnnamed,
+struct Colamd_Row {
+    pub(crate) start: int32_t,
+    pub(crate) length: int32_t,
+    pub(crate) shared1: C2RustUnnamed_0,
+    pub(crate) shared2: C2RustUnnamed,
 }
+
 #[derive(Copy, Clone, bytemuck::Zeroable)]
 #[repr(C)]
-pub union C2RustUnnamed {
-    pub mark: int32_t,
-    pub first_column: int32_t,
+union C2RustUnnamed {
+    pub(crate) mark: int32_t,
+    pub(crate) first_column: int32_t,
 }
 
 unsafe impl bytemuck::Pod for C2RustUnnamed {}
 
 #[derive(Copy, Clone, bytemuck::Zeroable)]
 #[repr(C)]
-pub union C2RustUnnamed_0 {
-    pub degree: int32_t,
-    pub p: int32_t,
+union C2RustUnnamed_0 {
+    pub(crate) degree: int32_t,
+    pub(crate) p: int32_t,
 }
 
 unsafe impl bytemuck::Pod for C2RustUnnamed_0 {}
 
-pub type Colamd_Col = Colamd_Col_struct;
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 #[repr(C)]
-pub struct Colamd_Col_struct {
-    pub start: int32_t,
-    pub length: int32_t,
-    pub shared1: C2RustUnnamed_4,
-    pub shared2: C2RustUnnamed_3,
-    pub shared3: C2RustUnnamed_2,
-    pub shared4: C2RustUnnamed_1,
+struct Colamd_Col {
+    pub(crate) start: int32_t,
+    pub(crate) length: int32_t,
+    pub(crate) shared1: C2RustUnnamed_4,
+    pub(crate) shared2: C2RustUnnamed_3,
+    pub(crate) shared3: C2RustUnnamed_2,
+    pub(crate) shared4: C2RustUnnamed_1,
 }
+
 #[derive(Copy, Clone, bytemuck::Zeroable)]
 #[repr(C)]
-pub union C2RustUnnamed_1 {
-    pub degree_next: int32_t,
-    pub hash_next: int32_t,
+union C2RustUnnamed_1 {
+    pub(crate) degree_next: int32_t,
+    pub(crate) hash_next: int32_t,
 }
 
 unsafe impl bytemuck::Pod for C2RustUnnamed_1 {}
 
 #[derive(Copy, Clone, bytemuck::Zeroable)]
 #[repr(C)]
-pub union C2RustUnnamed_2 {
-    pub headhash: int32_t,
-    pub hash: int32_t,
-    pub prev: int32_t,
+union C2RustUnnamed_2 {
+    pub(crate) headhash: int32_t,
+    pub(crate) hash: int32_t,
+    pub(crate) prev: int32_t,
 }
 
 unsafe impl bytemuck::Pod for C2RustUnnamed_2 {}
 
 #[derive(Copy, Clone, bytemuck::Zeroable)]
 #[repr(C)]
-pub union C2RustUnnamed_3 {
-    pub score: int32_t,
-    pub order: int32_t,
+union C2RustUnnamed_3 {
+    pub(crate) score: int32_t,
+    pub(crate) order: int32_t,
 }
 
 unsafe impl bytemuck::Pod for C2RustUnnamed_3 {}
 
 #[derive(Copy, Clone, bytemuck::Zeroable)]
 #[repr(C)]
-pub union C2RustUnnamed_4 {
-    pub thickness: int32_t,
-    pub parent: int32_t,
+union C2RustUnnamed_4 {
+    pub(crate) thickness: int32_t,
+    pub(crate) parent: int32_t,
 }
 
 unsafe impl bytemuck::Pod for C2RustUnnamed_4 {}
 
-pub const __INT_MAX__: core::ffi::c_int = 2147483647 as core::ffi::c_int;
-pub const NULL: core::ffi::c_int = 0 as core::ffi::c_int;
-pub const COLAMD_KNOBS: core::ffi::c_int = 20 as core::ffi::c_int;
-pub const COLAMD_STATS: core::ffi::c_int = 20 as core::ffi::c_int;
-pub const COLAMD_DENSE_ROW: core::ffi::c_int = 0 as core::ffi::c_int;
-pub const COLAMD_DENSE_COL: core::ffi::c_int = 1 as core::ffi::c_int;
-pub const COLAMD_AGGRESSIVE: core::ffi::c_int = 2 as core::ffi::c_int;
-pub const COLAMD_DEFRAG_COUNT: core::ffi::c_int = 2 as core::ffi::c_int;
-pub const COLAMD_STATUS: core::ffi::c_int = 3 as core::ffi::c_int;
-pub const COLAMD_INFO1: core::ffi::c_int = 4 as core::ffi::c_int;
-pub const COLAMD_INFO2: core::ffi::c_int = 5 as core::ffi::c_int;
-pub const COLAMD_INFO3: core::ffi::c_int = 6 as core::ffi::c_int;
-pub const COLAMD_OK: core::ffi::c_int = 0 as core::ffi::c_int;
-pub const COLAMD_OK_BUT_JUMBLED: core::ffi::c_int = 1 as core::ffi::c_int;
-pub const COLAMD_ERROR_A_not_present: core::ffi::c_int = -(1 as core::ffi::c_int);
-pub const COLAMD_ERROR_p_not_present: core::ffi::c_int = -(2 as core::ffi::c_int);
-pub const COLAMD_ERROR_nrow_negative: core::ffi::c_int = -(3 as core::ffi::c_int);
-pub const COLAMD_ERROR_ncol_negative: core::ffi::c_int = -(4 as core::ffi::c_int);
-pub const COLAMD_ERROR_nnz_negative: core::ffi::c_int = -(5 as core::ffi::c_int);
-pub const COLAMD_ERROR_p0_nonzero: core::ffi::c_int = -(6 as core::ffi::c_int);
-pub const COLAMD_ERROR_A_too_small: core::ffi::c_int = -(7 as core::ffi::c_int);
-pub const COLAMD_ERROR_col_length_negative: core::ffi::c_int = -(8 as core::ffi::c_int);
-pub const COLAMD_ERROR_row_index_out_of_bounds: core::ffi::c_int = -(9 as core::ffi::c_int);
-pub const COLAMD_ERROR_out_of_memory: core::ffi::c_int = -(10 as core::ffi::c_int);
-pub const INT_MAX: core::ffi::c_int = __INT_MAX__;
-pub const COLAMD_set_defaults: unsafe extern "C" fn(*mut core::ffi::c_double) -> () =
+const __INT_MAX__: core::ffi::c_int = 2147483647 as core::ffi::c_int;
+const NULL: core::ffi::c_int = 0 as core::ffi::c_int;
+const COLAMD_KNOBS: core::ffi::c_int = 20 as core::ffi::c_int;
+const COLAMD_STATS: core::ffi::c_int = 20 as core::ffi::c_int;
+const COLAMD_DENSE_ROW: core::ffi::c_int = 0 as core::ffi::c_int;
+const COLAMD_DENSE_COL: core::ffi::c_int = 1 as core::ffi::c_int;
+const COLAMD_AGGRESSIVE: core::ffi::c_int = 2 as core::ffi::c_int;
+const COLAMD_DEFRAG_COUNT: core::ffi::c_int = 2 as core::ffi::c_int;
+const COLAMD_STATUS: core::ffi::c_int = 3 as core::ffi::c_int;
+const COLAMD_INFO1: core::ffi::c_int = 4 as core::ffi::c_int;
+const COLAMD_INFO2: core::ffi::c_int = 5 as core::ffi::c_int;
+const COLAMD_INFO3: core::ffi::c_int = 6 as core::ffi::c_int;
+const COLAMD_OK: core::ffi::c_int = 0 as core::ffi::c_int;
+const COLAMD_OK_BUT_JUMBLED: core::ffi::c_int = 1 as core::ffi::c_int;
+const COLAMD_ERROR_A_not_present: core::ffi::c_int = -(1 as core::ffi::c_int);
+const COLAMD_ERROR_p_not_present: core::ffi::c_int = -(2 as core::ffi::c_int);
+const COLAMD_ERROR_nrow_negative: core::ffi::c_int = -(3 as core::ffi::c_int);
+const COLAMD_ERROR_ncol_negative: core::ffi::c_int = -(4 as core::ffi::c_int);
+const COLAMD_ERROR_nnz_negative: core::ffi::c_int = -(5 as core::ffi::c_int);
+const COLAMD_ERROR_p0_nonzero: core::ffi::c_int = -(6 as core::ffi::c_int);
+const COLAMD_ERROR_A_too_small: core::ffi::c_int = -(7 as core::ffi::c_int);
+const COLAMD_ERROR_col_length_negative: core::ffi::c_int = -(8 as core::ffi::c_int);
+const COLAMD_ERROR_row_index_out_of_bounds: core::ffi::c_int = -(9 as core::ffi::c_int);
+const COLAMD_ERROR_out_of_memory: core::ffi::c_int = -(10 as core::ffi::c_int);
+const INT_MAX: core::ffi::c_int = __INT_MAX__;
+const COLAMD_set_defaults: unsafe extern "C" fn(*mut core::ffi::c_double) -> () =
     colamd_set_defaults;
-pub const TRUE: core::ffi::c_int = 1 as core::ffi::c_int;
-pub const FALSE: core::ffi::c_int = 0 as core::ffi::c_int;
-pub const EMPTY: core::ffi::c_int = -(1 as core::ffi::c_int);
-pub const ALIVE: core::ffi::c_int = 0 as core::ffi::c_int;
-pub const DEAD: core::ffi::c_int = -(1 as core::ffi::c_int);
-pub const DEAD_PRINCIPAL: core::ffi::c_int = -(1 as core::ffi::c_int);
-pub const DEAD_NON_PRINCIPAL: core::ffi::c_int = -(2 as core::ffi::c_int);
+const TRUE: core::ffi::c_int = 1 as core::ffi::c_int;
+const FALSE: core::ffi::c_int = 0 as core::ffi::c_int;
+const EMPTY: core::ffi::c_int = -(1 as core::ffi::c_int);
+const ALIVE: core::ffi::c_int = 0 as core::ffi::c_int;
+const DEAD: core::ffi::c_int = -(1 as core::ffi::c_int);
+const DEAD_PRINCIPAL: core::ffi::c_int = -(1 as core::ffi::c_int);
+const DEAD_NON_PRINCIPAL: core::ffi::c_int = -(2 as core::ffi::c_int);
 
 unsafe extern "C" fn t_add(a: size_t, b: size_t, ok: *mut core::ffi::c_int) -> size_t {
     *ok = (*ok != 0 && a.wrapping_add(b) >= (if a > b { a } else { b })) as core::ffi::c_int;
@@ -193,7 +192,7 @@ pub fn colamd_recommended(nnz: i32, n_row: i32, n_col: i32) -> Option<usize> {
         .checked_add(nnz / 5)
 }
 
-pub unsafe extern "C" fn colamd_set_defaults(knobs: *mut core::ffi::c_double) {
+unsafe extern "C" fn colamd_set_defaults(knobs: *mut core::ffi::c_double) {
     let mut i: int32_t = 0;
     if knobs.is_null() {
         return;
