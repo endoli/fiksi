@@ -1143,11 +1143,7 @@ unsafe extern "C" fn find_ordering(
     }
     ngarbage
 }
-unsafe extern "C" fn order_children(
-    n_col: int32_t,
-    Col: *mut Colamd_Col,
-    p: *mut int32_t,
-) {
+unsafe extern "C" fn order_children(n_col: int32_t, Col: *mut Colamd_Col, p: *mut int32_t) {
     let mut i: int32_t = 0;
     let mut c: int32_t = 0;
     let mut parent: int32_t = 0;
