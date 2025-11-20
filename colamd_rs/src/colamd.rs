@@ -13,7 +13,6 @@
     unsafe_op_in_unsafe_fn,
     trivial_numeric_casts,
     clippy::assign_op_pattern,
-    clippy::needless_return,
     clippy::nonminimal_bool,
     clippy::toplevel_ref_arg,
     clippy::zero_ptr,
@@ -151,11 +150,11 @@ pub const DEAD_NON_PRINCIPAL: core::ffi::c_int = -(2 as core::ffi::c_int);
 
 unsafe extern "C" fn t_add(mut a: size_t, mut b: size_t, mut ok: *mut core::ffi::c_int) -> size_t {
     *ok = (*ok != 0 && a.wrapping_add(b) >= (if a > b { a } else { b })) as core::ffi::c_int;
-    return if *ok != 0 {
+    if *ok != 0 {
         a.wrapping_add(b)
     } else {
         0 as size_t
-    };
+    }
 }
 
 unsafe extern "C" fn t_mult(mut a: size_t, mut k: size_t, mut ok: *mut core::ffi::c_int) -> size_t {
@@ -166,7 +165,7 @@ unsafe extern "C" fn t_mult(mut a: size_t, mut k: size_t, mut ok: *mut core::ffi
         s = t_add(s, a, ok);
         i = i.wrapping_add(1);
     }
-    return s;
+    s
 }
 
 /// Returns the recommended value of the `a` slice for use by [`crate::colamd`][crate::colamd()].
@@ -421,7 +420,7 @@ pub(crate) fn symamd(
 
     // a dense column in colamd means a dense row and col in symamd
     stats[COLAMD_DENSE_ROW as usize] = stats[COLAMD_DENSE_COL as usize];
-    return 1 as core::ffi::c_int;
+    1 as core::ffi::c_int
 }
 
 pub(crate) unsafe fn colamd(
@@ -560,7 +559,7 @@ pub(crate) unsafe fn colamd(
     *stats.offset(COLAMD_DENSE_ROW as isize) = n_row - n_row2;
     *stats.offset(COLAMD_DENSE_COL as isize) = n_col - n_col2;
     *stats.offset(COLAMD_DEFRAG_COUNT as isize) = ngarbage;
-    return 1 as core::ffi::c_int;
+    1 as core::ffi::c_int
 }
 
 /// Initialize rows and columns.
@@ -1143,7 +1142,7 @@ unsafe extern "C" fn find_ordering(
             (*Row.offset(pivot_row as isize)).shared2.mark = 0 as core::ffi::c_int as int32_t;
         }
     }
-    return ngarbage;
+    ngarbage
 }
 unsafe extern "C" fn order_children(
     mut n_col: int32_t,
@@ -1356,8 +1355,8 @@ unsafe extern "C" fn garbage_collection(
             ) as core::ffi::c_long as int32_t;
         }
     }
-    return pdest.offset_from(&mut *A.offset(0 as core::ffi::c_int as isize) as *mut int32_t)
-        as core::ffi::c_long as int32_t;
+    pdest.offset_from(&mut *A.offset(0 as core::ffi::c_int as isize) as *mut int32_t)
+        as core::ffi::c_long as int32_t
 }
 unsafe extern "C" fn clear_mark(
     mut tag_mark: int32_t,
@@ -1376,5 +1375,5 @@ unsafe extern "C" fn clear_mark(
         }
         tag_mark = 1 as core::ffi::c_int as int32_t;
     }
-    return tag_mark;
+    tag_mark
 }
