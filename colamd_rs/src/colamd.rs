@@ -10,7 +10,6 @@
     non_upper_case_globals,
     unused_assignments,
     unsafe_op_in_unsafe_fn,
-    clippy::assign_op_pattern,
     clippy::nonminimal_bool,
     clippy::toplevel_ref_arg,
     clippy::zero_ptr,
@@ -356,11 +355,11 @@ pub(crate) fn symamd(
                 if i > j {
                     let ref mut fresh3 = count[i as usize];
                     let fresh4 = *fresh3;
-                    *fresh3 = *fresh3 + 1;
+                    *fresh3 += 1;
                     m[fresh4 as usize] = k;
                     let ref mut fresh5 = count[j as usize];
                     let fresh6 = *fresh5;
-                    *fresh5 = *fresh5 + 1;
+                    *fresh5 += 1;
                     m[fresh6 as usize] = k;
                     k += 1;
                 }
@@ -384,11 +383,11 @@ pub(crate) fn symamd(
                     // row k of M contains column indices i and j
                     let ref mut fresh7 = count[i as usize];
                     let fresh8 = *fresh7;
-                    *fresh7 = *fresh7 + 1;
+                    *fresh7 += 1;
                     m[fresh8 as usize] = k;
                     let ref mut fresh9 = count[j as usize];
                     let fresh10 = *fresh9;
-                    *fresh9 = *fresh9 + 1;
+                    *fresh9 += 1;
                     m[fresh10 as usize] = k;
                     k += 1;
                     mark[i as usize] = j;
@@ -971,7 +970,7 @@ unsafe extern "C" fn find_ordering(
                     {
                         (*Col.offset(col as isize)).shared1.thickness = -col_thickness;
                         let fresh30 = pfree;
-                        pfree = pfree + 1;
+                        pfree += 1;
                         *A.offset(fresh30 as isize) = col;
                         pivot_row_degree += col_thickness;
                     }
@@ -1106,7 +1105,7 @@ unsafe extern "C" fn find_ordering(
             *fresh38 = col;
             let ref mut fresh39 = (*Col.offset(col as isize)).length;
             let fresh40 = *fresh39;
-            *fresh39 = *fresh39 + 1;
+            *fresh39 += 1;
             *A.offset(((*Col.offset(col as isize)).start + fresh40) as isize) = pivot_row;
             cur_score = (*Col.offset(col as isize)).shared2.score + pivot_row_degree;
             max_score = n_col - k - (*Col.offset(col as isize)).shared1.thickness;
@@ -1162,7 +1161,7 @@ unsafe extern "C" fn order_children(n_col: int32_t, Col: *mut Colamd_Col, p: *mu
             order = (*Col.offset(parent as isize)).shared2.order;
             loop {
                 let fresh41 = order;
-                order = order + 1;
+                order += 1;
                 (*Col.offset(c as isize)).shared2.order = fresh41;
                 (*Col.offset(c as isize)).shared1.parent = parent;
                 c = (*Col.offset(c as isize)).shared1.parent;
