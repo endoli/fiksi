@@ -4,7 +4,6 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 #![expect(
-    dead_code,
     non_camel_case_types,
     non_snake_case,
     non_upper_case_globals,
@@ -110,7 +109,6 @@ union C2RustUnnamed_4 {
 unsafe impl bytemuck::Pod for C2RustUnnamed_4 {}
 
 const __INT_MAX__: core::ffi::c_int = 2147483647 as core::ffi::c_int;
-const NULL: core::ffi::c_int = 0 as core::ffi::c_int;
 const COLAMD_KNOBS: core::ffi::c_int = 20 as core::ffi::c_int;
 const COLAMD_STATS: core::ffi::c_int = 20 as core::ffi::c_int;
 const COLAMD_DENSE_ROW: core::ffi::c_int = 0 as core::ffi::c_int;
@@ -123,8 +121,6 @@ const COLAMD_INFO2: core::ffi::c_int = 5 as core::ffi::c_int;
 const COLAMD_INFO3: core::ffi::c_int = 6 as core::ffi::c_int;
 const COLAMD_OK: core::ffi::c_int = 0 as core::ffi::c_int;
 const COLAMD_OK_BUT_JUMBLED: core::ffi::c_int = 1 as core::ffi::c_int;
-const COLAMD_ERROR_A_not_present: core::ffi::c_int = -(1 as core::ffi::c_int);
-const COLAMD_ERROR_p_not_present: core::ffi::c_int = -(2 as core::ffi::c_int);
 const COLAMD_ERROR_nrow_negative: core::ffi::c_int = -(3 as core::ffi::c_int);
 const COLAMD_ERROR_ncol_negative: core::ffi::c_int = -(4 as core::ffi::c_int);
 const COLAMD_ERROR_nnz_negative: core::ffi::c_int = -(5 as core::ffi::c_int);
@@ -132,10 +128,7 @@ const COLAMD_ERROR_p0_nonzero: core::ffi::c_int = -(6 as core::ffi::c_int);
 const COLAMD_ERROR_A_too_small: core::ffi::c_int = -(7 as core::ffi::c_int);
 const COLAMD_ERROR_col_length_negative: core::ffi::c_int = -(8 as core::ffi::c_int);
 const COLAMD_ERROR_row_index_out_of_bounds: core::ffi::c_int = -(9 as core::ffi::c_int);
-const COLAMD_ERROR_out_of_memory: core::ffi::c_int = -(10 as core::ffi::c_int);
 const INT_MAX: core::ffi::c_int = __INT_MAX__;
-const COLAMD_set_defaults: unsafe extern "C" fn(*mut core::ffi::c_double) -> () =
-    colamd_set_defaults;
 const TRUE: core::ffi::c_int = 1 as core::ffi::c_int;
 const FALSE: core::ffi::c_int = 0 as core::ffi::c_int;
 const EMPTY: core::ffi::c_int = -(1 as core::ffi::c_int);
