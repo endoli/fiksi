@@ -9,6 +9,8 @@ mod lm;
 pub(crate) use lbfgs::*;
 pub(crate) use lm::*;
 
+use solvi::TripletMat;
+
 /// Numerical optimization algorithms.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 #[non_exhaustive]
@@ -36,5 +38,12 @@ pub(crate) trait Problem {
         variables: &[f64],
         residuals: &mut [f64],
         jacobian: &mut [f64],
+    );
+
+    fn calculate_residuals_and_sparse_jacobian(
+        &mut self,
+        variables: &[f64],
+        residuals: &mut [f64],
+        jacobian: &mut TripletMat<f64>,
     );
 }

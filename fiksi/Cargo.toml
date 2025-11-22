@@ -17,8 +17,8 @@ targets = []
 
 [features]
 default = ["std"]
-std = ["kurbo/std", "nalgebra/std"]
-libm = ["dep:libm", "kurbo/libm", "nalgebra/libm"]
+std = ["kurbo/std", "nalgebra/std", "solvi/std"]
+libm = ["dep:libm", "kurbo/libm", "nalgebra/libm", "solvi/libm"]
 
 [dependencies]
 hashbrown = { version = "0.15.5", default-features = false, features = ["default-hasher"] }
@@ -27,6 +27,8 @@ kurbo = { version = "0.12.0", default-features = false }
 
 # Temporarily included
 nalgebra = { version = "0.33.2", default-features = false, features = ["alloc"] }
+
+solvi.workspace = true
 
 [dependencies.libm]
 version = "0.2.15"

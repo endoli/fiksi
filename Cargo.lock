@@ -599,6 +599,7 @@ dependencies = [
  "kurbo",
  "libm",
  "nalgebra",
+ "solvi",
 ]
 
 [[package]]
