@@ -9,7 +9,6 @@
     non_upper_case_globals,
     unused_assignments,
     unsafe_op_in_unsafe_fn,
-    clippy::nonminimal_bool,
     clippy::toplevel_ref_arg,
     clippy::zero_ptr,
     reason = "transpiled using c2rust"
@@ -778,7 +777,7 @@ unsafe extern "C" fn init_scoring(
     }
     c = n_col - 1 as int32_t;
     while c >= 0 as int32_t {
-        if !((*Col.offset(c as isize)).start < ALIVE as int32_t) {
+        if (*Col.offset(c as isize)).start >= ALIVE as int32_t {
             deg = (*Col.offset(c as isize)).length;
             if deg > dense_col_count {
                 n_col2 -= 1;
@@ -809,7 +808,7 @@ unsafe extern "C" fn init_scoring(
     }
     c = n_col - 1 as int32_t;
     while c >= 0 as int32_t {
-        if !((*Col.offset(c as isize)).start < ALIVE as int32_t) {
+        if (*Col.offset(c as isize)).start >= ALIVE as int32_t {
             score = 0 as core::ffi::c_int as int32_t;
             cp = &mut *A.offset((*Col.offset(c as isize)).start as isize) as *mut int32_t;
             new_cp = cp;
@@ -1140,7 +1139,7 @@ unsafe extern "C" fn order_children(n_col: int32_t, Col: *mut Colamd_Col, p: *mu
     let mut order: int32_t = 0;
     i = 0 as core::ffi::c_int as int32_t;
     while i < n_col {
-        if !((*Col.offset(i as isize)).start == DEAD_PRINCIPAL as int32_t)
+        if ((*Col.offset(i as isize)).start != DEAD_PRINCIPAL as int32_t)
             && (*Col.offset(i as isize)).shared2.order == EMPTY as int32_t
         {
             parent = i;
@@ -1158,7 +1157,7 @@ unsafe extern "C" fn order_children(n_col: int32_t, Col: *mut Colamd_Col, p: *mu
                 (*Col.offset(c as isize)).shared2.order = fresh41;
                 (*Col.offset(c as isize)).shared1.parent = parent;
                 c = (*Col.offset(c as isize)).shared1.parent;
-                if !((*Col.offset(c as isize)).shared2.order == EMPTY as int32_t) {
+                if (*Col.offset(c as isize)).shared2.order != EMPTY as int32_t {
                     break;
                 }
             }
