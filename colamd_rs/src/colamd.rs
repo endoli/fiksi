@@ -11,7 +11,6 @@
     unsafe_op_in_unsafe_fn,
     clippy::nonminimal_bool,
     clippy::toplevel_ref_arg,
-    clippy::zero_ptr,
     reason = "transpiled using c2rust"
 )]
 
@@ -726,10 +725,10 @@ unsafe extern "C" fn init_scoring(
     let mut c: int32_t = 0;
     let mut r: int32_t = 0;
     let mut row: int32_t = 0;
-    let mut cp: *mut int32_t = 0 as *mut int32_t;
+    let mut cp: *mut int32_t = core::ptr::null_mut::<int32_t>();
     let mut deg: int32_t = 0;
-    let mut cp_end: *mut int32_t = 0 as *mut int32_t;
-    let mut new_cp: *mut int32_t = 0 as *mut int32_t;
+    let mut cp_end: *mut int32_t = core::ptr::null_mut::<int32_t>();
+    let mut new_cp: *mut int32_t = core::ptr::null_mut::<int32_t>();
     let mut col_length: int32_t = 0;
     let mut score: int32_t = 0;
     let mut n_col2: int32_t = 0;
@@ -883,18 +882,18 @@ unsafe extern "C" fn find_ordering(
 ) -> int32_t {
     let mut k: int32_t = 0;
     let mut pivot_col: int32_t = 0;
-    let mut cp: *mut int32_t = 0 as *mut int32_t;
-    let mut rp: *mut int32_t = 0 as *mut int32_t;
+    let mut cp: *mut int32_t = core::ptr::null_mut::<int32_t>();
+    let mut rp: *mut int32_t = core::ptr::null_mut::<int32_t>();
     let mut pivot_row: int32_t = 0;
-    let mut new_cp: *mut int32_t = 0 as *mut int32_t;
-    let mut new_rp: *mut int32_t = 0 as *mut int32_t;
+    let mut new_cp: *mut int32_t = core::ptr::null_mut::<int32_t>();
+    let mut new_rp: *mut int32_t = core::ptr::null_mut::<int32_t>();
     let mut pivot_row_start: int32_t = 0;
     let mut pivot_row_degree: int32_t = 0;
     let mut pivot_row_length: int32_t = 0;
     let mut pivot_col_score: int32_t = 0;
     let mut needed_memory: int32_t = 0;
-    let mut cp_end: *mut int32_t = 0 as *mut int32_t;
-    let mut rp_end: *mut int32_t = 0 as *mut int32_t;
+    let mut cp_end: *mut int32_t = core::ptr::null_mut::<int32_t>();
+    let mut rp_end: *mut int32_t = core::ptr::null_mut::<int32_t>();
     let mut row: int32_t = 0;
     let mut col: int32_t = 0;
     let mut max_score: int32_t = 0;
@@ -1180,15 +1179,15 @@ unsafe extern "C" fn detect_super_cols(
     row_length: int32_t,
 ) {
     let mut hash: int32_t = 0;
-    let mut rp: *mut int32_t = 0 as *mut int32_t;
+    let mut rp: *mut int32_t = core::ptr::null_mut::<int32_t>();
     let mut c: int32_t = 0;
     let mut super_c: int32_t = 0;
-    let mut cp1: *mut int32_t = 0 as *mut int32_t;
-    let mut cp2: *mut int32_t = 0 as *mut int32_t;
+    let mut cp1: *mut int32_t = core::ptr::null_mut::<int32_t>();
+    let mut cp2: *mut int32_t = core::ptr::null_mut::<int32_t>();
     let mut length: int32_t = 0;
     let mut prev_c: int32_t = 0;
     let mut i: int32_t = 0;
-    let mut rp_end: *mut int32_t = 0 as *mut int32_t;
+    let mut rp_end: *mut int32_t = core::ptr::null_mut::<int32_t>();
     let mut col: int32_t = 0;
     let mut head_column: int32_t = 0;
     let mut first_col: int32_t = 0;
@@ -1265,8 +1264,8 @@ unsafe extern "C" fn garbage_collection(
     A: *mut int32_t,
     pfree: *mut int32_t,
 ) -> int32_t {
-    let mut psrc: *mut int32_t = 0 as *mut int32_t;
-    let mut pdest: *mut int32_t = 0 as *mut int32_t;
+    let mut psrc: *mut int32_t = core::ptr::null_mut::<int32_t>();
+    let mut pdest: *mut int32_t = core::ptr::null_mut::<int32_t>();
     let mut j: int32_t = 0;
     let mut r: int32_t = 0;
     let mut c: int32_t = 0;
