@@ -8,6 +8,11 @@ use alloc::vec;
 #[cfg(not(feature = "std"))]
 use crate::floatfuncs::FloatFuncs;
 
+use solvi::{
+    SparseColMat, TripletMat,
+    decomposition::sparse::qr::{QrOrdering, SymbolicQr},
+};
+
 use super::Problem;
 
 /// The Levenberg-Marquardt solver.
@@ -45,7 +50,7 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
     //
     // Further, note the Jacobian J changes once per actual step taken by Levenberg-Marquardt,
     // whereas λ changes potentially many times per step inside the inner loop. To avoid
-    // decomposing J multiple times, we can instead decompose QR = J first and apply the orthogonal
+    // decomposing J multiple times, we could instead decompose QR = J first and apply the orthogonal
     // transformations to the residuals as well, i.e., z = Q^T r. Then, again using
     // QR-decomposition, we can find the solution for the equivalent problem
     // [  R        ]     [ z ]
@@ -53,38 +58,48 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
     //
     // Effectively, this performs a partial decomposition of the top part of [J; sqrt(λ)], also
     // storing the effect of the partial orthogonal transformations on the right-hand side (i.e.,
-    // the residuals).
+    // the residuals). The bottom diagonal matrix `sqrt(λ) I` can be folded in to `R` quickly.
+    // However, as this optimization only becomes useful for larger problems and cannot be used for
+    // the column-based sparse decomposition we apply, we do not use the optimization here.
 
     let mut variables_scratch = variables.to_vec();
     let variables_scratch = variables_scratch.as_mut_slice();
 
+    let nrows = problem.num_residuals() as usize;
+    let ncols = problem.num_variables() as usize;
+
     // The (non-squared) residuals of the expressions.
-    let mut residuals = nalgebra::DVector::zeros(problem.num_residuals() as usize);
-    let mut residuals_scratch = nalgebra::DVector::zeros(problem.num_residuals() as usize);
+    let mut residuals = nalgebra::DVector::zeros(nrows);
+    let mut residuals_scratch = nalgebra::DVector::zeros(nrows);
+    let mut b_augmented = vec![0.; nrows + ncols];
 
-    // All first-order partial derivatives of the expressions, in row-major order. This is a dense
-    // representation (each pair of expression and variable has a partial derivative represented
-    // here, even for variables that do not contribute to the expression). It's possible a sparse
-    // representation may be more efficient in certain cases.
-    let mut jacobian =
-        vec![0.; problem.num_residuals() as usize * problem.num_variables() as usize];
-
-    // The same Jacobian, but a separate allocation for the column-major representation, which
-    // nalgebra expects. TODO: perhaps make everything use a column-major allocation, as that's
-    // somewhat more common (making the per-expression gradients have a stride instead).
-    let mut jacobian_ = nalgebra::DMatrix::zeros(
-        problem.num_residuals() as usize,
-        problem.num_variables() as usize,
-    );
-
-    // The (augmented) residual matrix.
-    let mut z_aug = nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), 1);
-
-    problem.calculate_residuals_and_jacobian(
+    // All first-order partial derivatives of the expressions, in column-major order. This is a
+    // sparse representation (exactly all pairs of expressions and variables that are structurally
+    // non-zero are represented by an entry). A dense representation will be more efficient for
+    // small problems.
+    let mut sparse_jacobian = TripletMat::<f64>::new(nrows, ncols);
+    problem.calculate_residuals_and_sparse_jacobian(
         &*variables_scratch,
         residuals.as_mut_slice(),
-        &mut jacobian,
+        &mut sparse_jacobian,
     );
+    residuals.neg_mut();
+
+    // Add entries for the stacked diagonal matrix `sqrt(λ) I` to augment the matrix for damped
+    // least squares.
+    for idx in 0..ncols {
+        // Damping factors are initially zero. Actual values are set (over and over) in the inner
+        // loop.
+        sparse_jacobian.push_triplet(nrows + idx, idx, 0.);
+    }
+
+    let mut sparse_jacobian_csc = SparseColMat::from_triplet_mat(&sparse_jacobian);
+
+    // Perform symbolic sparse QR-decomposition on our augmented Jacobian matrix. This only takes
+    // the structure of the augmented Jacobian into account. It finds an efficient column ordering
+    // and precomputes the structure of the numeric work that needs to be done in the inner loop.
+    let sparse_sqr = SymbolicQr::build(sparse_jacobian_csc.structure(), QrOrdering::Colamd);
+    let mut sparse_qr = sparse_sqr.numeric();
 
     let mut residual = residuals.norm();
 
@@ -94,56 +109,32 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
             break;
         }
 
-        // Copy from the row-major Jacobian to the column-major Jacobian.
-        for i in 0..problem.num_residuals() as usize {
-            for j in 0..problem.num_variables() as usize {
-                jacobian_[(i, j)] = jacobian[i * problem.num_variables() as usize + j];
-            }
-        }
-
-        // (It seems that with the current nalgebra API, it's not entirely straightforward to reuse
-        // the allocations for `jacobian_` or the inner `qr_r_aug`. The matrix is moved into
-        // `ColPivQR`, and moving it out again requires an expensive resizing operation that copies
-        // elements around.)
-        //
-        // We do a column-pivoting QR specifically, for its increased numerical stability. See also
-        // the note above about the use of QR decomposition for solving.
-        let partial_qr = jacobian_.clone().col_piv_qr();
-        // We negate the residuals here, as we want to solve for `(J^T J + λ I) δ = -J^T r`.
-        // By negating `r` here, we don't have to negate it each time below.
-        residuals.neg_mut();
-        partial_qr.q_tr_mul(&mut residuals);
-        // Note: we'd like to use qr.unpack_r() here, but there may be some UB in `nalgebra`:
-        // <https://github.com/endoli/fiksi/pull/91>.
-        let partial_r = partial_qr.r();
-
         // Inner loop to find a suitable damping factor allowing a step to be accepted.
         loop {
-            // The stacked matrix `[R; sqrt(lambda) I]`, where `R` is the upper-triangular matrix
-            // from the decomposition `J = QR` we performed above.
-            let mut r_aug =
-                nalgebra::DMatrix::zeros(jacobian_.nrows() + jacobian_.ncols(), jacobian_.ncols());
-            r_aug
-                .rows_mut(0, jacobian_.nrows().min(jacobian_.ncols()))
-                .copy_from(&partial_r);
-            for idx in 0..jacobian_.ncols() {
-                r_aug[(jacobian_.nrows() + idx, idx)] += f64::sqrt(lambda);
+            // Set the current damping factors. Note each damping entry is the bottom-most non-zero
+            // row of each column (as the diagonal damping matrix is stacked below the Jacobian
+            // proper).
+            for idx in 0..ncols {
+                *sparse_jacobian_csc
+                    .index_column_mut(idx)
+                    .0
+                    .last_mut()
+                    .unwrap() = f64::sqrt(lambda);
             }
-            let qr = r_aug.qr();
-            z_aug.rows_mut(0, jacobian_.nrows()).copy_from(&residuals);
-            z_aug
-                .rows_mut(jacobian_.nrows(), jacobian_.ncols())
-                .fill(0.);
-            qr.q_tr_mul(&mut z_aug);
 
-            let mut delta = z_aug.rows_mut(0, jacobian_.ncols());
-            // Note: we'd like to use qr.unpack_r() here, but there may be some UB in `nalgebra`:
-            if !qr.r().solve_upper_triangular_mut(&mut delta) {
+            // Perform the numerical QR-decomposition of the augmented matrix.
+            sparse_qr.factorize(&sparse_jacobian_csc);
+
+            b_augmented[..nrows].copy_from_slice(residuals.as_slice());
+            b_augmented[nrows..].fill(0.);
+            let solved = sparse_qr.solve_mut(&mut b_augmented);
+
+            if !solved {
                 lambda *= 8.;
                 continue;
             };
-            partial_qr.p().inv_permute_rows(&mut delta);
 
+            let delta = nalgebra::DVectorView::from_slice(&b_augmented[..ncols], ncols);
             if delta.norm() < 1e-6 {
                 break 'steps;
             }
@@ -166,11 +157,17 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
 
                 // It might be nice to have a calculate_jacobian function here, but the additional
                 // residual calculation shouldn't be too bad.
-                problem.calculate_residuals_and_jacobian(
-                    variables_scratch,
+                sparse_jacobian.clear();
+                problem.calculate_residuals_and_sparse_jacobian(
+                    &*variables_scratch,
                     residuals.as_mut_slice(),
-                    &mut jacobian,
+                    &mut sparse_jacobian,
                 );
+                residuals.neg_mut();
+                for idx in 0..ncols {
+                    sparse_jacobian.push_triplet(nrows + idx, idx, 0.);
+                }
+                sparse_jacobian_csc = SparseColMat::from_triplet_mat(&sparse_jacobian);
                 break;
             } else {
                 // Reject step.
