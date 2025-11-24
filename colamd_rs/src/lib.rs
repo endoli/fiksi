@@ -159,10 +159,7 @@ pub fn colamd(
     let stats = &mut [0; 20];
     let res = {
         let mut knobs = options.map(Options::as_knobs_array);
-        let knobs = knobs
-            .as_mut()
-            .map(|k| k.as_mut_ptr())
-            .unwrap_or(core::ptr::null_mut());
+        let knobs = knobs.as_mut();
 
         unsafe { colamd::colamd(nrows, ncols, row_indices, column_pointers, knobs, stats) }
     };
