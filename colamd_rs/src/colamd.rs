@@ -13,6 +13,8 @@
 
 use alloc::vec;
 
+use crate::options::Options;
+
 #[inline(always)]
 fn sqrt(x: f64) -> f64 {
     #[cfg(feature = "std")]
@@ -104,11 +106,9 @@ union C2RustUnnamed_4 {
 unsafe impl bytemuck::Pod for C2RustUnnamed_4 {}
 
 const __INT_MAX__: core::ffi::c_int = 2147483647 as core::ffi::c_int;
-const COLAMD_KNOBS: core::ffi::c_int = 20 as core::ffi::c_int;
 const COLAMD_STATS: core::ffi::c_int = 20 as core::ffi::c_int;
 const COLAMD_DENSE_ROW: core::ffi::c_int = 0 as core::ffi::c_int;
 const COLAMD_DENSE_COL: core::ffi::c_int = 1 as core::ffi::c_int;
-const COLAMD_AGGRESSIVE: core::ffi::c_int = 2 as core::ffi::c_int;
 const COLAMD_DEFRAG_COUNT: core::ffi::c_int = 2 as core::ffi::c_int;
 const COLAMD_STATUS: core::ffi::c_int = 3 as core::ffi::c_int;
 const COLAMD_INFO1: core::ffi::c_int = 4 as core::ffi::c_int;
@@ -124,8 +124,6 @@ const COLAMD_ERROR_A_TOO_SMALL: core::ffi::c_int = -(7 as core::ffi::c_int);
 const COLAMD_ERROR_COL_LENGTH_NEGATIVE: core::ffi::c_int = -(8 as core::ffi::c_int);
 const COLAMD_ERROR_ROW_INDEX_OUT_OF_BOUNDS: core::ffi::c_int = -(9 as core::ffi::c_int);
 const INT_MAX: core::ffi::c_int = __INT_MAX__;
-const TRUE: core::ffi::c_int = 1 as core::ffi::c_int;
-const FALSE: core::ffi::c_int = 0 as core::ffi::c_int;
 const EMPTY: core::ffi::c_int = -(1 as core::ffi::c_int);
 const ALIVE: core::ffi::c_int = 0 as core::ffi::c_int;
 const DEAD: core::ffi::c_int = -(1 as core::ffi::c_int);
@@ -159,21 +157,6 @@ pub fn colamd_recommended(nnz: i32, n_row: i32, n_col: i32) -> Option<usize> {
         .checked_add(nnz / 5)
 }
 
-unsafe extern "C" fn colamd_set_defaults(knobs: *mut core::ffi::c_double) {
-    let mut i: int32_t = 0;
-    if knobs.is_null() {
-        return;
-    }
-    i = 0 as core::ffi::c_int as int32_t;
-    while i < COLAMD_KNOBS as int32_t {
-        *knobs.offset(i as isize) = 0 as core::ffi::c_int as core::ffi::c_double;
-        i += 1;
-    }
-    *knobs.offset(COLAMD_DENSE_ROW as isize) = 10 as core::ffi::c_int as core::ffi::c_double;
-    *knobs.offset(COLAMD_DENSE_COL as isize) = 10 as core::ffi::c_int as core::ffi::c_double;
-    *knobs.offset(COLAMD_AGGRESSIVE as isize) = TRUE as core::ffi::c_double;
-}
-
 /// Always inline as the only call-site is [`crate::symamd`].
 #[inline(always)]
 pub(crate) fn symamd(
@@ -181,7 +164,7 @@ pub(crate) fn symamd(
     a: &[i32],
     p: &[i32],
     perm: &mut [i32],
-    knobs: Option<&[f64; 20]>,
+    options: Options,
     stats: &mut [i32; 20],
 ) -> bool {
     let mut n_row: int32_t = 0;
@@ -193,7 +176,6 @@ pub(crate) fn symamd(
     let mut pp: int32_t = 0;
     let mut last_row: int32_t = 0;
     let mut length: int32_t = 0;
-    let mut default_knobs: [f64; 20] = [0.; 20];
 
     // === Check the input arguments ========================================
 
@@ -221,15 +203,6 @@ pub(crate) fn symamd(
         stats[COLAMD_INFO1 as usize] = p[0];
         return false;
     }
-
-    // === If no knobs, set default knobs ===================================
-
-    let knobs = knobs.unwrap_or_else(|| {
-        unsafe {
-            colamd_set_defaults(default_knobs.as_mut_ptr());
-        }
-        &default_knobs
-    });
 
     // === Allocate count and mark ==========================================
 
@@ -358,14 +331,14 @@ pub(crate) fn symamd(
 
     // === Adjust the knobs for M ===========================================
 
-    let mut cknobs = *knobs;
+    let mut options = options;
     // there are no dense rows in M */
-    cknobs[COLAMD_DENSE_ROW as usize] = -1.;
-    cknobs[COLAMD_DENSE_COL as usize] = knobs[COLAMD_DENSE_ROW as usize];
+    options.dense_column_control = options.dense_row_control;
+    options.dense_row_control = -1.;
 
     // === Order the columns of M ===========================================
     unsafe {
-        colamd(n_row, n, &mut m, perm, Some(&mut cknobs), stats);
+        colamd(n_row, n, &mut m, perm, options, stats);
     }
 
     // Note that the output permutation is now in perm
@@ -383,7 +356,7 @@ pub(crate) unsafe fn colamd(
     n_col: i32,
     a: &mut [i32],
     p: &mut [i32],
-    knobs: Option<&mut [f64; 20]>,
+    options: Options,
     stats: &mut [i32; 20],
 ) -> bool {
     let mut i: int32_t = 0;
@@ -392,7 +365,6 @@ pub(crate) unsafe fn colamd(
     let mut n_row2: int32_t = 0;
     let mut ngarbage: int32_t = 0;
     let mut max_deg: int32_t = 0;
-    let mut default_knobs: [core::ffi::c_double; 20] = [0.; 20];
 
     let stats = stats.as_mut_ptr();
     if stats.is_null() {
@@ -429,11 +401,7 @@ pub(crate) unsafe fn colamd(
         return false;
     }
 
-    let knobs = knobs.unwrap_or_else(|| {
-        colamd_set_defaults(default_knobs.as_mut_ptr());
-        &mut default_knobs
-    });
-    let aggressive = knobs[COLAMD_AGGRESSIVE as usize] != FALSE as f64;
+    let aggressive = options.aggressive_row_absorption;
 
     /// Calculate column size and row size in terms of entries in the `i32` buffer, and the total
     /// size needed for the `i32` buffer.
@@ -502,7 +470,7 @@ pub(crate) unsafe fn colamd(
         cols,
         a,
         p,
-        knobs,
+        &options,
         &mut n_row2,
         &mut n_col2,
         &mut max_deg,
@@ -695,7 +663,7 @@ unsafe extern "C" fn init_scoring(
     Col: *mut Colamd_Col,
     A: *mut int32_t,
     head: *mut int32_t,
-    knobs: &mut [f64; 20],
+    options: &Options,
     p_n_row2: *mut int32_t,
     p_n_col2: *mut int32_t,
     p_max_deg: *mut int32_t,
@@ -716,26 +684,26 @@ unsafe extern "C" fn init_scoring(
     let mut min_score: int32_t = 0;
     let mut max_deg: int32_t = 0;
     let mut next_col: int32_t = 0;
-    if knobs[COLAMD_DENSE_ROW as usize] < 0. {
+    if options.dense_row_control < 0. {
         dense_row_count = n_col - 1 as int32_t;
     } else {
         dense_row_count =
-            (if 16.0f64 > knobs[COLAMD_DENSE_ROW as usize] * sqrt(n_col as core::ffi::c_double) {
+            (if 16.0f64 > options.dense_row_control * sqrt(n_col as core::ffi::c_double) {
                 16.0f64
             } else {
-                knobs[COLAMD_DENSE_ROW as usize] * sqrt(n_col as core::ffi::c_double)
+                options.dense_row_control * sqrt(n_col as core::ffi::c_double)
             }) as int32_t;
     }
-    if knobs[COLAMD_DENSE_COL as usize] < 0. {
+    if options.dense_column_control < 0. {
         dense_col_count = n_row - 1 as int32_t;
     } else {
         dense_col_count = (if 16.0f64
-            > knobs[COLAMD_DENSE_COL as usize]
+            > options.dense_column_control
                 * sqrt((if n_row < n_col { n_row } else { n_col }) as core::ffi::c_double)
         {
             16.0f64
         } else {
-            knobs[COLAMD_DENSE_COL as usize]
+            options.dense_column_control
                 * sqrt((if n_row < n_col { n_row } else { n_col }) as core::ffi::c_double)
         }) as int32_t;
     }
