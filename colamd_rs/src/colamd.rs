@@ -6,7 +6,6 @@
 #![expect(
     non_camel_case_types,
     non_snake_case,
-    non_upper_case_globals,
     unused_assignments,
     unsafe_op_in_unsafe_fn,
     clippy::toplevel_ref_arg,
@@ -119,13 +118,13 @@ const COLAMD_INFO2: core::ffi::c_int = 5 as core::ffi::c_int;
 const COLAMD_INFO3: core::ffi::c_int = 6 as core::ffi::c_int;
 const COLAMD_OK: core::ffi::c_int = 0 as core::ffi::c_int;
 const COLAMD_OK_BUT_JUMBLED: core::ffi::c_int = 1 as core::ffi::c_int;
-const COLAMD_ERROR_nrow_negative: core::ffi::c_int = -(3 as core::ffi::c_int);
-const COLAMD_ERROR_ncol_negative: core::ffi::c_int = -(4 as core::ffi::c_int);
-const COLAMD_ERROR_nnz_negative: core::ffi::c_int = -(5 as core::ffi::c_int);
-const COLAMD_ERROR_p0_nonzero: core::ffi::c_int = -(6 as core::ffi::c_int);
-const COLAMD_ERROR_A_too_small: core::ffi::c_int = -(7 as core::ffi::c_int);
-const COLAMD_ERROR_col_length_negative: core::ffi::c_int = -(8 as core::ffi::c_int);
-const COLAMD_ERROR_row_index_out_of_bounds: core::ffi::c_int = -(9 as core::ffi::c_int);
+const COLAMD_ERROR_NROW_NEGATIVE: core::ffi::c_int = -(3 as core::ffi::c_int);
+const COLAMD_ERROR_NCOL_NEGATIVE: core::ffi::c_int = -(4 as core::ffi::c_int);
+const COLAMD_ERROR_NNZ_NEGATIVE: core::ffi::c_int = -(5 as core::ffi::c_int);
+const COLAMD_ERROR_P0_NONZERO: core::ffi::c_int = -(6 as core::ffi::c_int);
+const COLAMD_ERROR_A_TOO_SMALL: core::ffi::c_int = -(7 as core::ffi::c_int);
+const COLAMD_ERROR_COL_LENGTH_NEGATIVE: core::ffi::c_int = -(8 as core::ffi::c_int);
+const COLAMD_ERROR_ROW_INDEX_OUT_OF_BOUNDS: core::ffi::c_int = -(9 as core::ffi::c_int);
 const INT_MAX: core::ffi::c_int = __INT_MAX__;
 const TRUE: core::ffi::c_int = 1 as core::ffi::c_int;
 const FALSE: core::ffi::c_int = 0 as core::ffi::c_int;
@@ -229,18 +228,18 @@ pub(crate) fn symamd(
     stats[COLAMD_INFO1 as usize] = -1;
     stats[COLAMD_INFO2 as usize] = -1;
     if n < 0 as int32_t {
-        stats[COLAMD_STATUS as usize] = COLAMD_ERROR_ncol_negative;
+        stats[COLAMD_STATUS as usize] = COLAMD_ERROR_NCOL_NEGATIVE;
         stats[COLAMD_INFO1 as usize] = n;
         return 0 as core::ffi::c_int;
     }
     nnz = p[n as usize];
     if nnz < 0 as int32_t {
-        stats[COLAMD_STATUS as usize] = COLAMD_ERROR_nnz_negative;
+        stats[COLAMD_STATUS as usize] = COLAMD_ERROR_NNZ_NEGATIVE;
         stats[COLAMD_INFO1 as usize] = nnz;
         return 0 as core::ffi::c_int;
     }
     if p[0] != 0 {
-        stats[COLAMD_STATUS as usize] = COLAMD_ERROR_p0_nonzero;
+        stats[COLAMD_STATUS as usize] = COLAMD_ERROR_P0_NONZERO;
         stats[COLAMD_INFO1 as usize] = p[0];
         return 0 as core::ffi::c_int;
     }
@@ -273,7 +272,7 @@ pub(crate) fn symamd(
         length = p[(j + 1 as int32_t) as usize] - p[j as usize];
         if length < 0 as int32_t {
             // column pointers must be non-decreasing
-            stats[COLAMD_STATUS as usize] = COLAMD_ERROR_col_length_negative as int32_t;
+            stats[COLAMD_STATUS as usize] = COLAMD_ERROR_COL_LENGTH_NEGATIVE as int32_t;
             stats[COLAMD_INFO1 as usize] = j;
             stats[COLAMD_INFO2 as usize] = length;
             return 0 as core::ffi::c_int;
@@ -283,7 +282,7 @@ pub(crate) fn symamd(
             i = a[pp as usize];
             if i < 0 as int32_t || i >= n {
                 // row index i, in column j, is out of bounds
-                stats[COLAMD_STATUS as usize] = COLAMD_ERROR_row_index_out_of_bounds;
+                stats[COLAMD_STATUS as usize] = COLAMD_ERROR_ROW_INDEX_OUT_OF_BOUNDS;
                 stats[COLAMD_INFO1 as usize] = j;
                 stats[COLAMD_INFO2 as usize] = i;
                 stats[COLAMD_INFO3 as usize] = n;
@@ -445,23 +444,23 @@ pub(crate) unsafe fn colamd(
     *stats.offset(COLAMD_INFO2 as isize) = -(1 as core::ffi::c_int) as int32_t;
     let p = p.as_mut_ptr();
     if n_row < 0 as int32_t {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_nrow_negative as int32_t;
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_NROW_NEGATIVE as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = n_row;
         return 0 as core::ffi::c_int;
     }
     if n_col < 0 as int32_t {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_ncol_negative as int32_t;
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_NCOL_NEGATIVE as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = n_col;
         return 0 as core::ffi::c_int;
     }
     nnz = *p.offset(n_col as isize);
     if nnz < 0 as int32_t {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_nnz_negative as int32_t;
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_NNZ_NEGATIVE as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = nnz;
         return 0 as core::ffi::c_int;
     }
     if *p.offset(0 as core::ffi::c_int as isize) != 0 as int32_t {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_p0_nonzero as int32_t;
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_P0_NONZERO as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = *p.offset(0 as core::ffi::c_int as isize);
         return 0 as core::ffi::c_int;
     }
@@ -490,7 +489,7 @@ pub(crate) unsafe fn colamd(
     need = t_add(need, Row_size, &mut ok);
     let a_len = a.len();
     if ok == 0 || need > a_len {
-        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_A_too_small as int32_t;
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_A_TOO_SMALL as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = need as int32_t;
         *stats.offset(COLAMD_INFO2 as isize) = a_len as i32;
         return 0 as core::ffi::c_int;
@@ -579,7 +578,7 @@ unsafe fn init_rows_cols(
         (cols[col as usize]).start = p[col as usize];
         (cols[col as usize]).length = p[(col + 1) as usize] - p[col as usize];
         if (cols[col as usize]).length < 0 {
-            stats[COLAMD_STATUS as usize] = COLAMD_ERROR_col_length_negative;
+            stats[COLAMD_STATUS as usize] = COLAMD_ERROR_COL_LENGTH_NEGATIVE;
             stats[COLAMD_INFO1 as usize] = col;
             stats[COLAMD_INFO2 as usize] = cols[col as usize].length;
             return false;
@@ -605,7 +604,7 @@ unsafe fn init_rows_cols(
         for &row in &A[p[col as usize] as usize..p[col as usize + 1] as usize] {
             // make sure row indices within range
             if row < 0 as int32_t || row >= n_row {
-                stats[COLAMD_STATUS as usize] = COLAMD_ERROR_row_index_out_of_bounds as int32_t;
+                stats[COLAMD_STATUS as usize] = COLAMD_ERROR_ROW_INDEX_OUT_OF_BOUNDS as int32_t;
                 stats[COLAMD_INFO1 as usize] = col;
                 stats[COLAMD_INFO2 as usize] = row;
                 stats[COLAMD_INFO3 as usize] = n_row;
