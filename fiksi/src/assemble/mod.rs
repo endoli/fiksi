@@ -418,6 +418,137 @@ impl ClusteredSystem {
         self.num_pose_expressions = 0;
         self.variable_mapping_pose_and_element.clear();
     }
+
+    fn calculate_residuals_and_jacobian(
+        &mut self,
+        system: &System,
+        pose_and_element_variables: &[f64],
+        residuals: &mut [f64],
+        jacobian: &mut impl PushTriplet,
+    ) {
+        // Calculate the residuals and gradients of the expressions (of each
+        // constraint) in this cluster.
+        // TODO: make `VariableMap` a trait, so that we can reuse it here.
+        let mut variable_indices = [0; 8];
+        let mut variables = [0.; 8];
+        let mut gradient = [0.; 8];
+        let offset = self.num_pose_expressions as usize;
+        for (expression_idx_in_problem, expression_id) in self.expressions.iter().enumerate() {
+            let expression = &system.expressions[*expression_id as usize];
+            for (variable_idx_in_expression, variable_idx) in expression
+                .variable_indices(&mut variable_indices)
+                .iter()
+                .enumerate()
+            {
+                let mapped_variable_idx = *self
+                    .variable_mapping_pose_and_element
+                    .get(variable_idx)
+                    .unwrap();
+                variables[variable_idx_in_expression] =
+                    pose_and_element_variables[mapped_variable_idx as usize];
+            }
+
+            let (residual, gradient) =
+                expression.compute_residual_and_gradient(&variables, &mut gradient);
+            residuals[offset + expression_idx_in_problem] = residual;
+
+            for (variable_idx_in_expression, variable_idx) in expression
+                .variable_indices(&mut variable_indices)
+                .iter()
+                .enumerate()
+            {
+                let mapped_variable_idx = *self
+                    .variable_mapping_pose_and_element
+                    .get(variable_idx)
+                    .unwrap();
+                jacobian.push_triplet(
+                    offset + expression_idx_in_problem,
+                    mapped_variable_idx as usize,
+                    gradient[variable_idx_in_expression],
+                );
+            }
+        }
+
+        // Calculate the residuals and gradients of the coincidence constraints of
+        // each point that occurs on child clusters' frontiers.
+        let mut r = 0;
+        for (cluster_idx, (_, points)) in self.clusters.iter().enumerate() {
+            let pose_start_idx = 3 * cluster_idx;
+            let pose = Pose2D::from_array([
+                pose_and_element_variables[pose_start_idx],
+                pose_and_element_variables[pose_start_idx + 1],
+                pose_and_element_variables[pose_start_idx + 2],
+            ]);
+            for &point_id in points {
+                let EncodedElement::Point { idx } = &system.elements[point_id.id as usize] else {
+                    unreachable!()
+                };
+                let point = kurbo::Point::new(
+                    system.variables[*idx as usize],
+                    system.variables[*idx as usize + 1],
+                );
+
+                let rigidly_transformed = pose.transform_point(point);
+                let updated_idx = *self.variable_mapping_pose_and_element.get(idx).unwrap();
+                let updated = kurbo::Point::new(
+                    pose_and_element_variables[updated_idx as usize],
+                    pose_and_element_variables[updated_idx as usize + 1],
+                );
+
+                residuals[r] = rigidly_transformed.x - updated.x;
+                residuals[r + 1] = rigidly_transformed.y - updated.y;
+
+                // Note: while we compute the gradient through the chain rule here,
+                // with the inner derivatives we're giving, we're actually just
+                // computing the gradient directly. We're keeping this method
+                // around as we may be using it in the future. Inlining sohuld take
+                // care of the dead code.
+                let gradient_x = pose.gradient_chain_rule_point(point, [1., 0.]);
+                let gradient_y = pose.gradient_chain_rule_point(point, [0., 1.]);
+
+                for (x, g) in gradient_x.into_iter().enumerate() {
+                    jacobian.push_triplet(r, pose_start_idx + x, g);
+                }
+                for (y, g) in gradient_y.into_iter().enumerate() {
+                    jacobian.push_triplet(r + 1, pose_start_idx + y, g);
+                }
+
+                // Write the gradients on the updated point.
+                jacobian.push_triplet(r, updated_idx as usize, -1.);
+                jacobian.push_triplet(r + 1, updated_idx as usize + 1, -1.);
+
+                r += 2;
+            }
+        }
+    }
+}
+
+/// A trait to push triplets to an underlying matrix storage.
+///
+/// This allows abstracting Jacobian-calculating code over sparse versus dense matrices.
+///
+/// If multiple values are pushed at the same `(row, col)` entry, their values are added.
+/// This is the same behavior as [`solvi::TripletMat`].
+trait PushTriplet {
+    fn push_triplet(&mut self, row: usize, col: usize, value: f64);
+}
+
+impl PushTriplet for TripletMat<f64> {
+    fn push_triplet(&mut self, row: usize, col: usize, value: f64) {
+        self.push_triplet(row, col, value);
+    }
+}
+
+/// A dense matrix in column-major format.
+struct DenseColMat<'a> {
+    num_cols: usize,
+    matrix: &'a mut [f64],
+}
+
+impl PushTriplet for DenseColMat<'_> {
+    fn push_triplet(&mut self, row: usize, col: usize, value: f64) {
+        self.matrix[row * self.num_cols + col] = value;
+    }
 }
 
 impl solve::Problem for (&'_ mut ClusteredSystem, &'_ System) {
@@ -499,114 +630,30 @@ impl solve::Problem for (&'_ mut ClusteredSystem, &'_ System) {
     ) {
         let (this, system) = self;
 
-        residuals.fill(0.);
-        jacobian.fill(0.);
-
-        // Calculate the residuals and gradients of the expressions (of each
-        // constraint) in this cluster.
-        // TODO: make `VariableMap` a trait, so that we can reuse it here.
-        let mut variable_indices = [0; 8];
-        let mut variables = [0.; 8];
-        let mut gradient = [0.; 8];
-        let offset = this.num_pose_expressions as usize;
-        for (expression_idx_in_problem, expression_id) in this.expressions.iter().enumerate() {
-            let expression = &system.expressions[*expression_id as usize];
-            for (variable_idx_in_expression, variable_idx) in expression
-                .variable_indices(&mut variable_indices)
-                .iter()
-                .enumerate()
-            {
-                let mapped_variable_idx = *this
-                    .variable_mapping_pose_and_element
-                    .get(variable_idx)
-                    .unwrap();
-                variables[variable_idx_in_expression] =
-                    pose_and_element_variables[mapped_variable_idx as usize];
-            }
-
-            let (residual, gradient) =
-                expression.compute_residual_and_gradient(&variables, &mut gradient);
-            residuals[offset + expression_idx_in_problem] = residual;
-
-            let jacobian_row_start =
-                (offset + expression_idx_in_problem) * this.num_variables as usize;
-            for (variable_idx_in_expression, variable_idx) in expression
-                .variable_indices(&mut variable_indices)
-                .iter()
-                .enumerate()
-            {
-                let mapped_variable_idx = *this
-                    .variable_mapping_pose_and_element
-                    .get(variable_idx)
-                    .unwrap();
-                jacobian[jacobian_row_start + mapped_variable_idx as usize] =
-                    gradient[variable_idx_in_expression];
-            }
-        }
-
-        // Calculate the residuals and gradients of the coincidence constraints of
-        // each point that occurs on child clusters' frontiers.
-        let mut r = 0;
-        for (cluster_idx, (_, points)) in this.clusters.iter().enumerate() {
-            let pose_start_idx = 3 * cluster_idx;
-            let pose = Pose2D::from_array([
-                pose_and_element_variables[pose_start_idx],
-                pose_and_element_variables[pose_start_idx + 1],
-                pose_and_element_variables[pose_start_idx + 2],
-            ]);
-            for &point_id in points {
-                let EncodedElement::Point { idx } = &system.elements[point_id.id as usize] else {
-                    unreachable!()
-                };
-                let point = kurbo::Point::new(
-                    system.variables[*idx as usize],
-                    system.variables[*idx as usize + 1],
-                );
-
-                let rigidly_transformed = pose.transform_point(point);
-                let updated_idx = *this.variable_mapping_pose_and_element.get(idx).unwrap();
-                let updated = kurbo::Point::new(
-                    pose_and_element_variables[updated_idx as usize],
-                    pose_and_element_variables[updated_idx as usize + 1],
-                );
-
-                residuals[r] = rigidly_transformed.x - updated.x;
-                residuals[r + 1] = rigidly_transformed.y - updated.y;
-
-                // Note: while we compute the gradient through the chain rule here,
-                // with the inner derivatives we're giving, we're actually just
-                // computing the gradient directly. We're keeping this method
-                // around as we may be using it in the future. Inlining sohuld take
-                // care of the dead code.
-                let gradient_x = pose.gradient_chain_rule_point(point, [1., 0.]);
-                let gradient_y = pose.gradient_chain_rule_point(point, [0., 1.]);
-
-                let jacobian_row_start_x = r * this.num_variables as usize;
-                let jacobian_row_start_y = (r + 1) * this.num_variables as usize;
-
-                // Write the gradients on the child cluster pose.
-                jacobian[jacobian_row_start_x + pose_start_idx
-                    ..jacobian_row_start_x + pose_start_idx + 3]
-                    .copy_from_slice(&gradient_x);
-                jacobian[jacobian_row_start_y + pose_start_idx
-                    ..jacobian_row_start_y + pose_start_idx + 3]
-                    .copy_from_slice(&gradient_y);
-
-                // Write the gradients on the updated point.
-                jacobian[jacobian_row_start_x + updated_idx as usize] = -1.;
-                jacobian[jacobian_row_start_y + updated_idx as usize + 1] = -1.;
-
-                r += 2;
-            }
-        }
+        this.calculate_residuals_and_jacobian(
+            system,
+            pose_and_element_variables,
+            residuals,
+            &mut DenseColMat {
+                num_cols: this.num_variables as usize,
+                matrix: jacobian,
+            },
+        );
     }
 
     fn calculate_residuals_and_sparse_jacobian(
         &mut self,
-        _variables: &[f64],
-        _residuals: &mut [f64],
-        _jacobian: &mut TripletMat<f64>,
+        pose_and_element_variables: &[f64],
+        residuals: &mut [f64],
+        jacobian: &mut TripletMat<f64>,
     ) {
-        unimplemented!("This is not implemented")
+        let (this, system) = self;
+
+        this.calculate_residuals_and_jacobian(
+            system,
+            pose_and_element_variables,
+            residuals,
+            jacobian,
+        );
     }
 }

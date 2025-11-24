@@ -8,8 +8,7 @@ fn single_triangle() {
     for decomposer in [
         Decomposer::None,
         Decomposer::SinglePass,
-        // Decomposer::RecursiveAssembly,
-        // ^ temporarily disabled
+        Decomposer::RecursiveAssembly,
     ] {
         let mut s = System::new();
 
