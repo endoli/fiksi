@@ -506,11 +506,11 @@ impl ClusteredSystem {
                 let gradient_x = pose.gradient_chain_rule_point(point, [1., 0.]);
                 let gradient_y = pose.gradient_chain_rule_point(point, [0., 1.]);
 
-                for x in 0..3 {
-                    jacobian.push_triplet(r, pose_start_idx + x, gradient_x[x]);
+                for (x, g) in gradient_x.into_iter().enumerate() {
+                    jacobian.push_triplet(r, pose_start_idx + x, g);
                 }
-                for y in 0..3 {
-                    jacobian.push_triplet(r + 1, pose_start_idx + y, gradient_y[y]);
+                for (y, g) in gradient_y.into_iter().enumerate() {
+                    jacobian.push_triplet(r + 1, pose_start_idx + y, g);
                 }
 
                 // Write the gradients on the updated point.
