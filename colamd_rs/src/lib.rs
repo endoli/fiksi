@@ -157,7 +157,7 @@ pub fn colamd(
     );
 
     let stats = &mut [0; 20];
-    let res = {
+    let success = {
         let mut knobs = options.map(Options::as_knobs_array);
         let knobs = knobs.as_mut();
 
@@ -167,7 +167,7 @@ pub fn colamd(
     let result = status::stats_to_result(stats);
     debug_assert_eq!(
         result.is_ok(),
-        res == 1,
+        success,
         "The converted `stats` indicate success, but `colamd`'s return value indicates failure"
     );
     result
@@ -257,7 +257,7 @@ pub fn symamd(
     );
 
     let stats = &mut [0; 20];
-    let res = {
+    let success = {
         let knobs = options.map(Options::as_knobs_array);
 
         colamd::symamd(
@@ -273,7 +273,7 @@ pub fn symamd(
     let result = status::stats_to_result(stats);
     debug_assert_eq!(
         result.is_ok(),
-        res == 1,
+        success,
         "The converted `stats` indicate success, but `symamd`'s return value indicates failure"
     );
     result
