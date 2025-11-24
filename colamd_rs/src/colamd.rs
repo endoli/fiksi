@@ -398,7 +398,7 @@ pub(crate) fn symamd(
 
     // === Order the columns of M ===========================================
     unsafe {
-        colamd(n_row, n, &mut m, perm, cknobs.as_mut_ptr(), stats);
+        colamd(n_row, n, &mut m, perm, Some(&mut cknobs), stats);
     }
 
     // Note that the output permutation is now in perm
@@ -415,7 +415,7 @@ pub(crate) unsafe fn colamd(
     n_col: i32,
     a: &mut [i32],
     p: &mut [i32],
-    mut knobs: *mut core::ffi::c_double,
+    knobs: Option<&mut [f64; 20]>,
     stats: &mut [i32; 20],
 ) -> core::ffi::c_int {
     let mut i: int32_t = 0;
@@ -428,7 +428,6 @@ pub(crate) unsafe fn colamd(
     let mut ngarbage: int32_t = 0;
     let mut max_deg: int32_t = 0;
     let mut default_knobs: [core::ffi::c_double; 20] = [0.; 20];
-    let mut aggressive: int32_t = 0;
     let mut ok: core::ffi::c_int = 0;
 
     let stats = stats.as_mut_ptr();
@@ -465,12 +464,12 @@ pub(crate) unsafe fn colamd(
         *stats.offset(COLAMD_INFO1 as isize) = *p.offset(0 as core::ffi::c_int as isize);
         return 0 as core::ffi::c_int;
     }
-    if knobs.is_null() {
+
+    let knobs = knobs.unwrap_or_else(|| {
         colamd_set_defaults(default_knobs.as_mut_ptr());
-        knobs = default_knobs.as_mut_ptr() as *mut core::ffi::c_double;
-    }
-    aggressive = (*knobs.offset(COLAMD_AGGRESSIVE as isize) != FALSE as core::ffi::c_double)
-        as core::ffi::c_int as int32_t;
+        &mut default_knobs
+    });
+    let aggressive = knobs[COLAMD_AGGRESSIVE as usize] != FALSE as f64;
     ok = TRUE;
     Col_size = (t_mult(
         t_add(n_col as size_t, 1 as size_t, &mut ok),
@@ -540,7 +539,7 @@ pub(crate) unsafe fn colamd(
         n_col2,
         max_deg,
         2 as int32_t * nnz,
-        aggressive,
+        aggressive as i32,
     );
     order_children(n_col, cols, p);
     *stats.offset(COLAMD_DENSE_ROW as isize) = n_row - n_row2;
@@ -716,7 +715,7 @@ unsafe extern "C" fn init_scoring(
     Col: *mut Colamd_Col,
     A: *mut int32_t,
     head: *mut int32_t,
-    knobs: *mut core::ffi::c_double,
+    knobs: &mut [f64; 20],
     p_n_row2: *mut int32_t,
     p_n_col2: *mut int32_t,
     p_max_deg: *mut int32_t,
@@ -737,27 +736,26 @@ unsafe extern "C" fn init_scoring(
     let mut min_score: int32_t = 0;
     let mut max_deg: int32_t = 0;
     let mut next_col: int32_t = 0;
-    if *knobs.offset(COLAMD_DENSE_ROW as isize) < 0 as core::ffi::c_int as core::ffi::c_double {
+    if knobs[COLAMD_DENSE_ROW as usize] < 0. {
         dense_row_count = n_col - 1 as int32_t;
     } else {
-        dense_row_count = (if 16.0f64
-            > *knobs.offset(0 as core::ffi::c_int as isize) * sqrt(n_col as core::ffi::c_double)
-        {
-            16.0f64
-        } else {
-            *knobs.offset(0 as core::ffi::c_int as isize) * sqrt(n_col as core::ffi::c_double)
-        }) as int32_t;
+        dense_row_count =
+            (if 16.0f64 > knobs[COLAMD_DENSE_ROW as usize] * sqrt(n_col as core::ffi::c_double) {
+                16.0f64
+            } else {
+                knobs[COLAMD_DENSE_ROW as usize] * sqrt(n_col as core::ffi::c_double)
+            }) as int32_t;
     }
-    if *knobs.offset(COLAMD_DENSE_COL as isize) < 0 as core::ffi::c_int as core::ffi::c_double {
+    if knobs[COLAMD_DENSE_COL as usize] < 0. {
         dense_col_count = n_row - 1 as int32_t;
     } else {
         dense_col_count = (if 16.0f64
-            > *knobs.offset(1 as core::ffi::c_int as isize)
+            > knobs[COLAMD_DENSE_COL as usize]
                 * sqrt((if n_row < n_col { n_row } else { n_col }) as core::ffi::c_double)
         {
             16.0f64
         } else {
-            *knobs.offset(1 as core::ffi::c_int as isize)
+            knobs[COLAMD_DENSE_COL as usize]
                 * sqrt((if n_row < n_col { n_row } else { n_col }) as core::ffi::c_double)
         }) as int32_t;
     }
