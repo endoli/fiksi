@@ -101,11 +101,11 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
     let sparse_sqr = SymbolicQr::build(sparse_jacobian_csc.structure(), QrOrdering::Colamd);
     let mut sparse_qr = sparse_sqr.numeric();
 
-    let mut residual = residuals.norm();
+    let mut sum_squared_residuals = residuals.norm_squared();
 
     let mut lambda = 0.5;
     'steps: for _ in 0..100 {
-        if residual < 1e-4 {
+        if sum_squared_residuals < 1e-8 {
             break;
         }
 
@@ -135,7 +135,7 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
             };
 
             let delta = nalgebra::DVectorView::from_slice(&b_augmented[..ncols], ncols);
-            if delta.norm() < 1e-6 {
+            if delta.norm_squared() < 1e-12 {
                 break 'steps;
             }
 
@@ -144,15 +144,15 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
             }
 
             problem.calculate_residuals(variables_scratch, residuals_scratch.as_mut_slice());
-            let residual_scratch = residuals_scratch.norm();
+            let sum_squared_residuals_scratch = residuals_scratch.norm_squared();
 
-            if residual_scratch < residual {
+            if sum_squared_residuals_scratch < sum_squared_residuals {
                 // Accept step
                 lambda *= 0.125;
                 if lambda < 1e-50 {
                     lambda = 1e-50;
                 }
-                residual = residual_scratch;
+                sum_squared_residuals = sum_squared_residuals_scratch;
                 variables.copy_from_slice(variables_scratch);
 
                 // It might be nice to have a calculate_jacobian function here, but the additional
