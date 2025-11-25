@@ -26,7 +26,6 @@ fn sqrt(x: f64) -> f64 {
     }
 }
 
-type size_t = usize;
 type int32_t = i32;
 type uint32_t = u32;
 
@@ -133,26 +132,6 @@ const ALIVE: core::ffi::c_int = 0 as core::ffi::c_int;
 const DEAD: core::ffi::c_int = -(1 as core::ffi::c_int);
 const DEAD_PRINCIPAL: core::ffi::c_int = -(1 as core::ffi::c_int);
 const DEAD_NON_PRINCIPAL: core::ffi::c_int = -(2 as core::ffi::c_int);
-
-unsafe extern "C" fn t_add(a: size_t, b: size_t, ok: *mut core::ffi::c_int) -> size_t {
-    *ok = (*ok != 0 && a.wrapping_add(b) >= (if a > b { a } else { b })) as core::ffi::c_int;
-    if *ok != 0 {
-        a.wrapping_add(b)
-    } else {
-        0 as size_t
-    }
-}
-
-unsafe extern "C" fn t_mult(a: size_t, k: size_t, ok: *mut core::ffi::c_int) -> size_t {
-    let mut i: size_t = 0;
-    let mut s: size_t = 0 as size_t;
-    i = 0 as size_t;
-    while i < k {
-        s = t_add(s, a, ok);
-        i = i.wrapping_add(1);
-    }
-    s
-}
 
 /// Returns the recommended value of the `a` slice for use by [`crate::colamd`][crate::colamd()].
 ///
@@ -420,15 +399,11 @@ pub(crate) unsafe fn colamd(
 ) -> bool {
     let mut i: int32_t = 0;
     let mut nnz: int32_t = 0;
-    let mut Row_size: size_t = 0;
-    let mut Col_size: size_t = 0;
-    let mut need: size_t = 0;
     let mut n_col2: int32_t = 0;
     let mut n_row2: int32_t = 0;
     let mut ngarbage: int32_t = 0;
     let mut max_deg: int32_t = 0;
     let mut default_knobs: [core::ffi::c_double; 20] = [0.; 20];
-    let mut ok: core::ffi::c_int = 0;
 
     let stats = stats.as_mut_ptr();
     if stats.is_null() {
@@ -470,33 +445,48 @@ pub(crate) unsafe fn colamd(
         &mut default_knobs
     });
     let aggressive = knobs[COLAMD_AGGRESSIVE as usize] != FALSE as f64;
-    ok = TRUE;
-    Col_size = (t_mult(
-        t_add(n_col as size_t, 1 as size_t, &mut ok),
-        ::core::mem::size_of::<Colamd_Col>() as size_t,
-        &mut ok,
-    ))
-    .wrapping_div(::core::mem::size_of::<int32_t>() as size_t);
-    Row_size = (t_mult(
-        t_add(n_row as size_t, 1 as size_t, &mut ok),
-        ::core::mem::size_of::<Colamd_Row>() as size_t,
-        &mut ok,
-    ))
-    .wrapping_div(::core::mem::size_of::<int32_t>() as size_t);
-    need = t_mult(nnz as size_t, 2 as size_t, &mut ok);
-    need = t_add(need, n_col as size_t, &mut ok);
-    need = t_add(need, Col_size, &mut ok);
-    need = t_add(need, Row_size, &mut ok);
+
+    /// Calculate column size and row size in terms of entries in the `i32` buffer, and the total
+    /// size needed for the `i32` buffer.
+    ///
+    /// Returns `None` if the calculation overflowed.
+    #[inline]
+    fn calculate_sizes(n_col: usize, n_row: usize, nnz: usize) -> Option<(usize, usize, usize)> {
+        let col_size = n_col
+            .checked_add(1)?
+            .checked_mul(core::mem::size_of::<Colamd_Col>())?
+            .wrapping_div(core::mem::size_of::<i32>());
+        let row_size = n_row
+            .checked_add(1)?
+            .checked_mul(core::mem::size_of::<Colamd_Row>())?
+            .wrapping_div(core::mem::size_of::<i32>());
+        let need = nnz
+            .checked_mul(2)?
+            .checked_add(n_col)?
+            .checked_add(col_size)?
+            .checked_add(row_size)?;
+
+        Some((col_size, row_size, need))
+    }
+
     let a_len = a.len();
-    if ok == 0 || need > a_len {
+    let Some((col_size, row_size, need)) =
+        calculate_sizes(n_col as usize, n_row as usize, nnz as usize)
+    else {
+        *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_A_TOO_SMALL as int32_t;
+        *stats.offset(COLAMD_INFO1 as isize) = 0;
+        *stats.offset(COLAMD_INFO2 as isize) = a_len as i32;
+        return false;
+    };
+    if need > a_len {
         *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_A_TOO_SMALL as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = need as int32_t;
         *stats.offset(COLAMD_INFO2 as isize) = a_len as i32;
         return false;
     }
-    let a_len = a_len.wrapping_sub(Col_size.wrapping_add(Row_size));
+    let a_len = a_len.wrapping_sub(col_size.wrapping_add(row_size));
     let (a, col) = a.split_at_mut(a_len);
-    let (col, row) = col.split_at_mut(Col_size);
+    let (col, row) = col.split_at_mut(col_size);
     let cols: &mut [Colamd_Col] = bytemuck::cast_slice_mut(col);
     let rows: &mut [Colamd_Row] = bytemuck::cast_slice_mut(row);
 
