@@ -205,7 +205,7 @@ pub(crate) fn symamd(
     perm: &mut [i32],
     knobs: Option<&[f64; 20]>,
     stats: &mut [i32; 20],
-) -> core::ffi::c_int {
+) -> bool {
     let mut n_row: int32_t = 0;
     let mut nnz: int32_t = 0;
     let mut i: int32_t = 0;
@@ -230,18 +230,18 @@ pub(crate) fn symamd(
     if n < 0 as int32_t {
         stats[COLAMD_STATUS as usize] = COLAMD_ERROR_NCOL_NEGATIVE;
         stats[COLAMD_INFO1 as usize] = n;
-        return 0 as core::ffi::c_int;
+        return false;
     }
     nnz = p[n as usize];
     if nnz < 0 as int32_t {
         stats[COLAMD_STATUS as usize] = COLAMD_ERROR_NNZ_NEGATIVE;
         stats[COLAMD_INFO1 as usize] = nnz;
-        return 0 as core::ffi::c_int;
+        return false;
     }
     if p[0] != 0 {
         stats[COLAMD_STATUS as usize] = COLAMD_ERROR_P0_NONZERO;
         stats[COLAMD_INFO1 as usize] = p[0];
-        return 0 as core::ffi::c_int;
+        return false;
     }
 
     // === If no knobs, set default knobs ===================================
@@ -275,7 +275,7 @@ pub(crate) fn symamd(
             stats[COLAMD_STATUS as usize] = COLAMD_ERROR_COL_LENGTH_NEGATIVE as int32_t;
             stats[COLAMD_INFO1 as usize] = j;
             stats[COLAMD_INFO2 as usize] = length;
-            return 0 as core::ffi::c_int;
+            return false;
         }
         pp = p[j as usize];
         while pp < p[(j + 1 as int32_t) as usize] {
@@ -286,7 +286,7 @@ pub(crate) fn symamd(
                 stats[COLAMD_INFO1 as usize] = j;
                 stats[COLAMD_INFO2 as usize] = i;
                 stats[COLAMD_INFO3 as usize] = n;
-                return 0 as core::ffi::c_int;
+                return false;
             }
 
             if i <= last_row || mark[i as usize] == j {
@@ -406,7 +406,8 @@ pub(crate) fn symamd(
 
     // a dense column in colamd means a dense row and col in symamd
     stats[COLAMD_DENSE_ROW as usize] = stats[COLAMD_DENSE_COL as usize];
-    1 as core::ffi::c_int
+
+    true
 }
 
 pub(crate) unsafe fn colamd(
@@ -416,7 +417,7 @@ pub(crate) unsafe fn colamd(
     p: &mut [i32],
     knobs: Option<&mut [f64; 20]>,
     stats: &mut [i32; 20],
-) -> core::ffi::c_int {
+) -> bool {
     let mut i: int32_t = 0;
     let mut nnz: int32_t = 0;
     let mut Row_size: size_t = 0;
@@ -431,7 +432,7 @@ pub(crate) unsafe fn colamd(
 
     let stats = stats.as_mut_ptr();
     if stats.is_null() {
-        return 0 as core::ffi::c_int;
+        return false;
     }
     i = 0 as core::ffi::c_int as int32_t;
     while i < COLAMD_STATS as int32_t {
@@ -445,23 +446,23 @@ pub(crate) unsafe fn colamd(
     if n_row < 0 as int32_t {
         *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_NROW_NEGATIVE as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = n_row;
-        return 0 as core::ffi::c_int;
+        return false;
     }
     if n_col < 0 as int32_t {
         *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_NCOL_NEGATIVE as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = n_col;
-        return 0 as core::ffi::c_int;
+        return false;
     }
     nnz = *p.offset(n_col as isize);
     if nnz < 0 as int32_t {
         *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_NNZ_NEGATIVE as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = nnz;
-        return 0 as core::ffi::c_int;
+        return false;
     }
     if *p.offset(0 as core::ffi::c_int as isize) != 0 as int32_t {
         *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_P0_NONZERO as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = *p.offset(0 as core::ffi::c_int as isize);
-        return 0 as core::ffi::c_int;
+        return false;
     }
 
     let knobs = knobs.unwrap_or_else(|| {
@@ -491,7 +492,7 @@ pub(crate) unsafe fn colamd(
         *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_A_TOO_SMALL as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = need as int32_t;
         *stats.offset(COLAMD_INFO2 as isize) = a_len as i32;
-        return 0 as core::ffi::c_int;
+        return false;
     }
     let a_len = a_len.wrapping_sub(Col_size.wrapping_add(Row_size));
     let (a, col) = a.split_at_mut(a_len);
@@ -508,7 +509,7 @@ pub(crate) unsafe fn colamd(
         core::slice::from_raw_parts_mut(p, (n_col as usize).checked_add(1).expect("overflowed")),
         &mut *stats.cast::<[i32; 20]>(),
     ) {
-        return 0 as core::ffi::c_int;
+        return false;
     }
 
     let a = a.as_mut_ptr();
@@ -544,7 +545,8 @@ pub(crate) unsafe fn colamd(
     *stats.offset(COLAMD_DENSE_ROW as isize) = n_row - n_row2;
     *stats.offset(COLAMD_DENSE_COL as isize) = n_col - n_col2;
     *stats.offset(COLAMD_DEFRAG_COUNT as isize) = ngarbage;
-    1 as core::ffi::c_int
+
+    true
 }
 
 /// Initialize rows and columns.
