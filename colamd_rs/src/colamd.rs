@@ -476,7 +476,7 @@ pub(crate) unsafe fn colamd(
         *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_A_TOO_SMALL as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = 0;
         *stats.offset(COLAMD_INFO2 as isize) = a_len as i32;
-        return 0 as core::ffi::c_int;
+        return false;
     };
     if need > a_len {
         *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_A_TOO_SMALL as int32_t;
