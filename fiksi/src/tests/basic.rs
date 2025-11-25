@@ -1,9 +1,7 @@
 // Copyright 2025 the Fiksi Authors
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::{System, constraints, elements, utils::sum_squares};
-
-use super::RESIDUAL_THRESHOLD;
+use crate::{System, constraints, elements, tests::RESIDUAL_THRESHOLD, utils::root_mean_squares};
 
 /// Tests whether a point-point coincidence configuration gets solved.
 #[test]
@@ -16,17 +14,17 @@ fn coincident_points() {
 
     s.solve(crate::SolvingOptions::default());
 
-    let sum_squared_residuals = sum_squares([coincidence.calculate_residual(&s)]);
+    let rms_residuals = root_mean_squares([coincidence.calculate_residual(&s)]);
     assert!(
-        sum_squared_residuals < RESIDUAL_THRESHOLD,
-        "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
+        rms_residuals < RESIDUAL_THRESHOLD,
+        "The system was not solved (root mean square residuals: {rms_residuals})"
     );
 
     // Similarly to testing the residual, we can test whether the points are actually moved close
     // together.
     let distance = p0.get_value(&s).distance(p1.get_value(&s));
     assert!(
-        distance < RESIDUAL_THRESHOLD.sqrt(),
+        distance < RESIDUAL_THRESHOLD,
         "The points did not actually become coincident (remaining distance: {distance})"
     );
 }
@@ -43,11 +41,11 @@ fn underconstrained_triangle() {
     let angle1 = constraints::PointPointPointAngle::create(&mut s, p1, p2, p0, 80_f64.to_radians());
     s.solve(crate::SolvingOptions::default());
 
-    let sum_squared_residuals =
-        sum_squares([angle0.calculate_residual(&s), angle1.calculate_residual(&s)]);
+    let rms_residuals =
+        root_mean_squares([angle0.calculate_residual(&s), angle1.calculate_residual(&s)]);
     assert!(
-        sum_squared_residuals < RESIDUAL_THRESHOLD,
-        "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
+        rms_residuals < RESIDUAL_THRESHOLD,
+        "The system was not solved (root mean square residuals: {rms_residuals})"
     );
 }
 
@@ -69,20 +67,20 @@ fn overconstrained_triangle_line_incidence() {
     let incidence = constraints::PointLineIncidence::create(&mut s, p1, line0);
     s.solve(crate::SolvingOptions::default());
 
-    let sum_squared_residuals = sum_squares([
+    let rms_angle_residuals = root_mean_squares([
         angle0.calculate_residual(&s),
         angle1.calculate_residual(&s),
         angle2.calculate_residual(&s),
     ]);
     assert!(
-        sum_squared_residuals >= RESIDUAL_THRESHOLD,
+        rms_angle_residuals >= RESIDUAL_THRESHOLD,
         "The angle constraints were unexpectedly solved (this shouldn't be possible geometrically)"
     );
 
-    let squared_incidence_residual = sum_squares([incidence.calculate_residual(&s)]);
+    let incidence_residual = incidence.calculate_residual(&s);
     assert!(
-        squared_incidence_residual < RESIDUAL_THRESHOLD,
-        "The point-line incidence was not solved (sum of squared residuals: {sum_squared_residuals})"
+        incidence_residual < RESIDUAL_THRESHOLD,
+        "The point-line incidence was not solved (residuals: {incidence_residual})"
     );
 }
 
@@ -138,13 +136,13 @@ fn triangle_inscribed_circle() {
 
     s.solve(crate::SolvingOptions::default());
 
-    let sum_squared_residuals = sum_squares(
+    let rms_residuals = root_mean_squares(
         s.get_constraint_handles()
             .map(|constraint| constraint.calculate_residual(&s)),
     );
     assert!(
-        sum_squared_residuals < RESIDUAL_THRESHOLD,
-        "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
+        rms_residuals < RESIDUAL_THRESHOLD,
+        "The system was not solved (root mean square residuals: {rms_residuals})"
     );
 }
 
@@ -161,10 +159,10 @@ fn two_connected_components() {
     let p2p3 = constraints::PointPointDistance::create(&mut s, p2, p3, 1.2);
 
     s.solve(crate::SolvingOptions::default());
-    let sum_squared_residuals =
-        sum_squares([p0p1.calculate_residual(&s), p2p3.calculate_residual(&s)]);
+    let rms_residuals =
+        root_mean_squares([p0p1.calculate_residual(&s), p2p3.calculate_residual(&s)]);
     assert!(
-        sum_squared_residuals < RESIDUAL_THRESHOLD,
-        "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
+        rms_residuals < RESIDUAL_THRESHOLD,
+        "The system was not solved (root mean square residuals: {rms_residuals})"
     );
 }
