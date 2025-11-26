@@ -8,7 +8,6 @@
     non_snake_case,
     unused_assignments,
     unsafe_op_in_unsafe_fn,
-    clippy::toplevel_ref_arg,
     reason = "transpiled using c2rust"
 )]
 
@@ -279,10 +278,8 @@ pub(crate) fn symamd(
 
             if i > j && mark[i as usize] != j {
                 // row k of M will contain column indices i and j
-                let ref mut fresh1 = count[i as usize];
-                *fresh1 += 1;
-                let ref mut fresh2 = count[j as usize];
-                *fresh2 += 1;
+                count[i as usize] += 1;
+                count[j as usize] += 1;
             }
             // mark the row as having been seen in this column
             mark[i as usize] = j;
@@ -322,14 +319,10 @@ pub(crate) fn symamd(
             while pp < p[(j + 1 as int32_t) as usize] {
                 i = a[pp as usize];
                 if i > j {
-                    let ref mut fresh3 = count[i as usize];
-                    let fresh4 = *fresh3;
-                    *fresh3 += 1;
-                    m[fresh4 as usize] = k;
-                    let ref mut fresh5 = count[j as usize];
-                    let fresh6 = *fresh5;
-                    *fresh5 += 1;
-                    m[fresh6 as usize] = k;
+                    m[count[i as usize] as usize] = k;
+                    count[i as usize] += 1;
+                    m[count[j as usize] as usize] = k;
+                    count[j as usize] += 1;
                     k += 1;
                 }
                 pp += 1;
@@ -350,14 +343,10 @@ pub(crate) fn symamd(
                 i = a[pp as usize];
                 if i > j && mark[i as usize] != j {
                     // row k of M contains column indices i and j
-                    let ref mut fresh7 = count[i as usize];
-                    let fresh8 = *fresh7;
-                    *fresh7 += 1;
-                    m[fresh8 as usize] = k;
-                    let ref mut fresh9 = count[j as usize];
-                    let fresh10 = *fresh9;
-                    *fresh9 += 1;
-                    m[fresh10 as usize] = k;
+                    m[count[i as usize] as usize] = k;
+                    count[i as usize] += 1;
+                    m[count[j as usize] as usize] = k;
+                    count[j as usize] += 1;
                     k += 1;
                     mark[i as usize] = j;
                 }
@@ -773,10 +762,8 @@ unsafe extern "C" fn init_scoring(
                 cp = &mut *A.offset((*Col.offset(c as isize)).start as isize) as *mut int32_t;
                 cp_end = cp.offset((*Col.offset(c as isize)).length as isize);
                 while cp < cp_end {
-                    let fresh24 = cp;
+                    (*Row.offset(*cp as isize)).shared1.degree -= 1;
                     cp = cp.offset(1);
-                    let ref mut fresh25 = (*Row.offset(*fresh24 as isize)).shared1.degree;
-                    *fresh25 -= 1;
                 }
                 (*Col.offset(c as isize)).start = DEAD_PRINCIPAL as int32_t;
             }
@@ -1083,10 +1070,10 @@ unsafe extern "C" fn find_ordering(
             let fresh38 = new_rp;
             new_rp = new_rp.offset(1);
             *fresh38 = col;
-            let ref mut fresh39 = (*Col.offset(col as isize)).length;
-            let fresh40 = *fresh39;
-            *fresh39 += 1;
-            *A.offset(((*Col.offset(col as isize)).start + fresh40) as isize) = pivot_row;
+            *A.offset(
+                ((*Col.offset(col as isize)).start + (*Col.offset(col as isize)).length) as isize,
+            ) = pivot_row;
+            (*Col.offset(col as isize)).length += 1;
             cur_score = (*Col.offset(col as isize)).shared2.score + pivot_row_degree;
             max_score = n_col - k - (*Col.offset(col as isize)).shared1.thickness;
             cur_score -= (*Col.offset(col as isize)).shared1.thickness;
