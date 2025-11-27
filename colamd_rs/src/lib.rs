@@ -56,52 +56,12 @@ fn ensure_libm_dependency_used() -> f32 {
 }
 
 mod colamd;
+mod options;
 mod status;
 
 pub use colamd::colamd_recommended;
+pub use options::Options;
 pub use status::{Error, Statistics, Status};
-
-/// Options controlling [`colamd`][colamd()] and `symamd` behavior.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Options {
-    /// Rows with more than `max(16, dense_row_control * sqrt(n_col))` entries are removed prior to
-    /// ordering.
-    pub dense_row_control: f64,
-
-    /// Columns with more than `max(16, dense_column_control * sqrt(min(n_row,n_col)))` entries are
-    /// removed prior to ordering, and placed last in the output column ordering.
-    pub dense_column_control: f64,
-
-    /// Whether to do "aggressive absorption" during the elimination phase.
-    ///
-    /// For more information, see "Algorithm 836: COLAMD, a column approximate minimum degree
-    /// ordering algorithm." (2004) by Timothy Davis et al.
-    pub aggressive_row_absorption: bool,
-}
-
-impl Options {
-    const DEFAULT: Self = Self {
-        dense_row_control: 10.,
-        dense_column_control: 10.,
-        aggressive_row_absorption: true,
-    };
-}
-
-impl Options {
-    const fn as_knobs_array(self) -> [f64; 20] {
-        let mut array = [0.; 20];
-        array[0] = self.dense_row_control;
-        array[1] = self.dense_column_control;
-        array[2] = f64::from_bits(self.aggressive_row_absorption as u64);
-        array
-    }
-}
-
-impl core::default::Default for Options {
-    fn default() -> Self {
-        Options::DEFAULT
-    }
-}
 
 /// Computes a column ordering for `A` such that the Cholesky decomposition of `A^T A` has less
 /// fill-in.
@@ -158,10 +118,16 @@ pub fn colamd(
 
     let stats = &mut [0; 20];
     let success = {
-        let mut knobs = options.map(Options::as_knobs_array);
-        let knobs = knobs.as_mut();
-
-        unsafe { colamd::colamd(nrows, ncols, row_indices, column_pointers, knobs, stats) }
+        unsafe {
+            colamd::colamd(
+                nrows,
+                ncols,
+                row_indices,
+                column_pointers,
+                options.unwrap_or_default(),
+                stats,
+            )
+        }
     };
 
     let result = status::stats_to_result(stats);
@@ -258,14 +224,12 @@ pub fn symamd(
 
     let stats = &mut [0; 20];
     let success = {
-        let knobs = options.map(Options::as_knobs_array);
-
         colamd::symamd(
             n,
             row_indices,
             column_pointers,
             permutation,
-            knobs.as_ref(),
+            options.unwrap_or_default(),
             stats,
         )
     };
@@ -308,9 +272,9 @@ mod tests {
         let column_pointers = &mut [0, 3, 4, 7];
         let mut row_indices = vec![0; a_len];
         row_indices[..7].copy_from_slice(&[0, 1, 2, 1, 0, 1, 3]);
-        let mut knobs = Options::DEFAULT;
-        knobs.aggressive_row_absorption = false;
-        assert!(colamd(4, 3, &mut row_indices, column_pointers, Some(knobs),).is_ok());
+        let mut options = Options::DEFAULT;
+        options.aggressive_row_absorption = false;
+        assert!(colamd(4, 3, &mut row_indices, column_pointers, Some(options)).is_ok());
 
         // Running this through the original C version results in the permutation `[1, 2, 0, -1]`.
         assert_eq!(column_pointers, &[1, 2, 0, -1]);
