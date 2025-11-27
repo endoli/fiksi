@@ -29,8 +29,7 @@ fn large_order_of_magnitude() {
 
     let rms_residuals = root_mean_squares(
         s.get_constraint_handles()
-            .map(|constraint| constraint.calculate_residual(&s))
-            .map(|r| std::dbg!(r)),
+            .map(|constraint| constraint.calculate_residual(&s)),
     );
     assert!(
         rms_residuals < RESIDUAL_THRESHOLD,
