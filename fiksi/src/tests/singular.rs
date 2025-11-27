@@ -1,7 +1,7 @@
 // Copyright 2025 the Fiksi Authors
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::{System, constraints, elements, utils::sum_squares};
+use crate::{System, constraints, elements, utils::root_mean_squares};
 
 use super::RESIDUAL_THRESHOLD;
 
@@ -29,12 +29,12 @@ fn collinear_points() {
 
     s.solve(crate::SolvingOptions::DEFAULT);
 
-    let sum_squared_residuals = sum_squares(
+    let rms_residuals = root_mean_squares(
         s.get_constraint_handles()
             .map(|constraint| constraint.calculate_residual(&s)),
     );
     assert!(
-        sum_squared_residuals < RESIDUAL_THRESHOLD,
-        "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
+        rms_residuals < RESIDUAL_THRESHOLD,
+        "The system was not solved (root mean square residuals: {rms_residuals})"
     );
 }

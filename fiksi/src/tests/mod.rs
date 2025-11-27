@@ -7,7 +7,7 @@ mod magnitude;
 mod singular;
 mod triangles;
 
-/// A "good enough" sum of squared residuals that is considered to have solved the system.
+/// A "good enough" residual value that is considered to have solved the constraint.
 ///
-/// This would normally depend on the domain, especially for things like distance constraints.
-const RESIDUAL_THRESHOLD: f64 = 1e-5;
+/// This would normally be a relative value, especially for things like distance constraints.
+const RESIDUAL_THRESHOLD: f64 = 1e-4;

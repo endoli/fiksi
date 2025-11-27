@@ -1,7 +1,9 @@
 // Copyright 2025 the Fiksi Authors
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::{Decomposer, System, constraints, elements, utils::sum_squares};
+use crate::{Decomposer, System, constraints, elements, utils::root_mean_squares};
+
+use super::RESIDUAL_THRESHOLD;
 
 /// A triangle where one point is kept fixed.
 #[test]
@@ -24,11 +26,11 @@ fn single_triangle_with_fixed_point() {
             ..crate::SolvingOptions::default()
         });
 
-        let sum_squared_residuals =
-            sum_squares(s.get_constraint_handles().map(|c| c.calculate_residual(&s)));
+        let rms_residuals =
+            root_mean_squares(s.get_constraint_handles().map(|c| c.calculate_residual(&s)));
         assert!(
-            sum_squared_residuals < 1e-6,
-            "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
+            rms_residuals < RESIDUAL_THRESHOLD,
+            "The system was not solved (root mean square residuals: {rms_residuals})"
         );
 
         assert_eq!(
@@ -72,7 +74,7 @@ fn fixed_point_and_circle_center_incidence() {
             "The circle center that was to be kept fixed is no longer identical to its starting value"
         );
         assert!(
-            (radius.get_value(&s) - 5.).abs() < 1e-6,
+            (radius.get_value(&s) - 5.).abs() < RESIDUAL_THRESHOLD,
             "The circle's radius ({}) should be 5",
             radius.get_value(&s)
         );
@@ -109,15 +111,15 @@ fn fixed_with_coincidence() {
             ..crate::SolvingOptions::default()
         });
 
-        let sum_squared_residuals =
-            sum_squares(s.get_constraint_handles().map(|c| c.calculate_residual(&s)));
+        let rms_residuals =
+            root_mean_squares(s.get_constraint_handles().map(|c| c.calculate_residual(&s)));
         assert!(
-            sum_squared_residuals < 1e-6,
-            "The system was not solved (sum of squared residuals: {sum_squared_residuals})"
+            rms_residuals < RESIDUAL_THRESHOLD,
+            "The system was not solved (root mean square residuals: {rms_residuals})"
         );
 
         assert!(
-            (p2.get_value(&s).distance(kurbo::Point::new(5., 5.))).abs() < 1e-6,
+            (p2.get_value(&s).distance(kurbo::Point::new(5., 5.))).abs() < RESIDUAL_THRESHOLD,
             "p2 (solved to {}) should be coincident on p3",
             p2.get_value(&s),
         );
