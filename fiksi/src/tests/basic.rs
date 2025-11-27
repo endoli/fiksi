@@ -1,7 +1,9 @@
 // Copyright 2025 the Fiksi Authors
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 
-use crate::{System, constraints, elements, tests::RESIDUAL_THRESHOLD, utils::root_mean_squares};
+use crate::{System, constraints, elements, utils::root_mean_squares};
+
+use super::RESIDUAL_THRESHOLD;
 
 /// Tests whether a point-point coincidence configuration gets solved.
 #[test]
