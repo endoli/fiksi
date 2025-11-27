@@ -5,6 +5,9 @@
 
 use core::borrow::Borrow;
 
+#[cfg(not(feature = "std"))]
+use crate::floatfuncs::FloatFuncs;
+
 #[inline]
 pub(crate) fn sum_squares(values: impl IntoIterator<Item = impl Borrow<f64>>) -> f64 {
     values
