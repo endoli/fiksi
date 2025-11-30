@@ -1095,14 +1095,12 @@ unsafe fn order_children(n_col: i32, col: &mut [Colamd_Col], p: &mut [i32]) {
     while i < n_col {
         // Find an un-ordered non-principal column.
         debug_assert!(col[i as usize].start < ALIVE, "column is dead");
-        if col[i as usize].start != DEAD_PRINCIPAL as i32
-            && col[i as usize].shared2.order == EMPTY as i32
-        {
+        if col[i as usize].start != DEAD_PRINCIPAL && col[i as usize].shared2.order == EMPTY {
             parent = i;
             // Once found, find its principal parent.
             loop {
                 parent = col[parent as usize].shared1.parent;
-                if col[parent as usize].start == DEAD_PRINCIPAL as i32 {
+                if col[parent as usize].start == DEAD_PRINCIPAL {
                     break;
                 }
             }
@@ -1128,7 +1126,7 @@ unsafe fn order_children(n_col: i32, col: &mut [Colamd_Col], p: &mut [i32]) {
 
                 // Continue until we hit an ordered column. There are guaranteed not to be any more
                 // unordered columns above an ordered column.
-                if col[c as usize].shared2.order != EMPTY as i32 {
+                if col[c as usize].shared2.order != EMPTY {
                     break;
                 }
             }
