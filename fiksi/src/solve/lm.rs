@@ -152,8 +152,19 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
                 if lambda < 1e-50 {
                     lambda = 1e-50;
                 }
-                sum_squared_residuals = sum_squared_residuals_scratch;
                 variables.copy_from_slice(variables_scratch);
+
+                // Exit based on the "function tolerance": if the relative change in the sum
+                // squared residuals is low, we assume we have converged. Note we may not have
+                // converged to an actual root (i.e. a residual of zero) because a root might not
+                // exist, or we may have converged to a local optimum, or the solver may simply
+                // have stalled.
+                if (sum_squared_residuals - sum_squared_residuals_scratch) / sum_squared_residuals
+                    <= 1e-6
+                {
+                    break 'steps;
+                }
+                sum_squared_residuals = sum_squared_residuals_scratch;
 
                 // It might be nice to have a calculate_jacobian function here, but the additional
                 // residual calculation shouldn't be too bad.
