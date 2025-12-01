@@ -32,7 +32,7 @@ fn large_order_of_magnitude() {
             .map(|constraint| constraint.calculate_residual(&s)),
     );
     assert!(
-        rms_residuals < RESIDUAL_THRESHOLD,
+        rms_residuals < FACTOR * RESIDUAL_THRESHOLD,
         "The system was not solved (root mean square residuals: {rms_residuals})"
     );
 }
@@ -54,24 +54,38 @@ fn metric_and_singular() {
     let p2 = elements::Point::create(&mut s, 2.2 * FACTOR, -1.5 * FACTOR);
     let p3 = elements::Point::create(&mut s, 1.2 * FACTOR, 0.5 * FACTOR);
 
-    constraints::PointPointDistance::create(&mut s, p0, p1, 5. * FACTOR);
-    constraints::PointPointDistance::create(&mut s, p1, p2, 4. * FACTOR);
-    constraints::PointPointDistance::create(&mut s, p2, p3, 3. * FACTOR);
-    constraints::PointPointDistance::create(&mut s, p3, p1, 1. * FACTOR);
+    // Point-point distances will be on the order of O(10^7).
+    let ppd_constraints = [
+        constraints::PointPointDistance::create(&mut s, p0, p1, 5. * FACTOR),
+        constraints::PointPointDistance::create(&mut s, p1, p2, 4. * FACTOR),
+        constraints::PointPointDistance::create(&mut s, p2, p3, 3. * FACTOR),
+        constraints::PointPointDistance::create(&mut s, p3, p1, 1. * FACTOR),
+    ];
 
     let line0 = elements::Line::create(&mut s, p0, p1);
     let line1 = elements::Line::create(&mut s, p2, p3);
-    constraints::LineLineParallelism::create(&mut s, line0, line1);
+    // Depending on how the line-line parallelism is modeled, its residual can have varying orders
+    // of magnitude. As an angle in radians, it would be O(1). As the 2D cross product (area
+    // spanned by line vectors), it would be O(factor^2). If the cross product is divided by the
+    // line magnitudes, it would again become dimensionless as `sin(angle)` and by `O(1)`.
+    let llp_constraint = constraints::LineLineParallelism::create(&mut s, line0, line1);
 
     s.solve(crate::SolvingOptions::default());
 
     let rms_residuals = root_mean_squares(
-        s.get_constraint_handles()
+        ppd_constraints
+            .iter()
             .map(|constraint| constraint.calculate_residual(&s)),
     );
     assert!(
-        rms_residuals < RESIDUAL_THRESHOLD,
-        "The system was not solved (root mean square residuals: {rms_residuals})"
+        rms_residuals < FACTOR * RESIDUAL_THRESHOLD,
+        "The system was not solved (root mean square distance residuals: {rms_residuals})"
+    );
+
+    let llp_residual = llp_constraint.calculate_residual(&s).abs();
+    assert!(
+        llp_residual < FACTOR * FACTOR * RESIDUAL_THRESHOLD,
+        "The system was not solved (|llp| residual: {llp_residual})"
     );
 }
 
@@ -100,7 +114,7 @@ fn near_degenerate_isosceles_triangle() {
             .map(|constraint| constraint.calculate_residual(&s)),
     );
     assert!(
-        rms_residuals < RESIDUAL_THRESHOLD,
+        rms_residuals < FACTOR * RESIDUAL_THRESHOLD,
         "The system was not solved (root mean square residuals: {rms_residuals})"
     );
 }

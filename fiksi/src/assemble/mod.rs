@@ -14,12 +14,60 @@ use hashbrown::HashMap;
 use solvi::TripletMat;
 
 use crate::{
-    ClusterKey, Decomposer, ElementId, EncodedElement, Pose2D, RecombinationStep, Rng,
-    SolvingOptions, Subsystem, System, analyze, collections::IndexMap, solve,
+    ClusterKey, Decomposer, ElementId, EncodedElement, Expression, Pose2D, RecombinationStep, Rng,
+    SolvingOptions, Subsystem, System, analyze, collections::IndexMap, constraints::expressions,
+    solve, utils,
 };
 
 pub(crate) fn solve(system: &mut System, opts: SolvingOptions) {
     let mut rng = Rng::from_seed(42);
+
+    // For numeric solving, it's nice if the problem is well-conditioned. For Levenberg-Marquardt,
+    // this means the Jacobian should be well-conditioned. We bring back the total scale of the
+    // problem to be on the order of ~1.0 by calculating the root mean square of all lengths, and
+    // dividing all lengths (in both element variables and constraints) by the scale before going
+    // into numeric solving.
+    //
+    // This removes the `O(system scale)` effect on length-like residuals (such as point-point
+    // distance), making, e.g., length and angle residuals (which are `O(1)` in radians) more
+    // comparable.
+    //
+    // Note: currently all variables in the system have a possible direct "length" interpretation
+    // (a point's x-coordinate can be interpreted as the offset length from the origin, a circle
+    // radius is a length directly, etc.) If we ever have variables representing angles, we'd need
+    // to exclude them here. Angles in radians would already be on the order of ~1.0.
+    let system_scale = utils::root_mean_squares(system.variables.iter().copied().chain(
+        system.expressions.iter().filter_map(|e| match e {
+            Expression::PointPointDistance(expressions::PointPointDistance {
+                distance, ..
+            })
+            | Expression::PointLineDistance(expressions::PointLineDistance { distance, .. }) => {
+                Some(*distance)
+            }
+            _ => None,
+        }),
+    ));
+    {
+        let system_scale_recip = 1. / system_scale;
+
+        system
+            .variables_transformed
+            .resize(system.variables.len(), 0.);
+        for (variable, variable_scaled) in system
+            .variables
+            .iter()
+            .zip(system.variables_transformed.iter_mut())
+        {
+            *variable_scaled = *variable * system_scale_recip;
+        }
+        system.expressions_transformed.clear();
+        system.expressions_transformed.extend(
+            system
+                .expressions
+                .iter()
+                .map(|e| e.transform(system_scale_recip)),
+        );
+    }
 
     for connected_component in system.graph.connected_components() {
         let (elements, constraints) = (
@@ -55,9 +103,12 @@ pub(crate) fn solve(system: &mut System, opts: SolvingOptions) {
 
         if opts.perturb {
             for free_variable in free_variables.iter().copied() {
-                let variable = &mut system.variables[free_variable as usize];
-                // TODO: the scale-independent perturbation here should be revisited. See
-                // also https://github.com/endoli/fiksi/pull/41#discussion_r2234008761.
+                let variable = &mut system.variables_transformed[free_variable as usize];
+                // Nudge the variable by a random small factor of itself and by a random small flat
+                // amount.
+                //
+                // Note this acts on scaled variables, so the flat amount is relative to the total
+                // system scale.
                 *variable +=
                     *variable * (1. / 8196.) * rng.next_f64() + (1. / 65568.) * rng.next_f64();
             }
@@ -65,15 +116,13 @@ pub(crate) fn solve(system: &mut System, opts: SolvingOptions) {
 
         match opts.decomposer {
             Decomposer::None => {
-                let mut free_variables_values = Vec::from_iter(
-                    free_variables
-                        .iter()
-                        .copied()
-                        .map(|free_variable_idx| system.variables[free_variable_idx as usize]),
-                );
+                let mut free_variables_values =
+                    Vec::from_iter(free_variables.iter().copied().map(|free_variable_idx| {
+                        system.variables_transformed[free_variable_idx as usize]
+                    }));
                 let mut subsystem = Subsystem::new(
-                    &system.variables,
-                    &system.expressions,
+                    &system.variables_transformed,
+                    &system.expressions_transformed,
                     free_variables.iter().copied(),
                     constraints
                         .iter()
@@ -104,7 +153,7 @@ pub(crate) fn solve(system: &mut System, opts: SolvingOptions) {
                     subsystem.free_variables.into_iter().enumerate()
                 {
                     system.variables[variable_idx as usize] =
-                        free_variables_values[free_variable_idx];
+                        system_scale * free_variables_values[free_variable_idx];
                 }
             }
 
@@ -115,16 +164,15 @@ pub(crate) fn solve(system: &mut System, opts: SolvingOptions) {
                     .find_strongly_connected_expressions(&free_variables)
                 {
                     free_variables_values.clear();
-                    free_variables_values.extend(
-                        scc.free_variables
-                            .iter()
-                            .copied()
-                            .map(|free_variable_idx| system.variables[free_variable_idx as usize]),
-                    );
+                    free_variables_values.extend(scc.free_variables.iter().copied().map(
+                        |free_variable_idx| {
+                            system.variables_transformed[free_variable_idx as usize]
+                        },
+                    ));
 
                     let mut subsystem = Subsystem::new(
-                        &system.variables,
-                        &system.expressions,
+                        &system.variables_transformed,
+                        &system.expressions_transformed,
                         scc.free_variables.iter().copied(),
                         scc.expressions,
                     );
@@ -144,8 +192,10 @@ pub(crate) fn solve(system: &mut System, opts: SolvingOptions) {
                     for (free_variable_idx, variable_idx) in
                         subsystem.free_variables.into_iter().enumerate()
                     {
-                        system.variables[variable_idx as usize] =
+                        system.variables_transformed[variable_idx as usize] =
                             free_variables_values[free_variable_idx];
+                        system.variables[variable_idx as usize] =
+                            system_scale * free_variables_values[free_variable_idx];
                     }
                 }
             }
@@ -171,8 +221,10 @@ pub(crate) fn solve(system: &mut System, opts: SolvingOptions) {
                     for (var_idx, updated_var_idx) in
                         clustered_system.variable_mapping_pose_and_element.iter()
                     {
-                        system.variables[*var_idx as usize] =
+                        system.variables_transformed[*var_idx as usize] =
                             pose_and_element_variables[*updated_var_idx as usize];
+                        system.variables[*var_idx as usize] =
+                            system_scale * pose_and_element_variables[*updated_var_idx as usize];
                     }
 
                     for (cluster_idx, &cluster) in clustered_system.clusters.keys().enumerate() {
@@ -191,12 +243,17 @@ pub(crate) fn solve(system: &mut System, opts: SolvingOptions) {
                                 match element {
                                     &EncodedElement::Point { idx } => {
                                         let point = kurbo::Point::new(
-                                            system.variables[idx as usize],
-                                            system.variables[idx as usize + 1],
+                                            system.variables_transformed[idx as usize],
+                                            system.variables_transformed[idx as usize + 1],
                                         );
                                         let transformed = pose.transform_point(point);
-                                        system.variables[idx as usize] = transformed.x;
-                                        system.variables[idx as usize + 1] = transformed.y;
+                                        system.variables_transformed[idx as usize] = transformed.x;
+                                        system.variables_transformed[idx as usize + 1] =
+                                            transformed.y;
+                                        system.variables[idx as usize] =
+                                            system_scale * transformed.x;
+                                        system.variables[idx as usize + 1] =
+                                            system_scale * transformed.y;
                                     }
                                     &EncodedElement::Length { .. }
                                     | &EncodedElement::Line { .. }
@@ -383,7 +440,7 @@ impl ClusteredSystem {
 
                     self.variable_mapping_pose_and_element
                         .insert(idx, pose_and_element_variables.len() as u32);
-                    pose_and_element_variables.push(system.variables[idx as usize]);
+                    pose_and_element_variables.push(system.variables_transformed[idx as usize]);
                 }
                 &EncodedElement::Point { idx } => {
                     debug_assert!(
@@ -399,8 +456,8 @@ impl ClusteredSystem {
                     self.variable_mapping_pose_and_element
                         .insert(idx + 1, pose_and_element_variables.len() as u32 + 1);
                     pose_and_element_variables.extend_from_slice(&[
-                        system.variables[idx as usize],
-                        system.variables[idx as usize + 1],
+                        system.variables_transformed[idx as usize],
+                        system.variables_transformed[idx as usize + 1],
                     ]);
                 }
                 EncodedElement::Line { .. } => {}
@@ -434,7 +491,7 @@ impl ClusteredSystem {
         let mut gradient = [0.; 8];
         let offset = self.num_pose_expressions as usize;
         for (expression_idx_in_problem, expression_id) in self.expressions.iter().enumerate() {
-            let expression = &system.expressions[*expression_id as usize];
+            let expression = &system.expressions_transformed[*expression_id as usize];
             for (variable_idx_in_expression, variable_idx) in expression
                 .variable_indices(&mut variable_indices)
                 .iter()
@@ -484,8 +541,8 @@ impl ClusteredSystem {
                     unreachable!()
                 };
                 let point = kurbo::Point::new(
-                    system.variables[*idx as usize],
-                    system.variables[*idx as usize + 1],
+                    system.variables_transformed[*idx as usize],
+                    system.variables_transformed[*idx as usize + 1],
                 );
 
                 let rigidly_transformed = pose.transform_point(point);
@@ -574,7 +631,7 @@ impl solve::Problem for (&'_ mut ClusteredSystem, &'_ System) {
 
         let offset = this.num_pose_expressions as usize;
         for (expression_idx_in_problem, expression_id) in this.expressions.iter().enumerate() {
-            let expression = &system.expressions[*expression_id as usize];
+            let expression = &system.expressions_transformed[*expression_id as usize];
             for (i, variable_idx) in expression
                 .variable_indices(&mut variable_indices)
                 .iter()
@@ -604,8 +661,8 @@ impl solve::Problem for (&'_ mut ClusteredSystem, &'_ System) {
                     unreachable!()
                 };
                 let point = kurbo::Point::new(
-                    system.variables[*idx as usize],
-                    system.variables[*idx as usize + 1],
+                    system.variables_transformed[*idx as usize],
+                    system.variables_transformed[*idx as usize + 1],
                 );
 
                 let rigidly_transformed = pose.transform_point(point);

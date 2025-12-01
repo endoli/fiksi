@@ -24,6 +24,7 @@ impl FloatExt for f64 {
     }
 }
 
+#[derive(Clone)]
 pub(crate) enum Expression {
     VariableVariableEquality(VariableVariableEquality),
     PointPointDistance(PointPointDistance),
@@ -180,6 +181,35 @@ impl Expression {
         }
     }
 
+    /// Transform the parameter of the expression.
+    ///
+    /// `length_scale_recip` must be the reciprocal of the length scale. Expressions with a length
+    /// paramater (such as [`PointPointDistance::distance`]) are transformed by dividing the
+    /// distance by the length scale. For the expression to keep the same meaning, variables must
+    /// have been similarly transformed.
+    ///
+    /// If the length scale is the total system scale, this removes the `O(system scale)` effect on
+    /// expression residuals, making, e.g., length and angle residuals (which are `O(1)` in
+    /// radians) more comparable.
+    #[must_use]
+    pub(crate) fn transform(&self, length_scale_recip: f64) -> Self {
+        match self {
+            Self::PointPointDistance(ppd @ PointPointDistance { distance, .. }) => {
+                Self::PointPointDistance(PointPointDistance {
+                    distance: length_scale_recip * distance,
+                    ..*ppd
+                })
+            }
+            Self::PointLineDistance(pld @ PointLineDistance { distance, .. }) => {
+                Self::PointLineDistance(PointLineDistance {
+                    distance: length_scale_recip * distance,
+                    ..*pld
+                })
+            }
+            e => e.clone(),
+        }
+    }
+
     #[must_use]
     pub(crate) fn compute_residual_and_gradient<'b>(
         &self,
@@ -246,6 +276,7 @@ impl Expression {
     }
 }
 
+#[derive(Clone, Copy)]
 pub(crate) struct VariableVariableEquality {
     pub(crate) variable1_idx: u32,
     pub(crate) variable2_idx: u32,
@@ -270,6 +301,7 @@ impl VariableVariableEquality {
 }
 
 /// Constrain two points to have a given straight-line distance between each other.
+#[derive(Clone, Copy)]
 pub(crate) struct PointPointDistance {
     pub(crate) point1_idx: u32,
     pub(crate) point2_idx: u32,
@@ -321,6 +353,7 @@ impl PointPointDistance {
 }
 
 /// Constrain three points to describe a given angle.
+#[derive(Clone, Copy)]
 pub(crate) struct PointPointPointAngle {
     pub(crate) point1_idx: u32,
     pub(crate) point2_idx: u32,
@@ -396,6 +429,7 @@ impl PointPointPointAngle {
 /// Note this does not constrain the point to lie on the line *segment* defined by `line`. This is
 /// equivalent to constraining the three points (the two points of the line and the point proper)
 /// to be collinear.
+#[derive(Clone, Copy)]
 pub(crate) struct PointLineIncidence {
     pub(crate) point_idx: u32,
     pub(crate) line_point1_idx: u32,
@@ -449,6 +483,7 @@ impl PointLineIncidence {
 /// perspective of the line's direction, and positive distances are on the right.
 ///
 /// Note this does not constrain the point to lie some distance from the line *segment* defined by `line`.
+#[derive(Clone, Copy)]
 pub(crate) struct PointLineDistance {
     pub(crate) point_idx: u32,
     pub(crate) line_point1_idx: u32,
@@ -509,6 +544,7 @@ impl PointLineDistance {
 }
 
 /// Constrain a line and a circle such that the line is tangent on the circle.
+#[derive(Clone, Copy)]
 pub(crate) struct PointCircleIncidence {
     pub(crate) point_idx: u32,
     pub(crate) circle_center_idx: u32,
@@ -540,6 +576,7 @@ impl PointCircleIncidence {
 }
 
 /// Constrain two segments to have equal length.
+#[derive(Clone, Copy)]
 pub(crate) struct SegmentSegmentLengthEquality {
     pub(crate) segment1_point1_idx: u32,
     pub(crate) segment1_point2_idx: u32,
@@ -583,6 +620,7 @@ impl SegmentSegmentLengthEquality {
 }
 
 /// Constrain two lines to describe a given angle.
+#[derive(Clone, Copy)]
 pub(crate) struct LineLineAngle {
     pub(crate) line1_point1_idx: u32,
     pub(crate) line1_point2_idx: u32,
@@ -658,6 +696,7 @@ impl LineLineAngle {
 }
 
 /// Constrain two lines to be parallel to each other.
+#[derive(Clone, Copy)]
 pub(crate) struct LineLineParallelism {
     pub(crate) line1_point1_idx: u32,
     pub(crate) line1_point2_idx: u32,
@@ -713,6 +752,7 @@ impl LineLineParallelism {
 }
 
 /// Constrain two lines to be perpendicular to each other.
+#[derive(Clone, Copy)]
 pub(crate) struct LineLinePerpendicularity {
     pub(crate) line1_point1_idx: u32,
     pub(crate) line1_point2_idx: u32,
@@ -759,6 +799,7 @@ impl LineLinePerpendicularity {
 }
 
 /// Constrain a line and a circle such that the line is tangent on the circle.
+#[derive(Clone, Copy)]
 pub(crate) struct LineCircleTangency {
     pub(crate) line_point1_idx: u32,
     pub(crate) line_point2_idx: u32,
