@@ -378,7 +378,6 @@ pub(crate) unsafe fn colamd(
     *stats.offset(COLAMD_STATUS as isize) = COLAMD_OK as int32_t;
     *stats.offset(COLAMD_INFO1 as isize) = -(1 as core::ffi::c_int) as int32_t;
     *stats.offset(COLAMD_INFO2 as isize) = -(1 as core::ffi::c_int) as int32_t;
-    let p = p.as_mut_ptr();
     if n_row < 0 as int32_t {
         *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_NROW_NEGATIVE as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = n_row;
@@ -389,15 +388,15 @@ pub(crate) unsafe fn colamd(
         *stats.offset(COLAMD_INFO1 as isize) = n_col;
         return false;
     }
-    nnz = *p.offset(n_col as isize);
+    nnz = p[n_col as usize];
     if nnz < 0 as int32_t {
         *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_NNZ_NEGATIVE as int32_t;
         *stats.offset(COLAMD_INFO1 as isize) = nnz;
         return false;
     }
-    if *p.offset(0 as core::ffi::c_int as isize) != 0 as int32_t {
+    if p[0] != 0 as int32_t {
         *stats.offset(COLAMD_STATUS as isize) = COLAMD_ERROR_P0_NONZERO as int32_t;
-        *stats.offset(COLAMD_INFO1 as isize) = *p.offset(0 as core::ffi::c_int as isize);
+        *stats.offset(COLAMD_INFO1 as isize) = p[0];
         return false;
     }
 
@@ -453,23 +452,21 @@ pub(crate) unsafe fn colamd(
         rows,
         cols,
         a,
-        core::slice::from_raw_parts_mut(p, (n_col as usize).checked_add(1).expect("overflowed")),
+        p,
         &mut *stats.cast::<[i32; 20]>(),
     ) {
         return false;
     }
 
     let a = a.as_mut_ptr();
-    let cols = cols.as_mut_ptr();
-    let rows = rows.as_mut_ptr();
 
     init_scoring(
         n_row,
         n_col,
-        rows,
-        cols,
+        rows.as_mut_ptr(),
+        cols.as_mut_ptr(),
         a,
-        p,
+        p.as_mut_ptr(),
         &options,
         &mut n_row2,
         &mut n_col2,
@@ -479,10 +476,10 @@ pub(crate) unsafe fn colamd(
         n_row,
         n_col,
         a_len as i32,
-        rows,
-        cols,
+        rows.as_mut_ptr(),
+        cols.as_mut_ptr(),
         a,
-        p,
+        p.as_mut_ptr(),
         n_col2,
         max_deg,
         2 as int32_t * nnz,
@@ -1075,42 +1072,76 @@ unsafe extern "C" fn find_ordering(
     }
     ngarbage
 }
-unsafe extern "C" fn order_children(n_col: int32_t, Col: *mut Colamd_Col, p: *mut int32_t) {
-    let mut i: int32_t = 0;
-    let mut c: int32_t = 0;
-    let mut parent: int32_t = 0;
-    let mut order: int32_t = 0;
-    i = 0 as core::ffi::c_int as int32_t;
+
+///  Order non-principal columns.
+///
+/// Before this, the [`find_ordering`] routine has ordered all of the principal columns (the
+/// representatives of the supercolumns). The non-principal columns have not yet been ordered. This
+/// routine orders those columns by walking up the parent tree (a column is a child of the column
+/// which absorbed it). The final permutation vector is then placed in `p[0 ... n_col-1]`, with
+/// `p[0]` being the first column, and `p[n_col-1]` being the last. It doesn't look like it at
+/// first glance, but be assured that this routine takes time linear in the number of columns.
+/// Although not immediately obvious, the time taken by this routine is `O(n_col)`, that is, linear
+/// in the number of columns.
+#[inline]
+unsafe fn order_children(n_col: i32, col: &mut [Colamd_Col], p: &mut [i32]) {
+    let mut i: i32 = 0;
+    let mut c: i32 = 0;
+    let mut parent: i32 = 0;
+    let mut order: i32 = 0;
+
+    // === Order each non-principal column ==================================
+
     while i < n_col {
-        if ((*Col.offset(i as isize)).start != DEAD_PRINCIPAL as int32_t)
-            && (*Col.offset(i as isize)).shared2.order == EMPTY as int32_t
-        {
+        // Find an un-ordered non-principal column.
+        debug_assert!(col[i as usize].start < ALIVE, "column is dead");
+        if col[i as usize].start != DEAD_PRINCIPAL && col[i as usize].shared2.order == EMPTY {
             parent = i;
+            // Once found, find its principal parent.
             loop {
-                parent = (*Col.offset(parent as isize)).shared1.parent;
-                if (*Col.offset(parent as isize)).start == DEAD_PRINCIPAL as int32_t {
+                parent = col[parent as usize].shared1.parent;
+                if col[parent as usize].start == DEAD_PRINCIPAL {
                     break;
                 }
             }
+            // Now, order all un-ordered non-principal columns along path to this parent. Collapse
+            // tree at the same time.
             c = i;
-            order = (*Col.offset(parent as isize)).shared2.order;
+            // Get order of parent.
+            order = col[parent as usize].shared2.order;
             loop {
+                debug_assert_eq!(
+                    col[c as usize].shared2.order, EMPTY,
+                    "Pivot order is not set yet."
+                );
                 let fresh41 = order;
                 order += 1;
-                (*Col.offset(c as isize)).shared2.order = fresh41;
-                (*Col.offset(c as isize)).shared1.parent = parent;
-                c = (*Col.offset(c as isize)).shared1.parent;
-                if (*Col.offset(c as isize)).shared2.order != EMPTY as int32_t {
+                // Order this column.
+                col[c as usize].shared2.order = fresh41;
+                // Collapse tree.
+                col[c as usize].shared1.parent = parent;
+
+                // Get immediate parent of this column.
+                c = col[c as usize].shared1.parent;
+
+                // Continue until we hit an ordered column. There are guaranteed not to be any more
+                // unordered columns above an ordered column.
+                if col[c as usize].shared2.order != EMPTY {
                     break;
                 }
             }
-            (*Col.offset(parent as isize)).shared2.order = order;
+
+            // Re-order the super_col parent to largest order for this group.
+            col[parent as usize].shared2.order = order;
         }
         i += 1;
     }
-    c = 0 as core::ffi::c_int as int32_t;
+
+    // === Generate the permutation =========================================
+
+    c = 0;
     while c < n_col {
-        *p.offset((*Col.offset(c as isize)).shared2.order as isize) = c;
+        p[col[c as usize].shared2.order as usize] = c;
         c += 1;
     }
 }
