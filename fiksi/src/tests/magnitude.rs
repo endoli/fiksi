@@ -25,8 +25,6 @@ fn large_order_of_magnitude() {
 
     s.solve(crate::SolvingOptions::default());
 
-    extern crate std;
-
     let rms_residuals = root_mean_squares(
         s.get_constraint_handles()
             .map(|constraint| constraint.calculate_residual(&s)),
