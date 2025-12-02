@@ -184,7 +184,7 @@ impl Expression {
     /// Transform the parameter of the expression.
     ///
     /// `length_scale_recip` must be the reciprocal of the length scale. Expressions with a length
-    /// paramater (such as [`PointPointDistance::distance`]) are transformed by dividing the
+    /// parameter (such as [`PointPointDistance::distance`]) are transformed by dividing the
     /// distance by the length scale. For the expression to keep the same meaning, variables must
     /// have been similarly transformed.
     ///
