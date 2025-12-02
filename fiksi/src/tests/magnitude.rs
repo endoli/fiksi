@@ -36,6 +36,54 @@ fn large_order_of_magnitude() {
 }
 
 /// A rigid system with a large magnitude of metric point-point distance constraint values and a
+/// metric line-line angle constraint.
+///
+/// It can be hard to solve as the line-line angle residual value will roughly be on the order ~1
+/// (radians), whereas the point-point distance constraints will be on the order of the point
+/// distances.
+#[test]
+fn distance_and_angle() {
+    let mut s = System::new();
+
+    const FACTOR: f64 = 1e10;
+
+    let p0 = elements::Point::create(&mut s, 1.5 * FACTOR, 6.5 * FACTOR);
+    let p1 = elements::Point::create(&mut s, 3.2 * FACTOR, 0.8 * FACTOR);
+    let p2 = elements::Point::create(&mut s, 2.2 * FACTOR, -1.5 * FACTOR);
+    let p3 = elements::Point::create(&mut s, 1.2 * FACTOR, 0.5 * FACTOR);
+
+    let ppd_constraints = [
+        constraints::PointPointDistance::create(&mut s, p0, p1, 5. * FACTOR),
+        constraints::PointPointDistance::create(&mut s, p1, p2, 4. * FACTOR),
+        constraints::PointPointDistance::create(&mut s, p2, p3, 3. * FACTOR),
+        constraints::PointPointDistance::create(&mut s, p3, p1, 1. * FACTOR),
+    ];
+
+    let line0 = elements::Line::create(&mut s, p0, p1);
+    let line1 = elements::Line::create(&mut s, p2, p3);
+    let angle_constraint =
+        constraints::LineLineAngle::create(&mut s, line0, line1, 30_f64.to_radians());
+
+    s.solve(crate::SolvingOptions::default());
+
+    let rms_residuals = root_mean_squares(
+        ppd_constraints
+            .iter()
+            .map(|constraint| constraint.calculate_residual(&s)),
+    );
+    assert!(
+        rms_residuals < FACTOR * RESIDUAL_THRESHOLD,
+        "The system was not solved (root mean square distance residuals: {rms_residuals})"
+    );
+
+    let angle_residual = angle_constraint.calculate_residual(&s);
+    assert!(
+        angle_residual.abs() < RESIDUAL_THRESHOLD,
+        "The system was not solved (angle residual: {angle_residual})"
+    );
+}
+
+/// A rigid system with a large magnitude of metric point-point distance constraint values and a
 /// singular line-line parallelism constraint.
 ///
 /// It can be hard to solve as the line-line parallelism residual value (a cross product) will
