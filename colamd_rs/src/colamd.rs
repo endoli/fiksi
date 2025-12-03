@@ -1085,18 +1085,13 @@ unsafe extern "C" fn find_ordering(
 /// in the number of columns.
 #[inline]
 unsafe fn order_children(n_col: i32, col: &mut [Colamd_Col], p: &mut [i32]) {
-    let mut i: i32 = 0;
-    let mut c: i32 = 0;
-    let mut parent: i32 = 0;
-    let mut order: i32 = 0;
-
     // === Order each non-principal column ==================================
 
-    while i < n_col {
+    for i in 0..n_col {
         // Find an un-ordered non-principal column.
         debug_assert!(col[i as usize].start < ALIVE, "column is dead");
         if col[i as usize].start != DEAD_PRINCIPAL && col[i as usize].shared2.order == EMPTY {
-            parent = i;
+            let mut parent = i;
             // Once found, find its principal parent.
             loop {
                 parent = col[parent as usize].shared1.parent;
@@ -1106,18 +1101,17 @@ unsafe fn order_children(n_col: i32, col: &mut [Colamd_Col], p: &mut [i32]) {
             }
             // Now, order all un-ordered non-principal columns along path to this parent. Collapse
             // tree at the same time.
-            c = i;
+            let mut c = i;
             // Get order of parent.
-            order = col[parent as usize].shared2.order;
+            let mut order = col[parent as usize].shared2.order;
             loop {
                 debug_assert_eq!(
                     col[c as usize].shared2.order, EMPTY,
                     "Pivot order is not set yet."
                 );
-                let fresh41 = order;
-                order += 1;
                 // Order this column.
-                col[c as usize].shared2.order = fresh41;
+                col[c as usize].shared2.order = order;
+                order += 1;
                 // Collapse tree.
                 col[c as usize].shared1.parent = parent;
 
@@ -1134,15 +1128,12 @@ unsafe fn order_children(n_col: i32, col: &mut [Colamd_Col], p: &mut [i32]) {
             // Re-order the super_col parent to largest order for this group.
             col[parent as usize].shared2.order = order;
         }
-        i += 1;
     }
 
     // === Generate the permutation =========================================
 
-    c = 0;
-    while c < n_col {
+    for c in 0..n_col {
         p[col[c as usize].shared2.order as usize] = c;
-        c += 1;
     }
 }
 unsafe extern "C" fn detect_super_cols(
