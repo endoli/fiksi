@@ -1162,15 +1162,13 @@ unsafe extern "C" fn detect_super_cols(
     let mut prev_c: int32_t = 0;
     let mut i: int32_t = 0;
     let mut rp_end: *mut int32_t = core::ptr::null_mut::<int32_t>();
-    let mut col: int32_t = 0;
     let mut head_column: int32_t = 0;
     let mut first_col: int32_t = 0;
     rp = &mut *A.offset(row_start as isize) as *mut int32_t;
     rp_end = rp.offset(row_length as isize);
     while rp < rp_end {
-        let fresh42 = rp;
+        let col = *rp;
         rp = rp.offset(1);
-        col = *fresh42;
         if (*Col.offset(col as isize)).start < ALIVE as int32_t {
             continue;
         }
