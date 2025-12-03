@@ -19,6 +19,30 @@ use crate::{
     solve, utils,
 };
 
+/// Calculate the "scale" of the system: the rough typical order of magnitude of system elements
+/// and constraints.
+///
+/// This is the root mean square of the magnitude of Euclidean coordinate- and length-like entities
+/// in the system.
+///
+/// Note: currently all variables in the system have a possible direct "length" interpretation (a
+/// point's x-coordinate can be interpreted as the offset length from the origin, a circle radius
+/// is a length directly, etc.) If we ever have variables representing angles, we'd need to exclude
+/// them here. Angles in radians would already be on the order of ~1.0.
+fn calculate_system_scale(system: &System) -> f64 {
+    utils::root_mean_squares(system.variables.iter().copied().chain(
+        system.expressions.iter().filter_map(|e| match e {
+            Expression::PointPointDistance(expressions::PointPointDistance {
+                distance, ..
+            })
+            | Expression::PointLineDistance(expressions::PointLineDistance { distance, .. }) => {
+                Some(*distance)
+            }
+            _ => None,
+        }),
+    ))
+}
+
 pub(crate) fn solve(system: &mut System, opts: SolvingOptions) {
     let mut rng = Rng::from_seed(42);
 
@@ -31,22 +55,7 @@ pub(crate) fn solve(system: &mut System, opts: SolvingOptions) {
     // This removes the `O(system scale)` effect on length-like residuals (such as point-point
     // distance), making, e.g., length and angle residuals (which are `O(1)` in radians) more
     // comparable.
-    //
-    // Note: currently all variables in the system have a possible direct "length" interpretation
-    // (a point's x-coordinate can be interpreted as the offset length from the origin, a circle
-    // radius is a length directly, etc.) If we ever have variables representing angles, we'd need
-    // to exclude them here. Angles in radians would already be on the order of ~1.0.
-    let system_scale = utils::root_mean_squares(system.variables.iter().copied().chain(
-        system.expressions.iter().filter_map(|e| match e {
-            Expression::PointPointDistance(expressions::PointPointDistance {
-                distance, ..
-            })
-            | Expression::PointLineDistance(expressions::PointLineDistance { distance, .. }) => {
-                Some(*distance)
-            }
-            _ => None,
-        }),
-    ));
+    let system_scale = calculate_system_scale(&*system);
     {
         let system_scale_recip = 1. / system_scale;
 
@@ -711,6 +720,36 @@ impl solve::Problem for (&'_ mut ClusteredSystem, &'_ System) {
             pose_and_element_variables,
             residuals,
             jacobian,
+        );
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{System, constraints, elements};
+
+    #[test]
+    fn system_scale() {
+        let mut s = System::new();
+
+        // Add elements with coordinates in range 0-250.
+        let p0 = elements::Point::create(&mut s, 0. * 1e2, 0. * 1e2);
+        let p1 = elements::Point::create(&mut s, 1. * 1e2, 0.2 * 1e2);
+        let _p2 = elements::Point::create(&mut s, 0.1 * 1e2, 2.5 * 1e2);
+
+        let scale = super::calculate_system_scale(&s);
+        assert!(
+            scale > 1e1 && scale < 1e3,
+            "System should be on the order O(10^2)"
+        );
+
+        // Add a distance constraint at a larger order of magnitude, this should bump the system
+        // scale quite a bit.
+        constraints::PointPointDistance::create(&mut s, p0, p1, 1e4);
+        let scale = super::calculate_system_scale(&s);
+        assert!(
+            scale > 1e3 && scale < 1e5,
+            "System should be on the order O(10^4)"
         );
     }
 }
