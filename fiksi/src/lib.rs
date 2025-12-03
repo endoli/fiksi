@@ -253,10 +253,20 @@ pub struct System {
 
     /// Geometric elements.
     elements: Vec<EncodedElement>,
+
     /// The variables of the geometric elements, such as point coordinates.
+    ///
+    /// These are initially given by the user, and are updated after solving.
     ///
     /// Note that elements have one or more variables.
     variables: Vec<f64>,
+    /// The transformed system variables.
+    ///
+    /// These are [`Self::variables`] after transformation like dividing out the total system
+    /// scale.
+    ///
+    /// This is effectively a scratch buffer.
+    variables_transformed: Vec<f64>,
     /// Mapping from variables back to the primitive geometric element that it belongs to.
     variable_to_primitive: Vec<ElementId>,
 
@@ -271,6 +281,13 @@ pub struct System {
     /// Note that each constraint can encode one or more expressions (see also
     /// [`Constraint::VALENCY`]).
     expressions: Vec<Expression>,
+    /// The transformed system expressions.
+    ///
+    /// These are [`Self::expressions`] after transformation like dividing out the total system
+    /// scale.
+    ///
+    /// This is effectively a scratch buffer.
+    expressions_transformed: Vec<Expression>,
     /// Mapping from expressions back to the constraint it belongs to.
     expression_to_constraint: Vec<ConstraintId>,
 }
@@ -287,10 +304,12 @@ impl System {
             equation_graph: ExpressionGraph::new(),
             elements: vec![],
             variables: vec![],
+            variables_transformed: vec![],
             variable_to_primitive: vec![],
             fixed_variables: HashSet::new(),
             constraints: vec![],
             expressions: vec![],
+            expressions_transformed: vec![],
             expression_to_constraint: vec![],
         }
     }
