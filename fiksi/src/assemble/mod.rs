@@ -567,7 +567,7 @@ impl ClusteredSystem {
                 // Note: while we compute the gradient through the chain rule here,
                 // with the inner derivatives we're giving, we're actually just
                 // computing the gradient directly. We're keeping this method
-                // around as we may be using it in the future. Inlining sohuld take
+                // around as we may be using it in the future. Inlining should take
                 // care of the dead code.
                 let gradient_x = pose.gradient_chain_rule_point(point, [1., 0.]);
                 let gradient_y = pose.gradient_chain_rule_point(point, [0., 1.]);
