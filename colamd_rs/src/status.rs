@@ -38,7 +38,7 @@ pub struct Statistics {
     /// The number of dense or empty columns that were ignored
     ignored_columns: i32,
 
-    /// The number of garabage collections performed.
+    /// The number of garbage collections performed.
     ///
     /// This can be excessively high if the length of `a` passed to [`colamd`][`crate::colamd()`]
     /// is close to the minimum required value.
