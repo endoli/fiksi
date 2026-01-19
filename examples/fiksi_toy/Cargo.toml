@@ -18,7 +18,7 @@ tracing-subscriber.workspace = true
 tracing-tracy = { workspace = true, optional = true }
 tracing.workspace = true
 tracy-client = { workspace = true, optional = true }
-vello = "0.6.0"
+vello = "0.7.0"
 winit = "0.30.10"
 
 fiksi = { workspace = true, features = ["std"] }
