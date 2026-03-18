@@ -437,6 +437,10 @@ impl System {
     /// Analyze the system, without performing a full solve.
     ///
     /// This may change elements' positions in order to satisfy numeric requirements.
+    ///
+    /// This is experimental and not intended for general usage. There are known and unknown
+    /// shortcomings. For example, this assumes all variables are free.
+    #[doc(hidden)]
     pub fn analyze(&mut self) -> Analysis {
         let overconstrained = analyze::numerical::find_overconstraints(self);
 
