@@ -167,6 +167,16 @@ pub enum Decomposer {
     /// expression calculates one variable. A single pass through these partially ordered groups,
     /// solving for all constraints within each group together, solves the system.
     ///
+    /// It is possible that the solution for a group makes later groups infeasible: non-linear
+    /// systems have a root selection problem, and finding a solution to the full system with this
+    /// type of decomposition in general requires backtracking. Solving a system with this
+    /// decomposer does not backtrack, and this decomposer may fail to solve the full system.
+    ///
+    /// In practice, if the system already is close to a solution, the single pass decomposition
+    /// tends to find that solution. If after a single pass the system is not fully solved, another
+    /// solve can be attempted using [`Decomposer::None`] as a refinement, which will now likely be
+    /// faster as the system is likely closer to a solution.
+    ///
     /// This works well for fully-determined systems, especially those fully anchored to the global
     /// coordinate system; this works less well for systems with under-constrained parts. Severely
     /// under-constrained systems tend to generate big expression groups, which requires many
