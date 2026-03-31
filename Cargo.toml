@@ -32,10 +32,10 @@ solvi = { version = "0.1.0", path = "solvi", default-features = false }
 
 bitvec = { version = "1.0.1", default-features = false, features = ["alloc"] }
 criterion = { version = "0.7.0", default-features = false }
-tracing = { version = "0.1.41", default-features = false, features = ["attributes", "log"] }
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tracing = { version = "0.1.44", default-features = false, features = ["attributes", "log"] }
+tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
 tracing-tracy = "0.11.4"
-tracy-client = "0.18.1"
+tracy-client = "0.18.4"
 
 [workspace.lints]
 rust.unsafe_code = "deny"

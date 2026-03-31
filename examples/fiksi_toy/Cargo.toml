@@ -12,14 +12,14 @@ tracing-tracy = ["dep:tracing-tracy", "dep:tracy-client"]
 tracing-tracy-memory = ["tracing-tracy"]
 
 [dependencies]
-anyhow = "1.0.93"
+anyhow = "1.0.102"
 pollster = "0.4.0"
 tracing-subscriber.workspace = true
 tracing-tracy = { workspace = true, optional = true }
 tracing.workspace = true
 tracy-client = { workspace = true, optional = true }
 vello = "0.7.0"
-winit = "0.30.10"
+winit = "0.30.13"
 
 fiksi = { workspace = true, features = ["std"] }
 

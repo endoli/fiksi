@@ -21,8 +21,8 @@ std = []
 libm = ["dep:libm"]
 
 [dependencies]
-bytemuck = { version = "1.24.0", features = ["derive"] }
+bytemuck = { version = "1.25.0", features = ["derive"] }
 
 [dependencies.libm]
-version = "0.2.15"
+version = "0.2.16"
 optional = true

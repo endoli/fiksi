@@ -10,7 +10,7 @@ publish = false
 [dependencies]
 fiksi = { workspace = true, features = ["std"] }
 
-color = "0.3.1"
+color = "0.3.2"
 
 [features]
 default = ["std"]
