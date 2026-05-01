@@ -3,8 +3,6 @@
 
 use alloc::{vec, vec::Vec};
 
-use nalgebra::DMatrix;
-
 use crate::{AnyConstraintHandle, System, variable_map::IdentityVariableMap};
 
 const EPSILON: f64 = 1e-8;
@@ -30,12 +28,22 @@ const EPSILON: f64 = 1e-8;
 /// et al.
 ///
 /// In the above, within the context of Fiksi, "rows" are constraints and "columns" are elements.
+///
+/// `matrix` is stored in row-major order, with `nrows` rows and `ncols` columns.
 pub(crate) fn incremental_gauss_jordan_elimination(
-    matrix: &mut DMatrix<f64>,
+    matrix: &mut [f64],
+    nrows: usize,
+    ncols: usize,
     column_indices: &mut [usize],
 ) -> Vec<bool> {
-    let constraints = matrix.nrows();
-    let variables = matrix.ncols();
+    let constraints = nrows;
+    let variables = ncols;
+
+    debug_assert_eq!(
+        matrix.len(),
+        constraints * variables,
+        "`matrix` must contain exactly `nrows * ncols` elements"
+    );
 
     #[cfg(debug_assertions)]
     {
@@ -59,9 +67,9 @@ pub(crate) fn incremental_gauss_jordan_elimination(
             // Only independent rows (i.e., nonzero rows, which increase the rank), take up a pivot
             // column. Hence we can index by rank.
             let column_idx = column_indices[rank];
-            let factor = matrix[(row, column_idx)];
+            let factor = matrix[row * variables + column_idx];
             for col in 0..variables {
-                matrix[(row, col)] -= factor * matrix[(row_idx, col)];
+                matrix[row * variables + col] -= factor * matrix[row_idx * variables + col];
             }
             if constraint_increases_rank[row_idx] {
                 rank += 1;
@@ -73,7 +81,7 @@ pub(crate) fn incremental_gauss_jordan_elimination(
         let mut pivot_found = false;
         for idx in current_col..variables {
             let real_idx = column_indices[idx];
-            if matrix[(row, real_idx)].abs() > EPSILON {
+            if matrix[row * variables + real_idx].abs() > EPSILON {
                 column_indices.swap(current_col, idx);
                 pivot_found = true;
                 break;
@@ -85,18 +93,18 @@ pub(crate) fn incremental_gauss_jordan_elimination(
             continue;
         }
 
-        let factor = matrix[(row, column_indices[current_col])];
+        let factor = matrix[row * variables + column_indices[current_col]];
         for col in 0..variables {
-            matrix[(row, col)] *= 1. / factor;
+            matrix[row * variables + col] *= 1. / factor;
         }
 
         // The above brings the matrix into echelon form. Back-substitute to get *reduced* row
         // echelon form.
         let column_idx = column_indices[current_col];
         for row_idx in 0..row {
-            let factor = matrix[(row_idx, column_idx)];
+            let factor = matrix[row_idx * variables + column_idx];
             for col in 0..variables {
-                matrix[(row_idx, col)] -= factor * matrix[(row, col)];
+                matrix[row_idx * variables + col] -= factor * matrix[row * variables + col];
             }
         }
 
@@ -131,16 +139,13 @@ pub(crate) fn find_overconstraints(system: &System) -> Vec<AnyConstraintHandle> 
         residuals[row] = expression.calculate_residual_and_gradient(variable_map, gradient);
     }
 
-    let mut jacobian_ = nalgebra::DMatrix::zeros(system.expressions.len(), system.variables.len());
-    for i in 0..system.expressions.len() {
-        for j in 0..system.variables.len() {
-            jacobian_[(i, j)] = jacobian[i * system.variables.len() + j];
-        }
-    }
-
-    let mut column_pivots = Vec::from_iter(0..jacobian_.ncols());
-    let independent_expressions =
-        incremental_gauss_jordan_elimination(&mut jacobian_, &mut column_pivots);
+    let mut column_pivots = Vec::from_iter(0..system.variables.len());
+    let independent_expressions = incremental_gauss_jordan_elimination(
+        &mut jacobian,
+        system.expressions.len(),
+        system.variables.len(),
+        &mut column_pivots,
+    );
 
     let mut dependent = vec![];
     for (expression_idx, independent) in independent_expressions.iter().enumerate() {
