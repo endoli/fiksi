@@ -72,6 +72,8 @@
 //! | [Line-line angle][lla]           | 2 (line, line)          | Angle      | 1 |
 //! | [Line-line parallelism][llp]     | 2 (line, line)          |            | 1 |
 //! | [Line-circle tangency][lct]      | 2 (line, circle)        |            | 1 |
+//! | [Circle-circle external tangency][ccet] | 2 (circle, circle) |            | 1 |
+//! | [Circle-circle internal tangency][ccit] | 2 (circle, circle) |            | 1 |
 //!
 //! [ppc]: `constraints::PointPointCoincidence`
 //! [ppd]: `constraints::PointPointDistance`
@@ -82,6 +84,8 @@
 //! [lla]: `constraints::LineLineAngle`
 //! [llp]: `constraints::LineLineParallelism`
 //! [lct]: `constraints::LineCircleTangency`
+//! [ccet]: `constraints::CircleCircleExternalTangency`
+//! [ccit]: `constraints::CircleCircleInternalTangency`
 //!
 //! ## Decomposition
 //!

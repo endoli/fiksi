@@ -37,6 +37,8 @@ pub(crate) enum Expression {
     LineLineParallelism(LineLineParallelism),
     LineLinePerpendicularity(LineLinePerpendicularity),
     LineCircleTangency(LineCircleTangency),
+    CircleCircleExternalTangency(CircleCircleExternalTangency),
+    CircleCircleInternalTangency(CircleCircleInternalTangency),
 }
 
 impl Expression {
@@ -178,6 +180,30 @@ impl Expression {
                 variables[..v.len()].copy_from_slice(&v);
                 &mut variables[..v.len()]
             }
+            Self::CircleCircleExternalTangency(e) => {
+                let v = [
+                    e.circle1_center_idx,
+                    e.circle1_center_idx + 1,
+                    e.circle1_radius_idx,
+                    e.circle2_center_idx,
+                    e.circle2_center_idx + 1,
+                    e.circle2_radius_idx,
+                ];
+                variables[..v.len()].copy_from_slice(&v);
+                &mut variables[..v.len()]
+            }
+            Self::CircleCircleInternalTangency(e) => {
+                let v = [
+                    e.circle1_center_idx,
+                    e.circle1_center_idx + 1,
+                    e.circle1_radius_idx,
+                    e.circle2_center_idx,
+                    e.circle2_center_idx + 1,
+                    e.circle2_radius_idx,
+                ];
+                variables[..v.len()].copy_from_slice(&v);
+                &mut variables[..v.len()]
+            }
         }
     }
 
@@ -271,6 +297,14 @@ impl Expression {
             Self::LineCircleTangency(_) => copy_gradient(
                 gradient,
                 LineCircleTangency::compute_residual_and_gradient_(reslice(variables)),
+            ),
+            Self::CircleCircleExternalTangency(_) => copy_gradient(
+                gradient,
+                CircleCircleExternalTangency::compute_residual_and_gradient_(reslice(variables)),
+            ),
+            Self::CircleCircleInternalTangency(_) => copy_gradient(
+                gradient,
+                CircleCircleInternalTangency::compute_residual_and_gradient_(reslice(variables)),
             ),
         }
     }
@@ -873,6 +907,87 @@ impl LineCircleTangency {
     }
 }
 
+/// Constrain two circles to be externally tangent: they touch from outside.
+#[derive(Clone, Copy)]
+pub(crate) struct CircleCircleExternalTangency {
+    pub(crate) circle1_center_idx: u32,
+    pub(crate) circle1_radius_idx: u32,
+    pub(crate) circle2_center_idx: u32,
+    pub(crate) circle2_radius_idx: u32,
+}
+
+impl From<CircleCircleExternalTangency> for Expression {
+    fn from(expression: CircleCircleExternalTangency) -> Self {
+        Self::CircleCircleExternalTangency(expression)
+    }
+}
+
+impl CircleCircleExternalTangency {
+    // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
+    #[inline(always)]
+    fn compute_residual_and_gradient_(variables: &[f64; 6]) -> (f64, [f64; 6]) {
+        let (residual, gradient) = PointPointDistance::compute_residual_and_gradient_(
+            &[variables[0], variables[1], variables[3], variables[4]],
+            variables[2] + variables[5],
+        );
+
+        (
+            residual,
+            [
+                gradient[0],
+                gradient[1],
+                -1.,
+                gradient[2],
+                gradient[3],
+                -1.,
+            ],
+        )
+    }
+}
+
+/// Constrain two circles to be internally tangent: one contains the other and they touch.
+///
+/// Numerically singular when the circles coincide (`distance(c1, c2) == 0` and `r1 == r2`). The
+/// gradient on the radii is also non-differentiable when `r1 == r2`.
+#[derive(Clone, Copy)]
+pub(crate) struct CircleCircleInternalTangency {
+    pub(crate) circle1_center_idx: u32,
+    pub(crate) circle1_radius_idx: u32,
+    pub(crate) circle2_center_idx: u32,
+    pub(crate) circle2_radius_idx: u32,
+}
+
+impl From<CircleCircleInternalTangency> for Expression {
+    fn from(expression: CircleCircleInternalTangency) -> Self {
+        Self::CircleCircleInternalTangency(expression)
+    }
+}
+
+impl CircleCircleInternalTangency {
+    // See the note about inlining on [`PointPointDistance::compute_residual_and_gradient_`].
+    #[inline(always)]
+    fn compute_residual_and_gradient_(variables: &[f64; 6]) -> (f64, [f64; 6]) {
+        let r_diff = variables[2] - variables[5];
+        let (residual, gradient) = PointPointDistance::compute_residual_and_gradient_(
+            &[variables[0], variables[1], variables[3], variables[4]],
+            r_diff.abs(),
+        );
+
+        let sign = r_diff.signum();
+        (
+            residual,
+            [
+                gradient[0],
+                gradient[1],
+                -sign,
+                gradient[2],
+                gradient[3],
+                sign,
+            ],
+        )
+    }
+}
+
 /// Utility function to reslice an array to a smaller array.
 #[inline(always)]
 fn reslice<const M: usize, const N: usize>(slice: &[f64; M]) -> &[f64; N] {
@@ -956,6 +1071,18 @@ impl Expression {
             }
             Self::LineCircleTangency(_e) => {
                 LineCircleTangency::compute_residual_and_gradient_(reslice(&variable_values)).0
+            }
+            Self::CircleCircleExternalTangency(_e) => {
+                CircleCircleExternalTangency::compute_residual_and_gradient_(reslice(
+                    &variable_values,
+                ))
+                .0
+            }
+            Self::CircleCircleInternalTangency(_e) => {
+                CircleCircleInternalTangency::compute_residual_and_gradient_(reslice(
+                    &variable_values,
+                ))
+                .0
             }
         }
     }
@@ -1083,6 +1210,22 @@ impl Expression {
 
             Self::LineCircleTangency(_e) => map_residual_and_gradient(
                 LineCircleTangency::compute_residual_and_gradient_(reslice(&variable_values)),
+                free_variable_indices,
+                gradient,
+            ),
+
+            Self::CircleCircleExternalTangency(_e) => map_residual_and_gradient(
+                CircleCircleExternalTangency::compute_residual_and_gradient_(reslice(
+                    &variable_values,
+                )),
+                free_variable_indices,
+                gradient,
+            ),
+
+            Self::CircleCircleInternalTangency(_e) => map_residual_and_gradient(
+                CircleCircleInternalTangency::compute_residual_and_gradient_(reslice(
+                    &variable_values,
+                )),
                 free_variable_indices,
                 gradient,
             ),
@@ -1463,6 +1606,53 @@ mod tests {
                     variables.map(|d| (d - 0.5) * 1e-10),
                     delta.map(|d| (d - 0.5) * 1e-14),
                 )
+            },
+        );
+    }
+
+    #[test]
+    fn circle_circle_external_tangency_first_finite_difference() {
+        test_first_finite_difference(
+            CircleCircleExternalTangency::compute_residual_and_gradient_,
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e0),
+                    delta.map(|d| (d - 0.5) * 1e-4),
+                )
+            },
+        );
+        test_first_finite_difference(
+            CircleCircleExternalTangency::compute_residual_and_gradient_,
+            |variables, delta| {
+                (
+                    variables.map(|d| (d - 0.5) * 1e-10),
+                    delta.map(|d| (d - 0.5) * 1e-14),
+                )
+            },
+        );
+    }
+
+    #[test]
+    fn circle_circle_internal_tangency_first_finite_difference() {
+        // The radii (variables[2] and [5]) are biased apart so the finite-difference test
+        // doesn't straddle the `r1 == r2` cusp where the gradient on the radii is
+        // discontinuous.
+        test_first_finite_difference(
+            CircleCircleInternalTangency::compute_residual_and_gradient_,
+            |mut variables, delta| {
+                variables = variables.map(|d| (d - 0.5) * 1e0);
+                variables[2] += 5.;
+                variables[5] += 1.;
+                (variables, delta.map(|d| (d - 0.5) * 1e-4))
+            },
+        );
+        test_first_finite_difference(
+            CircleCircleInternalTangency::compute_residual_and_gradient_,
+            |mut variables, delta| {
+                variables = variables.map(|d| (d - 0.5) * 1e-10);
+                variables[2] += 5e-10;
+                variables[5] += 1e-10;
+                (variables, delta.map(|d| (d - 0.5) * 1e-14))
             },
         );
     }
