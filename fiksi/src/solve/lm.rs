@@ -69,8 +69,8 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
     let ncols = problem.num_variables() as usize;
 
     // The (non-squared) residuals of the expressions.
-    let mut residuals = nalgebra::DVector::zeros(nrows);
-    let mut residuals_scratch = nalgebra::DVector::zeros(nrows);
+    let mut residuals = vec![0.; nrows];
+    let mut residuals_scratch = vec![0.; nrows];
     let mut b_augmented = vec![0.; nrows + ncols];
 
     // All first-order partial derivatives of the expressions, in column-major order. This is a
@@ -83,7 +83,9 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
         residuals.as_mut_slice(),
         &mut sparse_jacobian,
     );
-    residuals.neg_mut();
+    for r in &mut residuals {
+        *r = -*r;
+    }
 
     // Add entries for the stacked diagonal matrix `sqrt(λ) I` to augment the matrix for damped
     // least squares.
@@ -101,7 +103,7 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
     let sparse_sqr = SymbolicQr::build(sparse_jacobian_csc.structure(), QrOrdering::Colamd);
     let mut sparse_qr = sparse_sqr.numeric();
 
-    let mut sum_squared_residuals = residuals.norm_squared();
+    let mut sum_squared_residuals = norm_squared(&residuals);
 
     let mut lambda = 0.5;
     'steps: for _ in 0..100 {
@@ -134,8 +136,8 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
                 continue;
             };
 
-            let delta = nalgebra::DVectorView::from_slice(&b_augmented[..ncols], ncols);
-            if delta.norm_squared() < 1e-12 {
+            let delta = &b_augmented[..ncols];
+            if norm_squared(delta) < 1e-12 {
                 break 'steps;
             }
 
@@ -144,7 +146,7 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
             }
 
             problem.calculate_residuals(variables_scratch, residuals_scratch.as_mut_slice());
-            let sum_squared_residuals_scratch = residuals_scratch.norm_squared();
+            let sum_squared_residuals_scratch = norm_squared(&residuals_scratch);
 
             if sum_squared_residuals_scratch < sum_squared_residuals {
                 // Accept step
@@ -174,7 +176,9 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
                     residuals.as_mut_slice(),
                     &mut sparse_jacobian,
                 );
-                residuals.neg_mut();
+                for r in &mut residuals {
+                    *r = -*r;
+                }
                 for idx in 0..ncols {
                     sparse_jacobian.push_triplet(nrows + idx, idx, 0.);
                 }
@@ -186,4 +190,8 @@ pub(crate) fn levenberg_marquardt<P: Problem>(problem: &mut P, variables: &mut [
             }
         }
     }
+}
+
+fn norm_squared(v: &[f64]) -> f64 {
+    v.iter().map(|x| x * x).sum()
 }
