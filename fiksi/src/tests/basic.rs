@@ -148,6 +148,66 @@ fn triangle_inscribed_circle() {
     );
 }
 
+/// Two free circles externally tangent to a fixed circle.
+#[test]
+fn circle_circle_external_tangency() {
+    let mut s = System::new();
+
+    let p_anchor = elements::Point::create(&mut s, 0., 0.);
+    let r_anchor = elements::Length::create(&mut s, 1.);
+    let anchor = elements::Circle::create(&mut s, p_anchor, r_anchor);
+    anchor.fix(&mut s);
+
+    let p1 = elements::Point::create(&mut s, 2.5, 0.1);
+    let r1 = elements::Length::create(&mut s, 0.7);
+    let c1 = elements::Circle::create(&mut s, p1, r1);
+
+    let p2 = elements::Point::create(&mut s, -2., 0.5);
+    let r2 = elements::Length::create(&mut s, 0.4);
+    let c2 = elements::Circle::create(&mut s, p2, r2);
+
+    constraints::PointPointDistance::create(&mut s, p_anchor, p1, 1.7);
+    constraints::PointPointDistance::create(&mut s, p_anchor, p2, 1.4);
+
+    let t1 = constraints::CircleCircleExternalTangency::create(&mut s, anchor, c1);
+    let t2 = constraints::CircleCircleExternalTangency::create(&mut s, anchor, c2);
+
+    s.solve(crate::SolvingOptions::default());
+
+    let rms_residuals = root_mean_squares([t1.calculate_residual(&s), t2.calculate_residual(&s)]);
+    assert!(
+        rms_residuals < RESIDUAL_THRESHOLD,
+        "The system was not solved (root mean square residuals: {rms_residuals})"
+    );
+}
+
+/// A small circle internally tangent to a fixed larger circle.
+#[test]
+fn circle_circle_internal_tangency() {
+    let mut s = System::new();
+
+    let p_outer = elements::Point::create(&mut s, 0., 0.);
+    let r_outer = elements::Length::create(&mut s, 2.);
+    let outer = elements::Circle::create(&mut s, p_outer, r_outer);
+    outer.fix(&mut s);
+
+    let p_inner = elements::Point::create(&mut s, 0.3, 0.1);
+    let r_inner = elements::Length::create(&mut s, 0.5);
+    let inner = elements::Circle::create(&mut s, p_inner, r_inner);
+
+    constraints::PointPointDistance::create(&mut s, p_outer, p_inner, 1.5);
+
+    let tangency = constraints::CircleCircleInternalTangency::create(&mut s, outer, inner);
+
+    s.solve(crate::SolvingOptions::default());
+
+    let residual = tangency.calculate_residual(&s);
+    assert!(
+        residual.abs() < RESIDUAL_THRESHOLD,
+        "The system was not solved (residual: {residual})"
+    );
+}
+
 #[test]
 fn two_connected_components() {
     let mut s = System::new();

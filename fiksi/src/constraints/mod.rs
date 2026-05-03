@@ -57,6 +57,12 @@ pub(crate) mod constraint {
 
         /// A handle to a [`LineCircleTangency`](super::LineCircleTangency) constraint.
         LineCircleTangency(ConstraintHandle<super::LineCircleTangency>),
+
+        /// A handle to a [`CircleCircleExternalTangency`](super::CircleCircleExternalTangency) constraint.
+        CircleCircleExternalTangency(ConstraintHandle<super::CircleCircleExternalTangency>),
+
+        /// A handle to a [`CircleCircleInternalTangency`](super::CircleCircleInternalTangency) constraint.
+        CircleCircleInternalTangency(ConstraintHandle<super::CircleCircleInternalTangency>),
     }
 
     /// A handle to a constraint within a [`System`].
@@ -217,6 +223,16 @@ pub(crate) mod constraint {
                 ConstraintTag::LineCircleTangency => TaggedConstraintHandle::LineCircleTangency(
                     ConstraintHandle::from_ids(self.system_id, self.id),
                 ),
+                ConstraintTag::CircleCircleExternalTangency => {
+                    TaggedConstraintHandle::CircleCircleExternalTangency(
+                        ConstraintHandle::from_ids(self.system_id, self.id),
+                    )
+                }
+                ConstraintTag::CircleCircleInternalTangency => {
+                    TaggedConstraintHandle::CircleCircleInternalTangency(
+                        ConstraintHandle::from_ids(self.system_id, self.id),
+                    )
+                }
             }
         }
     }
@@ -891,6 +907,116 @@ impl LineCircleTangency {
     }
 }
 
+/// Constrain two circles to be externally tangent: they touch from outside.
+pub struct CircleCircleExternalTangency {}
+
+impl sealed::ConstraintInner for CircleCircleExternalTangency {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::CircleCircleExternalTangency
+    }
+}
+
+impl CircleCircleExternalTangency {
+    /// Construct a constraint between two circles such that they are externally tangent.
+    pub fn create(
+        system: &mut System,
+        circle1: ElementHandle<elements::Circle>,
+        circle2: ElementHandle<elements::Circle>,
+    ) -> ConstraintHandle<Self> {
+        let &EncodedElement::Circle {
+            center_idx: circle1_center_idx,
+            radius_idx: circle1_radius_idx,
+        } = &system.elements[circle1.id as usize]
+        else {
+            unreachable!()
+        };
+        let &EncodedElement::Circle {
+            center_idx: circle2_center_idx,
+            radius_idx: circle2_radius_idx,
+        } = &system.elements[circle2.id as usize]
+        else {
+            unreachable!()
+        };
+
+        system.graph.add_constraint(
+            1,
+            IncidentElements::from_array([
+                system.variable_to_primitive[circle1_center_idx as usize],
+                system.variable_to_primitive[circle1_radius_idx as usize],
+                system.variable_to_primitive[circle2_center_idx as usize],
+                system.variable_to_primitive[circle2_radius_idx as usize],
+            ]),
+        );
+        system.add_constraint(
+            ConstraintTag::CircleCircleExternalTangency,
+            [expressions::CircleCircleExternalTangency {
+                circle1_center_idx,
+                circle1_radius_idx,
+                circle2_center_idx,
+                circle2_radius_idx,
+            }
+            .into()],
+        )
+    }
+}
+
+/// Constrain two circles to be internally tangent: one circle contains the other and they
+/// touch.
+///
+/// The constraint is symmetric in `circle1` and `circle2`: either may be the containing
+/// circle, and a solve may swap their roles.
+pub struct CircleCircleInternalTangency {}
+
+impl sealed::ConstraintInner for CircleCircleInternalTangency {
+    fn tag() -> ConstraintTag {
+        ConstraintTag::CircleCircleInternalTangency
+    }
+}
+
+impl CircleCircleInternalTangency {
+    /// Construct a constraint between two circles such that they are internally tangent.
+    pub fn create(
+        system: &mut System,
+        circle1: ElementHandle<elements::Circle>,
+        circle2: ElementHandle<elements::Circle>,
+    ) -> ConstraintHandle<Self> {
+        let &EncodedElement::Circle {
+            center_idx: circle1_center_idx,
+            radius_idx: circle1_radius_idx,
+        } = &system.elements[circle1.id as usize]
+        else {
+            unreachable!()
+        };
+        let &EncodedElement::Circle {
+            center_idx: circle2_center_idx,
+            radius_idx: circle2_radius_idx,
+        } = &system.elements[circle2.id as usize]
+        else {
+            unreachable!()
+        };
+
+        system.graph.add_constraint(
+            1,
+            IncidentElements::from_array([
+                system.variable_to_primitive[circle1_center_idx as usize],
+                system.variable_to_primitive[circle1_radius_idx as usize],
+                system.variable_to_primitive[circle2_center_idx as usize],
+                system.variable_to_primitive[circle2_radius_idx as usize],
+            ]),
+        );
+        system.add_constraint(
+            ConstraintTag::CircleCircleInternalTangency,
+            [expressions::CircleCircleInternalTangency {
+                circle1_center_idx,
+                circle1_radius_idx,
+                circle2_center_idx,
+                circle2_radius_idx,
+            }
+            .into()],
+        )
+    }
+}
+
 /// The actual type of the constraint.
 #[derive(Clone, Copy, Debug)]
 pub(crate) enum ConstraintTag {
@@ -905,6 +1031,8 @@ pub(crate) enum ConstraintTag {
     LineLineParallelism,
     LineLinePerpendicularity,
     LineCircleTangency,
+    CircleCircleExternalTangency,
+    CircleCircleInternalTangency,
 }
 
 impl ConstraintTag {
@@ -921,6 +1049,8 @@ impl ConstraintTag {
             Self::LineLineParallelism => LineLineParallelism::VALENCY,
             Self::LineLinePerpendicularity => LineLinePerpendicularity::VALENCY,
             Self::LineCircleTangency => LineCircleTangency::VALENCY,
+            Self::CircleCircleExternalTangency => CircleCircleExternalTangency::VALENCY,
+            Self::CircleCircleInternalTangency => CircleCircleInternalTangency::VALENCY,
         }
     }
 }
@@ -986,6 +1116,14 @@ impl Constraint for LineLinePerpendicularity {
 }
 
 impl Constraint for LineCircleTangency {
+    const VALENCY: u8 = 1;
+}
+
+impl Constraint for CircleCircleExternalTangency {
+    const VALENCY: u8 = 1;
+}
+
+impl Constraint for CircleCircleInternalTangency {
     const VALENCY: u8 = 1;
 }
 
