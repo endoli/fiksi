@@ -174,8 +174,7 @@ fn circle_circle_external_tangency() {
 
     s.solve(crate::SolvingOptions::default());
 
-    let rms_residuals =
-        root_mean_squares([t1.calculate_residual(&s), t2.calculate_residual(&s)]);
+    let rms_residuals = root_mean_squares([t1.calculate_residual(&s), t2.calculate_residual(&s)]);
     assert!(
         rms_residuals < RESIDUAL_THRESHOLD,
         "The system was not solved (root mean square residuals: {rms_residuals})"

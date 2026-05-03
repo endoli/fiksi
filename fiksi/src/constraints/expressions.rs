@@ -933,14 +933,7 @@ impl CircleCircleExternalTangency {
 
         (
             residual,
-            [
-                gradient[0],
-                gradient[1],
-                -1.,
-                gradient[2],
-                gradient[3],
-                -1.,
-            ],
+            [gradient[0], gradient[1], -1., gradient[2], gradient[3], -1.],
         )
     }
 }
